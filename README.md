@@ -18,7 +18,7 @@ all geometry and textures are generated in code.
 | E | Interact (climb, try doors, examine) |
 | F | Flashlight (battery runs down; batteries can be found) |
 | L | Raise or lower a paraffin lantern once you have found one (it shares the torch hand; its light draws moths) |
-| H | Hint for the current puzzle (up to three, each more direct; also in the pause menu) |
+| H | Hint for the current puzzle (each more direct; three per pair of rooms, then you're on your own; also in the pause menu) |
 | Q | Close a drawer while holding a specimen |
 | Esc / P | Pause menu (or the II button, top right) |
 
@@ -32,11 +32,15 @@ Beyond the hallway, the ground floor follows the blueprint route: the **Specimen
 
 Down the cellar stairs: the **Wine Cellar** (a mirror, and the barred shaft of the old back stair), the **Boiler Room** (a page of the Order's catechism and a wardrobe full of clothes moths), the **Egg Room** and the **Ritual Chapel** (another mirror; the steps on down are behind a locked grille for now). The chapel altar has four carved stones: press them in the order of the clothes moth's life, as the verse inside the wardrobe tells it. That lifts the gate on the back stair and unbolts a shortcut from the Egg Room to the Wine Cellar. (Temporary: the planned route is cellar, down to the catacombs, then up the back stair; until the catacombs exist, the altar opens the back stair directly.)
 
-Up the back stair, the **First Floor**: the **Cocoon Room** (silk frames, wrapped shapes on trestles, a note about silkworms), the **Nursery**, the gallery over the Grand Hall (the main stair's head is buried in rubble), the **Library** (a card about the peppered moth), the **Luna Bedroom** (a countdown scratched into the wall, and a vanity mirror), the **Leader's Bedroom** (a four-poster and a desk with a four-figure letter-lock: the card and the wall between them give the code) and the **Linen Room** behind it (a mirror, and a ladder up to a padlocked hatch). Each floor has a lantern to find, and hints (H) for its puzzle. The game saves on reaching each floor and on solving each puzzle.
+Up the back stair, the **First Floor**: the **Cocoon Room** (silk frames, wrapped shapes on trestles, a silkworm moth in a jar), the **Nursery**, the gallery over the Grand Hall (the main stair's head is buried in rubble), the **Library** (a peppered moth pinned on a naturalist's card), the **Luna Bedroom** (a countdown scratched into the wall, and a vanity mirror), the **Leader's Bedroom** (a four-poster and a desk with a four-figure letter-lock: the peppered moth's card and the wall between them give the code) and the **Linen Room** behind it (a mirror, and a ladder up to a padlocked hatch). Each floor has a lantern to find, and hints (H) for its puzzle. The game saves on reaching each floor and on solving each puzzle.
 
 Progress is saved automatically at save points (climbing the fence, entering the first room, unlocking the east door), and settings
 (mouse sensitivity, volume, brightness, field of view) are kept in `localStorage`. **Continue** on the home
 screen resumes from the last save point.
+
+## Moths and the Moth Journal
+
+The story is carried by moths, not paper. Nineteen specimens, each a different species, are pinned in boxes, sealed in jars or resting on the walls of every built room. Pick one up (E) to read its message; it goes into the **Moth Journal** (pause menu or home screen), which shows every moth collected with its picture, name and message, and writes out the story in plain words, one passage per moth, in the order you find them. Two of them carry puzzle clues: the Herald above the boiler (the altar) and the Peppered moth in the library (the desk). The journal is kept in the save.
 
 ## Run it locally
 

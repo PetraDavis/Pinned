@@ -18,6 +18,7 @@ import * as THREE from 'three';
 import { tex } from '../textures.js';
 import { mat, box, rect, rep, rand } from './build.js';
 import { gasLampFixture } from './fixtures.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 export const CELLAR = { spawn: new THREE.Vector3(31.75, 0, 46.7), shaftFoot: new THREE.Vector3(34.45, 0, 46.2), stairC: new THREE.Vector3(31.75, 0, 45.6), shaft: new THREE.Vector3(34.45, 0, 45.6), stairE: new THREE.Vector3(56.25, 0, 52.4) };
 export const FIRST = { spawn: new THREE.Vector3(34.45, 0, 86.9), stairB: new THREE.Vector3(34.45, 0, 86.1), stairA: new THREE.Vector3(42.1, 0, 85.0), ladderD: new THREE.Vector3(56.9, 0, 87.7) };
@@ -65,6 +66,7 @@ export function buildLowerUpper(ctx) {
   const wallpaper = (x, y, c) => mat({ map: rep(tex.wallpaper, x, y), color: c });
   const floorMat = (x, y, c = 0xa09888) => mat({ map: rep(tex.floor, x, y), color: c });
   const plaster = mat({ color: 0x3a3836 });
+  const silkGeos = [], threadPts = [];
   const add = (m, x, y, z, ry = 0) => { m.position.set(x, y, z); m.rotation.y = ry; m.castShadow = m.receiveShadow = true; group.add(m); return m; };
   const note = (x, y, z, ry = 0, flat = true) => {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.4), paperMat(noteTex(r)));
@@ -149,7 +151,6 @@ export function buildLowerUpper(ctx) {
   for (let i = 0; i < 4; i++) { const coat = new THREE.Mesh(new THREE.BoxGeometry(0.06, 1.1, 0.4), new THREE.MeshStandardMaterial({ map: lacyTex(i), color: [0x4a3a3a, 0x3a3a4a, 0x5a4a3a, 0x3a4a3a][i], transparent: true, alphaTest: 0.4, side: THREE.DoubleSide })); coat.position.set(-0.5 + i * 0.33, 1.4, 0.3); coat.rotation.y = Math.PI / 2; ward.add(coat); }
   const verse = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.6), paperMat(verseTex())); verse.position.set(0.365, 1.5, -0.015); wDoors[0].piv.add(verse); verse.rotation.y = Math.PI;
   rect(local, 40.4, 42.0, 40.0, 41.1);
-  const boilerNote = note(43.0, 1.4, 40.12, 0, false);
   box(group, 0.8, 0.8, 0.6, 44.5, 0.4, 45.6, wood, local); // crate
 
   // ---- Egg Room: x 39.1..49.25, z 46.3..56.8 ----
@@ -252,7 +253,6 @@ export function buildLowerUpper(ctx) {
   rect(local, 30.0, 33.2, 87.3, 88.3);
   for (const [x, z, ry] of [[37.4, 80.9, Math.PI / 2], [37.4, 87.6, Math.PI / 2], [31.8, 84.8, 0]]) { wrapped(x, z, ry); const sw = Math.abs(Math.sin(ry)) > 0.7; rect(local, x - (sw ? 1.0 : 0.5), x + (sw ? 1.0 : 0.5), z - (sw ? 0.5 : 1.0), z + (sw ? 0.5 : 1.0)); }
   cocoon(31.2, 81.0, 1.6, true); cocoon(38.4, 87.6, 1.4, true); cocoon(32.0, 85.0, 1.2, true);
-  const silkNote = note(31.6, 0.85, 82.2, 0.4);
   box(group, 0.9, 0.8, 0.6, 31.6, 0.4, 82.3, wood, local);
   light(38.9, 2.6, 84.0, 0xffa860, 4, 9, '-x').userData.creepy = true;
   light(30.15, 2.6, 85.5, 0xffa860, 3, 7, '+x');
@@ -265,7 +265,7 @@ export function buildLowerUpper(ctx) {
   box(cradle, 0.95, 0.4, 0.55, 0, 0.55, 0, wood); box(cradle, 0.95, 0.04, 0.55, 0, 0.36, 0, wood);
   const hood = new THREE.Mesh(new THREE.SphereGeometry(0.32, 16, 8, 0, Math.PI, 0, Math.PI / 2), silk); hood.rotation.z = Math.PI / 2; hood.position.set(-0.4, 0.75, 0); cradle.add(hood);
   rect(local, 43.9, 45.1, 80.9, 81.9);
-  box(group, 1.5, 0.45, 0.8, 47.9, 0.25, 81.0, wood, local); box(group, 1.5, 0.08, 0.8, 47.9, 0.52, 81.0, mat({ color: 0xc8c0b0 }), null);
+  box(group, 0.8, 0.45, 1.5, 47.9, 0.25, 80.85, wood, local); box(group, 0.78, 0.08, 1.45, 47.9, 0.52, 80.88, mat({ color: 0xc8c0b0 }), null); box(group, 0.86, 0.9, 0.06, 47.9, 0.45, 80.07, wood, null); // child's bed, headboard to the north wall
   const horse = new THREE.Group(); horse.position.set(41.0, 0, 82.8); horse.rotation.y = 0.7; group.add(horse);
   box(horse, 0.7, 0.3, 0.2, 0, 0.6, 0, mat({ color: 0xc8b8a0 })); box(horse, 0.12, 0.35, 0.15, 0.32, 0.85, 0, mat({ color: 0xc8b8a0 }));
   const rocker = new THREE.Mesh(new THREE.TorusGeometry(0.6, 0.02, 6, 20, Math.PI * 0.4), wood); rocker.rotation.z = Math.PI * 0.8; rocker.position.y = 0.62; horse.add(rocker);
@@ -274,13 +274,14 @@ export function buildLowerUpper(ctx) {
   cocoon(40.0, 80.6, 0.8, true);
 
   // ---- Gallery Landing: open well over the Grand Hall, stair A's head under rubble ----
-  const railMat = darkWood;
+  const railMat = darkWood, balPos = [];
   const well = { x0: 44.4, x1: 48.0, z0: 85.6, z1: 96.0 };
   for (const [x0, z0, x1, z1] of [[well.x0, well.z0, well.x1, well.z0], [well.x0, well.z0, well.x0, well.z1], [well.x1, well.z0, well.x1, well.z1], [well.x0, well.z1, well.x1, well.z1]]) {
     const len = Math.hypot(x1 - x0, z1 - z0), along = x0 === x1 ? 'z' : 'x';
     const rail = box(group, along === 'x' ? len : 0.08, 0.08, along === 'z' ? len : 0.08, (x0 + x1) / 2, 1.0, (z0 + z1) / 2, railMat, null, { cast: false });
-    for (let s = 0; s <= len; s += 0.3) box(group, 0.04, 1.0, 0.04, along === 'x' ? x0 + s : x0, 0.5, along === 'z' ? z0 + s : z0, railMat, null, { cast: false });
+    for (let s = 0; s <= len; s += 0.3) balPos.push([along === 'x' ? x0 + s : x0, along === 'z' ? z0 + s : z0]);
   }
+  { const bal = new THREE.InstancedMesh(new THREE.BoxGeometry(0.04, 1.0, 0.04), railMat, balPos.length); balPos.forEach(([x, z], i) => { m4.makeTranslation(x, 0.5, z); bal.setMatrixAt(i, m4); }); group.add(bal); }
   rect(local, well.x0 - 0.05, well.x1 + 0.05, well.z0 - 0.05, well.z1 + 0.05);
   // looking down: the hall far below, the carpet catching coloured light
   const deep = new THREE.Mesh(new THREE.PlaneGeometry(well.x1 - well.x0, well.z1 - well.z0), new THREE.MeshBasicMaterial({ map: carpetTex(), color: 0x3a3436 }));
@@ -311,17 +312,17 @@ export function buildLowerUpper(ctx) {
   books.count = nbk; books.instanceColor.needsUpdate = true; group.add(books);
   box(group, 1.8, 0.06, 1.0, 34.6, 0.78, 92.6, wood, null); for (const [dx, dz] of [[-0.8, -0.4], [0.8, -0.4], [-0.8, 0.4], [0.8, 0.4]]) box(group, 0.06, 0.78, 0.06, 34.6 + dx, 0.39, 92.6 + dz, wood, null, { cast: false });
   rect(local, 33.6, 35.6, 92.0, 93.2);
-  const pepNote = note(34.4, 0.815, 92.5, -0.3);
   light(34.6, 2.9, 92.6, 0xffc080, 4, 9, { pendant: FH }).userData.creepy = true;
   light(38.9, 2.4, 95.4, 0xffa860, 2.5, 6, '-x');
 
   // ---- Leader's Bedroom: x 49.25..58, z 80..86.3 ----
-  const bed = new THREE.Group(); bed.position.set(55.2, 0, 82.2); group.add(bed);
+  const bed = new THREE.Group(); bed.position.set(55.2, 0, 81.27); group.add(bed); // headboard to the north wall
   box(bed, 2.0, 0.55, 2.3, 0, 0.3, 0, darkWood); box(bed, 1.9, 0.18, 2.2, 0, 0.66, 0, mat({ color: 0x7a2a2a, roughness: 0.95 }));
   for (const [dx, dz] of [[-1, -1.15], [1, -1.15], [-1, 1.15], [1, 1.15]]) box(bed, 0.1, 2.6, 0.1, dx, 1.3, dz, darkWood);
   box(bed, 2.1, 0.12, 2.4, 0, 2.6, 0, darkWood);
   for (const s of [-1, 1]) { const cur = new THREE.Mesh(new THREE.PlaneGeometry(2.3, 2.3), new THREE.MeshStandardMaterial({ map: lacyTex(7), color: 0x5a1a1a, transparent: true, alphaTest: 0.35, side: THREE.DoubleSide })); cur.rotation.y = Math.PI / 2; cur.position.set(s * 1.02, 1.4, 0); bed.add(cur); }
-  rect(local, 54.1, 56.3, 80.9, 83.4);
+  rect(local, 54.1, 56.3, 80.0, 82.5);
+  box(bed, 2.0, 1.1, 0.08, 0, 0.9, -1.16, darkWood); // headboard
   const desk = new THREE.Group(); desk.position.set(51.4, 0, 80.5); group.add(desk);
   box(desk, 1.5, 0.75, 0.7, 0, 0.375, 0.05, wood); box(desk, 1.6, 0.05, 0.8, 0, 0.775, 0.05, darkWood);
   const drawer = box(desk, 0.6, 0.18, 0.05, 0, 0.6, 0.42, darkWood);
@@ -345,27 +346,33 @@ export function buildLowerUpper(ctx) {
   addMirror({ id: 'M7', pos: new THREE.Vector3(54.12, 1.7, 87.7), ry: Math.PI / 2, w: 0.7, h: 1.3, stage: 7 });
 
   // ---- Luna Bedroom: x 49.25..58, z 89.1..96.8 ----
-  const luna = new THREE.Group(); luna.position.set(51.2, 0, 94.8); group.add(luna);
+  const luna = new THREE.Group(); luna.position.set(51.2, 0, 95.74); group.add(luna); // headboard to the south wall
   box(luna, 1.2, 0.5, 2.0, 0, 0.25, 0, wood); box(luna, 1.1, 0.15, 1.9, 0, 0.57, 0, mat({ color: 0x9ab8a0, roughness: 0.95 }));
   box(luna, 1.2, 1.1, 0.08, 0, 0.55, 1.0, wood);
-  rect(local, 50.6, 51.8, 93.8, 95.8);
+  rect(local, 50.6, 51.8, 94.7, 96.8);
   const countdown = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 1.8), new THREE.MeshStandardMaterial({ map: countdownTex(), transparent: true, roughness: 1 }));
   countdown.position.set(FX1 - 0.02, 1.5, 92.3); countdown.rotation.y = -Math.PI / 2; group.add(countdown);
   const vanity = new THREE.Group(); vanity.position.set(55.8, 0, 96.4); group.add(vanity);
   box(vanity, 1.3, 0.75, 0.5, 0, 0.375, 0, mat({ map: tex.wood, color: 0xd8d0c0 })); box(vanity, 1.4, 0.04, 0.55, 0, 0.77, 0, mat({ map: tex.wood, color: 0xe8e0d0 }));
   rect(local, 55.1, 56.5, 96.1, 96.8);
   addMirror({ id: 'M6', pos: new THREE.Vector3(55.8, 1.45, 96.7), ry: Math.PI, w: 0.8, h: 1.0, stage: 6 });
-  const lunaMosaic = new THREE.Mesh(new THREE.CircleGeometry(0.9, 48), mat({ map: tex.mosaicFloor, roughness: 0.5, color: 0xa8d8b8 }));
-  lunaMosaic.rotation.x = -Math.PI / 2; lunaMosaic.position.set(53.6, 0.008, 94.0); group.add(lunaMosaic);
   light(53.6, 2.9, 93.0, 0xc8e0c0, 3.5, 9, { pendant: FH }).userData.creepy = true;
   light(55.4, 1.4, 96.5, 0xffd0a0, 1.5, 4, 'candle');
   cocoon(57.4, 89.8, 1.2, true); cocoon(49.8, 96.2, 0.9, false);
+
+  // ---------- merge all spun silk into one mesh, all anchor threads into one line set ----------
+  {
+    const merged = mergeGeometries(silkGeos.map(g => { const n = g.index ? g.toNonIndexed() : g; for (const k of Object.keys(n.attributes)) if (!['position', 'normal', 'uv'].includes(k)) n.deleteAttribute(k); return n; }), false);
+    const silkMesh = new THREE.Mesh(merged, silk); silkMesh.castShadow = true; silkMesh.receiveShadow = true; group.add(silkMesh);
+    const tg = new THREE.BufferGeometry(); tg.setAttribute('position', new THREE.Float32BufferAttribute(threadPts, 3));
+    group.add(new THREE.LineSegments(tg, new THREE.LineBasicMaterial({ color: 0xd8d0c0, transparent: true, opacity: 0.35 })));
+  }
 
   // ---------- state ----------
   const shaftOpen = { v: false }, deskOpen = { v: false }, altar = { seq: [], solved: false, shake: 0 };
   let wardOpen = false, wardAnim = 0;
   const api = {
-    tiles, boilerNote, silkNote, pepNote, wardrobe: { pos: new THREE.Vector3(41.2, 0, 41.5) }, desk: { pos: new THREE.Vector3(51.4, 0, 81.4) }, countdown: { pos: new THREE.Vector3(57.0, 0, 92.3) },
+    tiles, wardrobe: { pos: new THREE.Vector3(41.2, 0, 41.5) }, desk: { pos: new THREE.Vector3(51.4, 0, 81.4) }, countdown: { pos: new THREE.Vector3(57.0, 0, 92.3) },
     get wardOpen() { return wardOpen; },
     get shaftOpen() { return shaftOpen.v; },
     get deskOpen() { return deskOpen.v; },
@@ -399,15 +406,31 @@ export function buildLowerUpper(ctx) {
   return api;
 
   // ---------- local builders ----------
+  // Spun cocoons: a fibrous silk body wrapped in criss-crossing strands, with anchor threads
+  // fanning out to the ceiling (or the floor). All cocoons and threads are merged into one
+  // mesh and one line set when the floors are finished, so they cost two draw calls.
   function cocoon(x, z, h, hanging) {
-    const pts = []; for (let i = 0; i <= 12; i++) { const t = i / 12; pts.push(new THREE.Vector2(Math.sin(t * Math.PI) * 0.22 * h * (1 + 0.15 * Math.sin(t * 9)), t * h)); }
-    const m = new THREE.Mesh(new THREE.LatheGeometry(pts, 14), silk); m.castShadow = true;
-    if (hanging) {
-      const top = (z > 70 ? FH : CH);
-      m.rotation.x = Math.PI; m.position.set(x, top - 0.25, z); group.add(m);
-      const thread = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.3, 4), silk); thread.position.set(x, top - 0.12, z); group.add(thread);
-    } else { m.rotation.z = Math.PI / 2 * 0.9; m.position.set(x, 0.18, z); group.add(m); }
-    return m;
+    const top = z > 70 ? FH : CH, cr = rand(Math.floor(x * 31 + z * 17));
+    const prof = []; for (let i = 0; i <= 14; i++) { const t = i / 14; prof.push(new THREE.Vector2(Math.max(0.004, Math.sin(Math.pow(t, 0.85) * Math.PI) * 0.21 * h * (1 + 0.08 * Math.sin(t * 13 + x))), t * h)); }
+    const shell = new THREE.LatheGeometry(prof, 16);
+    const mtx = new THREE.Matrix4();
+    const place = (g) => { if (hanging) { g.rotateX(Math.PI); g.translate(x, top - 0.22, z); } else { g.rotateZ(Math.PI / 2 * 0.92); g.translate(x + h * 0.45, 0.17, z); } return g; };
+    silkGeos.push(place(shell));
+    // wrapped strands: helices around the body, a little loose
+    for (let k = 0; k < 3; k++) {
+      const pts = [], turns = 3 + k, ph = cr() * 6.28, tilt = (cr() - 0.5) * 0.6;
+      for (let i = 0; i <= 60; i++) { const t = 0.06 + i / 60 * 0.88, rr = Math.sin(Math.pow(t, 0.85) * Math.PI) * 0.21 * h * 1.04 + 0.004, a2 = ph + t * turns * Math.PI * 2; pts.push(new THREE.Vector3(Math.cos(a2) * rr, t * h + Math.cos(a2) * rr * tilt, Math.sin(a2) * rr)); }
+      silkGeos.push(place(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 60, 0.0035, 3, false)));
+    }
+    // anchor threads
+    const anchor = hanging ? new THREE.Vector3(x, top - 0.22, z) : new THREE.Vector3(x + h * 0.9, 0.3, z);
+    const n = 5 + Math.floor(cr() * 4);
+    for (let i = 0; i < n; i++) {
+      const a2 = cr() * 6.28, d = 0.15 + cr() * (i < 2 ? 1.6 : 0.5);
+      const end = hanging ? new THREE.Vector3(x + Math.cos(a2) * d, top - 0.005, z + Math.sin(a2) * d) : new THREE.Vector3(anchor.x + Math.cos(a2) * d, i < 2 ? 0.005 : 0.3 + cr() * 1.2, anchor.z + Math.sin(a2) * d);
+      const from = anchor.clone().add(new THREE.Vector3((cr() - 0.5) * 0.06, hanging ? 0 : (cr() - 0.5) * 0.1, (cr() - 0.5) * 0.06));
+      threadPts.push(from.x, from.y, from.z, end.x, end.y, end.z);
+    }
   }
   function wrapped(x, z, ry) {
     // a body bound in silk, lying on a low trestle
@@ -416,17 +439,38 @@ export function buildLowerUpper(ctx) {
     const pts = []; for (let i = 0; i <= 16; i++) { const t = i / 16; const w = t < 0.12 ? Math.sin(t / 0.12 * Math.PI / 2) * 0.12 : t < 0.2 ? 0.12 - (t - 0.12) * 0.4 : t < 0.55 ? 0.2 : 0.2 - (t - 0.55) * 0.3; pts.push(new THREE.Vector2(Math.max(0.01, w), t * 1.75)); }
     const body = new THREE.Mesh(new THREE.LatheGeometry(pts, 14), silk); body.rotation.x = Math.PI / 2; body.scale.set(1, 1, 0.7);
     body.position.set(0, 0.55, -0.87); body.castShadow = true; g.add(body);
+    // strands binding it, round and round
+    g.updateMatrixWorld(true); const wr = rand(Math.floor(x * 7 + z));
+    for (let k = 0; k < 4; k++) {
+      const pts = []; const ph = wr() * 6.28;
+      for (let i = 0; i <= 80; i++) { const t = i / 80; const y = t * 1.75, w = (t < 0.2 ? 0.13 : 0.2 - Math.max(0, t - 0.55) * 0.3) + 0.006, a2 = ph + t * (9 + k) * Math.PI * 2; pts.push(new THREE.Vector3(Math.cos(a2) * w, y, Math.sin(a2) * w * 0.7)); }
+      const tg = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 160, 0.003, 3, false);
+      tg.rotateX(Math.PI / 2); tg.translate(0, 0.55, -0.87); tg.applyMatrix4(g.matrixWorld); silkGeos.push(tg);
+    }
   }
 }
 
 // ---------- textures ----------
 function silkTex() {
-  const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d');
-  g.fillStyle = '#ddd5c4'; g.fillRect(0, 0, 256, 256);
+  // fibrous silk: a dense felt of fine fibres, wrapped bands crossing it, darker stained
+  // patches and thin gaps where the weave shows through
+  const S = 512, c = document.createElement('canvas'); c.width = c.height = S; const g = c.getContext('2d');
+  g.fillStyle = '#cfc6b4'; g.fillRect(0, 0, S, S);
   const r = rand(55);
-  for (let i = 0; i < 700; i++) { g.strokeStyle = `rgba(${200 + r() * 55},${195 + r() * 50},${180 + r() * 40},${0.15 + r() * 0.3})`; g.lineWidth = 0.5 + r(); g.beginPath(); const x = r() * 256, y = r() * 256; g.moveTo(x, y); g.bezierCurveTo(x + (r() - 0.5) * 80, y + (r() - 0.5) * 40, x + (r() - 0.5) * 80, y + (r() - 0.5) * 40, x + (r() - 0.5) * 120, y + (r() - 0.5) * 60); g.stroke(); }
-  for (let i = 0; i < 40; i++) { g.fillStyle = `rgba(120,100,70,${r() * 0.12})`; g.beginPath(); g.arc(r() * 256, r() * 256, 4 + r() * 18, 0, 7); g.fill(); }
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+  for (let i = 0; i < 2600; i++) {
+    const x = r() * S, y = r() * S, l = 20 + r() * 90, a = (r() - 0.5) * 0.9 + (i % 3 ? 0 : Math.PI / 2 * (r() - 0.5));
+    g.strokeStyle = `rgba(${225 + r() * 30},${218 + r() * 30},${200 + r() * 30},${0.08 + r() * 0.22})`; g.lineWidth = 0.4 + r() * 0.9;
+    g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + Math.cos(a) * l * 0.5 + (r() - 0.5) * 14, y + Math.sin(a) * l * 0.5 + (r() - 0.5) * 14, x + Math.cos(a) * l, y + Math.sin(a) * l); g.stroke();
+  }
+  // wrapping bands, running round the cocoon (u), slightly wavy
+  for (let k = 0; k < 26; k++) {
+    const y0 = r() * S, th = 1 + r() * 3;
+    g.strokeStyle = `rgba(245,240,228,${0.25 + r() * 0.35})`; g.lineWidth = th;
+    g.beginPath(); for (let x = -10; x <= S + 10; x += 16) g.lineTo(x, y0 + Math.sin(x * 0.02 + k) * 6 + (x / S) * (r() - 0.5) * 30); g.stroke();
+  }
+  for (let i = 0; i < 70; i++) { g.fillStyle = `rgba(${90 + r() * 40},${75 + r() * 30},${50 + r() * 20},${r() * 0.12})`; g.beginPath(); g.ellipse(r() * S, r() * S, 6 + r() * 30, 4 + r() * 18, r() * 3, 0, 7); g.fill(); }
+  for (let i = 0; i < 400; i++) { g.fillStyle = `rgba(70,60,45,${r() * 0.25})`; g.fillRect(r() * S, r() * S, 1 + r() * 2, 1); }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4; return t;
 }
 function lacyTex(seed) {
   const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');

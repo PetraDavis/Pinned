@@ -93,7 +93,7 @@ export function createFlashlight(camera, scene, { playClick } = {}) {
   dust.frustumCulled = false; dust.position.z = -0.1; model.add(dust);
 
   // moths that come to the light: world-space sprites
-  const keys = ['lubricipeda', 'caja', 'elpenor', 'vinula', 'pavonia'];
+  const keys = ['infusa', 'betularia', 'nupta', 'humuli', 'maura', 'libatrix', 'bucephala'];
   const moths = keys.map((k, i) => {
     const s = new THREE.Sprite(mothSprite(k)); s.scale.set(0.09, 0.09, 1); s.visible = false; scene.add(s);
     return { s, i, home: new THREE.Vector3(), vel: new THREE.Vector3(), phase: Math.random() * 10, arrive: 2 + i * 1.6 };

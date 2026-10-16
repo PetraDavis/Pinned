@@ -58,3 +58,18 @@ select { grid-column: 1 / -1; font: inherit; color: var(--ink); background: #141
 .padlock .dial button { min-width: 44px; padding: 4px; margin: 0; }
 .menu label.check { flex-direction: row; align-items: center; justify-content: space-between; gap: 12px; }
 .menu label.check input { width: auto; }
+
+/* moth pickup card and the Moth Journal */
+.mothcard { width: min(420px, calc(100vw - 32px)); }
+.mothcard img { width: 180px; height: 180px; margin: 0 auto; border-radius: 4px; box-shadow: 0 4px 18px rgba(0,0,0,.6); }
+.mothcard h2 { margin: 6px 0 0; }
+.mothcard p { line-height: 1.5; text-align: left; }
+.journal { width: min(760px, calc(100vw - 32px)); max-height: calc(100vh - 48px); overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 4px 4px 12px; }
+.journal h2 { text-align: center; margin-bottom: 0; }
+#journalCount { text-align: center; margin: 0; }
+#journalStory { background: rgba(232,224,204,.08); border-left: 3px solid #b89a60; padding: 8px 16px; }
+#journalStory p { line-height: 1.6; margin: 8px 0; }
+#journalGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr)); gap: 10px; }
+.jmoth { display: flex; gap: 10px; background: rgba(255,255,255,.04); padding: 8px; border-radius: 4px; text-align: left; }
+.jmoth img { width: 84px; height: 84px; flex: none; border-radius: 3px; }
+.jmoth h3 { margin: 0; font-size: 15px; } .jmoth em { font-size: 12px; opacity: .7; } .jmoth p { font-size: 13px; line-height: 1.45; margin: 4px 0 0; }

@@ -269,6 +269,29 @@ export function buildFirstRoom(scene, shadowSize = 2048, quality = 'high') {
     const a = Math.min(1, k * 2.5), b = Math.max(0, (k - 0.4) / 0.6);
     panel.position.set(W / 2 + T / 2 + a * 0.36, 0, 4.0 - b * 1.3);
   };
+  // ---- floors as sections: only the floor the player is on is drawn ----
+  // (ground floor z < 25, cellar 25..70, first floor > 70, in local coordinates)
+  const sections = { ground: new THREE.Group(), cellar: new THREE.Group(), first: new THREE.Group() };
+  {
+    const box3 = new THREE.Box3(), c = new THREE.Vector3();
+    group.updateMatrixWorld(true);
+    for (const ch of [...group.children]) {
+      let z;
+      if (ch.isLight) z = ch.position.z;
+      else { box3.setFromObject(ch, false); if (box3.isEmpty()) z = ch.position.z; else { box3.getCenter(c); z = c.z - ROOM_ORIGIN.z; } }
+      const sec = z < 25 ? sections.ground : z < 70 ? sections.cellar : sections.first;
+      sec.add(ch); // sections sit at the group's origin, so nothing moves
+    }
+    for (const sgrp of Object.values(sections)) group.add(sgrp);
+  }
+  let activeSection = null;
+  const setSection = (zLocal) => {
+    const n = zLocal < 25 ? 'ground' : zLocal < 70 ? 'cellar' : 'first';
+    if (n === activeSection) return;
+    activeSection = n; for (const [k, g] of Object.entries(sections)) g.visible = k === n;
+  };
+  setSection(0);
+
   return {
     group, colliders: worldColliders, ground,
     puzzle, drawers: puzzle.cabinet.drawers, pickables: puzzle.cabinet.pickables,
@@ -294,7 +317,7 @@ export function buildFirstRoom(scene, shadowSize = 2048, quality = 'high') {
     },
     update(t, dt = 0.016, camera = null) {
       lamp.update(t); hall.update(t);
-      if (camera) ground.update(t, dt, camera);
+      if (camera) { setSection(camera.position.z - ROOM_ORIGIN.z); ground.update(t, dt, camera); }
       if (panelOpen && panelAnim < 1) { panelAnim = Math.min(1, panelAnim + dt * 0.35); placePanel(panelAnim); }
       puzzle.update(dt, t);
       const p = dg.attributes.position;

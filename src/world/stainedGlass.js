@@ -48,6 +48,24 @@ export function stainedGlassTexture(design, size = 512, cell = 13) {
 let cultTex = null;
 export function cultGlassTexture(design, size) { return cultTex || (cultTex = stainedGlassTexture(design, size)); }
 
+// Light, not a picture: the window's colours averaged into soft pools. A tiny copy of the
+// glass is blurred heavily and faded toward its edge, so the floor patch and the shafts
+// carry the window's colours (blue at the rim, amber and gold in the middle) without
+// repeating its pattern.
+function lightTexture(image, blurPx, edge = 0.5) {
+  const S = 128, c = document.createElement('canvas'); c.width = c.height = S; const g = c.getContext('2d');
+  const small = document.createElement('canvas'); small.width = small.height = 24; small.getContext('2d').drawImage(image, 0, 0, 24, 24);
+  g.filter = `blur(${blurPx}px)`; g.imageSmoothingEnabled = true; g.drawImage(small, -8, -8, S + 16, S + 16); g.filter = 'none';
+  // radial falloff: brightest in the middle, fading to nothing at the rim
+  g.globalCompositeOperation = 'destination-in';
+  const gr = g.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+  gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(edge, 'rgba(0,0,0,0.75)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, S, S);
+  // premultiply onto black so additive blending fades smoothly
+  g.globalCompositeOperation = 'destination-over'; g.fillStyle = '#000'; g.fillRect(0, 0, S, S);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+
 const SLICES = { low: 5, medium: 10, high: 18 }, DUST = { low: 50, medium: 140, high: 300 };
 
 // center: window centre (world, in `group` space); right/up: unit vectors of the window plane
@@ -73,13 +91,15 @@ export function buildGlassWindow(group, { texture, center, right, up, radius, di
     g.setAttribute('position', new THREE.BufferAttribute(arr, 3)); g.setAttribute('uv', uv); g.setIndex(geo.index); return g;
   };
   // the coloured patch on the floor
-  const patch = new THREE.Mesh(sliceGeo(1), new THREE.MeshBasicMaterial({ map: texture, color: tint, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+  const poolTex = lightTexture(texture.image, 6, 0.35), shaftTex = lightTexture(texture.image, 4, 0.55);
+  const patch = new THREE.Mesh(sliceGeo(1), new THREE.MeshBasicMaterial({ map: poolTex, color: tint, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+  { const gg = patch.geometry; gg.computeBoundingBox(); const c = gg.boundingBox.getCenter(new THREE.Vector3()); gg.translate(-c.x, -c.y, -c.z); gg.scale(1.4, 1, 1.4); gg.translate(c.x, c.y, c.z); } // soft edge spills past the hard projection
   patch.position.y = 0.06; patch.renderOrder = 3; patch.userData.noAO = true; group.add(patch);
   // shafts: textured slices between the glass and the floor, faint, fading toward the floor
   const maxS = SLICES.high;
   for (let k = 0; k < maxS; k++) {
     const s = (k + 0.5) / maxS;
-    const m = new THREE.Mesh(sliceGeo(s), new THREE.MeshBasicMaterial({ map: texture, color: tint, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false, fog: false }));
+    const m = new THREE.Mesh(sliceGeo(s), new THREE.MeshBasicMaterial({ map: shaftTex, color: tint, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false, fog: false }));
     m.userData.s = s; m.userData.noAO = true; m.renderOrder = 4; group.add(m); api.slices.push(m);
   }
   // dust motes drifting in the beam

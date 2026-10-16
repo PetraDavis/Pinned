@@ -9,9 +9,10 @@ import { buildTextures } from './textures.js';
 import { buildExterior, SUN_DIR, CLIMB_SPOT, BROKEN_WINDOW, FRONT_DOOR, GATE, FENCE } from './world/exterior.js';
 import { createLampMoths } from './lampMoths.js';
 import { buildFirstRoom, ROOM_LAMP, ROOM_SPAWN, ROOM_WINDOW, ROOM_DOOR, ROOM_ORIGIN, ROOM_CABINET, ROOM_MOSAIC, ROOM_STANDS, ROOM_PANEL } from './world/firstRoom.js';
-import { SPECIES } from './moths.js';
 import { JOURNAL, LIFESPAN_ORDER, SEATING_NOTE, DINNER_SOLUTION } from './world/groundFloor.js';
-import { CELLAR, FIRST, WARDROBE_VERSE, BOILER_NOTE, SILK_NOTE, PEPPERED_NOTE, DESK_CODE } from './world/lowerUpper.js';
+import { SPECIES } from './moths.js';
+import { CELLAR, FIRST, WARDROBE_VERSE, DESK_CODE } from './world/lowerUpper.js';
+import { MOTH_NOTES, STORY, buildMothNotes, mothImage } from './mothNotes.js';
 import { specimenCanvas } from './world/drawerPuzzle.js';
 import { Player } from './player.js';
 import { startAudio, setVolume, playThud, playGlass, playCreak, playGrind, playClick, setHiss, playSoftClicks } from './audio.js';
@@ -35,8 +36,8 @@ const CAPS = detectCaps();
 if (!settings.qualityChosen) { settings.quality = CAPS.defaultQuality; settings.qualityChosen = true; saveSettings(settings); }
 const QUALITIES = {
   low: { pr: 0.75, shadow: 512, soft: false, lampShadows: false, pbr: false, grass: 0.2, dust: 0, post: false },
-  medium: { pr: 1.25, shadow: 2048, soft: true, lampShadows: true, pbr: true, grass: 0.5, dust: 150, post: false },
-  high: { pr: 2, shadow: 4096, soft: true, lampShadows: true, pbr: true, grass: 1, dust: 450, post: true },
+  medium: { pr: 1, shadow: 1024, soft: true, lampShadows: true, pbr: true, grass: 0.5, dust: 150, post: false },
+  high: { pr: 1.5, shadow: 2048, soft: true, lampShadows: true, pbr: true, grass: 1, dust: 300, post: true },
 };
 const texQuality = settings.quality; // the texture detail this page load was built with
 const QUALITY = QUALITIES[settings.quality] || QUALITIES.high;
@@ -335,6 +336,11 @@ const interactables = [
     zone: 'room', pos: m.pos.clone().add(ROOM_ORIGIN), r: 1.6, prompt: 'E  look in the mirror',
     act: () => say(MIRROR_TEXT[m.stage] || MIRROR_TEXT[1], 7000),
   })),
+  // ---- moth specimens: the story, one message each ----
+  ...MOTH_NOTES.map(n => ({
+    zone: 'room', pos: W(new THREE.Vector3(...n.pos)), r: 1.4, when: () => !mothsTaken.includes(n.id),
+    prompt: `E  take the ${SPECIES[n.key].common}`, act: () => takeMoth(n),
+  })),
   // ---- stairs between floors ----
   { zone: 'room', pos: W(ground.doors.stairC.pos), r: 1.3, when: () => ground.doors.stairC.isOpen, prompt: 'E  go down the cellar stairs',
     act: () => transition(() => { player.place(ROOM_ORIGIN.x + CELLAR.spawn.x, ROOM_ORIGIN.z + CELLAR.spawn.z, Math.PI); playThud(); if (!visited.cellar) { visited.cellar = true; save('cellar'); say('The cellar. Cold stone, and under the cold, a faint warmth, like breath.', 6000); } }) },
@@ -360,7 +366,6 @@ const interactables = [
       if (!ground.lu.wardOpen) { ground.lu.openWardrobe(); playCreak(); flashlight.scare && flashlight.scare(); say('The doors swing open and a cloud of tiny pale moths pours out, into your face, your hair. The coats inside are eaten to lace. There is writing scratched inside the door.', 8000); return; }
       say(WARDROBE_VERSE, 14000);
     } },
-  { zone: 'room', pos: W(ground.lu.boilerNote.position), r: 1.3, prompt: 'E  read the page', act: () => say(BOILER_NOTE, 12000) },
   ...ground.lu.tiles.map(t => ({
     zone: 'room', pos: W(t.pos), r: 0.5, when: () => !ground.lu.altarSolved && !t.pressed, prompt: `E  press the carved stone`,
     act: () => {
@@ -370,8 +375,6 @@ const interactables = [
       if (res === 'solved') { playSoftClicks(4); playGrind(); say('The last stone sinks home. Deep in the walls, iron moves: back by the wine racks, a gate rattles and lifts.', 8000); save('chapel'); }
     } })),
   // ---- first floor ----
-  { zone: 'room', pos: W(ground.lu.silkNote.position), r: 1.3, prompt: 'E  read the note', act: () => say(SILK_NOTE, 11000) },
-  { zone: 'room', pos: W(ground.lu.pepNote.position), r: 1.3, prompt: 'E  read the card', act: () => say(PEPPERED_NOTE, 15000) },
   { zone: 'room', pos: W(ground.lu.countdown.pos), r: 2.0, prompt: 'E  look at the wall',
     act: () => say('Numbers scratched into the plaster with something sharp, counting down: sixty-six, sixty-five… each one struck through. The last, forty-eight, is circled again and again. Underneath: until I wake.', 10000) },
   { zone: 'room', pos: W(ground.lu.desk.pos), r: 1.2, prompt: () => ground.lu.deskOpen ? 'An empty drawer.' : 'E  try the desk',
@@ -458,13 +461,13 @@ HINTS.padlock = [
   'The padlock code is 1 8 8 7.',
 ];
 HINTS.altar = [
-  'The page above the boiler says to walk the clothes moth’s life at the altar, from the first day. Something in the boiler room may say how that life goes.',
+  'The Herald moth pinned above the boiler says to walk the clothes moth’s life at the altar, from the first day. Something in the boiler room may say how that life goes.',
   'Open the wardrobe in the boiler room and read what is scratched inside its door. Each carved stone on the altar is one stage of that life.',
   'Press the stones in this order: the eggs, the grub, the cocoon, the wings.',
 ];
 HINTS.desk = [
-  'The desk in the leader’s room has a four-figure letter-lock. A card in the library is about it.',
-  'The card says eighteen-hundred-and-something: the rest is the number the girl in the Luna bedroom stopped counting at.',
+  'The desk in the leader’s room has a four-figure letter-lock. The Peppered moth on the library table is about it.',
+  'The Peppered moth’s card says eighteen-hundred-and-something: the rest is the number the girl in the Luna bedroom stopped counting at.',
   'The desk code is 1 8 4 8.',
 ];
 let hintState = {}, stuckTime = 0, nudged = {};
@@ -483,11 +486,20 @@ const extraPuzzle = (x, z) => {
   if (x > 29 && x < 59 && z > 79 && z < 98 && !ground.lu.deskOpen) return 'desk';
   return null;
 };
+// Hints are rationed: at most three for each pair of rooms. After that, the voice in your
+// head has had enough. The count is kept in the save.
+const HINT_GROUP = { room: 'drawing+study', study: 'drawing+study', dinner: 'dining+kitchen', padlock: 'dining+kitchen', altar: 'boiler+chapel', desk: 'library+leader' };
+const HINT_LIMIT = 3;
+let hintsUsed = {};
 function showHint() {
   const p = currentPuzzle();
   if (!p) { say('Nothing here seems to need solving right now.', 3000); return; }
+  const grp = HINT_GROUP[p] || p;
+  if ((hintsUsed[grp] || 0) >= HINT_LIMIT) { say('I don’t feel like it.', 3000); return; }
+  hintsUsed[grp] = (hintsUsed[grp] || 0) + 1;
   const n = Math.min(HINTS[p].length, (hintState[p] || 0) + 1); hintState[p] = n; stuckTime = 0;
   say(`Hint ${n}/${HINTS[p].length}: ${HINTS[p][n - 1]}`, 11000);
+  save(lastCheckpoint || 'room');
 }
 // a gentle nudge if the player has been in a puzzle room for a few minutes without a hint
 function hintTick(dt) {
@@ -596,7 +608,8 @@ function transition(mid) {
   setTimeout(() => { mid(); $('fade').style.opacity = 0; setTimeout(() => { state = 'playing'; player.enabled = true; }, 400); }, 550);
 }
 
-function save(checkpoint) { writeSave({ checkpoint, lampLit: room.lampOn, solved: room.puzzle.solved, studySolved: ground.lifespan.solved, dinnerSolved: ground.dinner.solved, plates: ground.dinner.seats.filter(st => st.flipped).map(st => st.id), doorsOpen: Object.values(ground.doors).filter(d => d.isOpen).map(d => d.id), battery: +flashlight.battery.toFixed(3), batteries: [...batteriesTaken], lantern: lantern.have ? +lantern.fuel.toFixed(3) : null, lanterns: [...lanternsTaken], altarSolved: ground.lu.altarSolved, deskOpen: ground.lu.deskOpen, wardOpen: ground.lu.wardOpen, visited: { ...visited } }); }
+let lastCheckpoint = null;
+function save(checkpoint) { writeSave({ checkpoint, lampLit: room.lampOn, solved: room.puzzle.solved, studySolved: ground.lifespan.solved, dinnerSolved: ground.dinner.solved, plates: ground.dinner.seats.filter(st => st.flipped).map(st => st.id), doorsOpen: Object.values(ground.doors).filter(d => d.isOpen).map(d => d.id), battery: +flashlight.battery.toFixed(3), batteries: [...batteriesTaken], lantern: lantern.have ? +lantern.fuel.toFixed(3) : null, lanterns: [...lanternsTaken], altarSolved: ground.lu.altarSolved, deskOpen: ground.lu.deskOpen, wardOpen: ground.lu.wardOpen, visited: { ...visited }, hintsUsed: { ...hintsUsed }, hintState: { ...hintState }, moths: [...mothsTaken] }); lastCheckpoint = checkpoint; }
 let grandHallSaved = false;
 function spawnAt(checkpoint, saved = {}) {
   room.resetPuzzle(); room.setLamp(!!saved.lampLit);
@@ -604,7 +617,8 @@ function spawnAt(checkpoint, saved = {}) {
   batteriesTaken = new Set(saved.batteries || []);
   lanternsTaken = new Set(saved.lanterns || []); for (const l of LANTERNS) l.mesh.visible = !lanternsTaken.has(l.id);
   lantern.have = saved.lantern != null; lantern.fuel = saved.lantern || 0; lantern.lower();
-  hintState = {}; stuckTime = 0;
+  hintState = { ...(saved.hintState || {}) }; hintsUsed = { ...(saved.hintsUsed || {}) }; stuckTime = 0; lastCheckpoint = checkpoint;
+  mothsTaken = [...(saved.moths || [])]; mothNotes.reset(new Set(mothsTaken));
   for (const b of BATTERIES) b.mesh.visible = !batteriesTaken.has(b.id);
   updateBatteryHud();
   if (saved.solved) { room.puzzle.solveInstantly(); room.openPanel(true); }
@@ -632,6 +646,39 @@ function spawnAt(checkpoint, saved = {}) {
   if (checkpoint === 'room') { setZone('room'); player.place(ROOM_SPAWN.x, ROOM_SPAWN.z, 0); }
   else if (checkpoint === 'grounds') { setZone('exterior'); player.place(CLIMB_SPOT.x, FENCE.front - 1.4, 0); }
   else { setZone('exterior'); player.place(CLIMB_SPOT.x + 4, FENCE.front + 6, 0.15); }
+}
+
+// ---------- moth specimens & the Moth Journal ----------
+const mothNotes = buildMothNotes(room.group);
+let mothsTaken = [];
+const NOTE_BY_ID = Object.fromEntries(MOTH_NOTES.map(n => [n.id, n]));
+const imgCache = {}; const imgOf = (k) => imgCache[k] || (imgCache[k] = mothImage(k));
+function takeMoth(n) {
+  mothsTaken.push(n.id); mothNotes.take(n.id); playThud();
+  const sp = SPECIES[n.key], i = mothsTaken.length - 1;
+  $('mothCardImg').src = imgOf(n.key); $('mothCardName').textContent = sp.common; $('mothCardLatin').textContent = sp.latin;
+  $('mothCardText').textContent = n.text;
+  $('mothCardStory').textContent = STORY[i] ? 'Added to the Moth Journal. A new page of the story is written.' : 'Added to the Moth Journal.';
+  state = 'mothcard'; player.enabled = false; show('mothCard', true);
+  save(lastCheckpoint);
+}
+function closeMothCard() { show('mothCard', false); if (state === 'mothcard') { state = 'playing'; player.enabled = true; lock(); } }
+let journalReturn = 'pause';
+function openJournal(from) {
+  journalReturn = from; show(from, false); show('journal', true);
+  const ids = from === 'home' ? ((loadSave() || {}).moths || []) : mothsTaken;
+  $('journalCount').textContent = `${ids.length} of ${MOTH_NOTES.length} moths collected`;
+  const story = $('journalStory'); story.innerHTML = '';
+  if (!ids.length) story.innerHTML = '<p class="note">Nothing yet. The house is full of moths; each one has something to say.</p>';
+  ids.forEach((id, i) => { if (STORY[i]) { const p = document.createElement('p'); p.textContent = STORY[i]; story.appendChild(p); } });
+  const grid = $('journalGrid'); grid.innerHTML = '';
+  for (const id of ids) {
+    const n = NOTE_BY_ID[id]; if (!n) continue; const sp = SPECIES[n.key];
+    const d = document.createElement('div'); d.className = 'jmoth';
+    d.innerHTML = `<img alt=""><div><h3></h3><em></em><p></p></div>`;
+    d.querySelector('img').src = imgOf(n.key); d.querySelector('h3').textContent = sp.common; d.querySelector('em').textContent = sp.latin; d.querySelector('p').textContent = n.text;
+    grid.appendChild(d);
+  }
 }
 
 // ---------- game states & menus ----------
@@ -683,6 +730,10 @@ $('btnSettingsBack').onclick = () => { show('settings', false); show(settingsRet
 $('btnResume').onclick = resume;
 $('btnQuit').onclick = quitHome;
 $('pauseBtn').onclick = pause;
+$('btnJournalPause').onclick = () => openJournal('pause');
+$('btnJournalHome').onclick = () => openJournal('home');
+$('journalBack').onclick = () => { show('journal', false); show(journalReturn, true); };
+$('mothCardClose').onclick = closeMothCard;
 
 // leaving the tab or window pauses too
 document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
@@ -695,6 +746,7 @@ canvas.addEventListener('click', () => { if (state === 'playing' && !document.po
 addEventListener('keydown', e => {
   if ((e.code === 'KeyP' || e.code === 'Escape') && state === 'playing') { pause(); return; }
   if (e.code === 'KeyP' && state === 'paused' && !$('pause').classList.contains('hidden')) { resume(); return; }
+  if (state === 'mothcard' && (e.code === 'KeyE' || e.code === 'Escape' || e.code === 'Enter' || e.code === 'Space')) { closeMothCard(); return; }
   if (state !== 'playing') return;
   if ((e.code === 'KeyE' || e.key === 'e' || e.key === 'E') && current) current.act();
   if (e.code === 'KeyQ' && current && current.alt) current.alt();
@@ -717,6 +769,7 @@ const lurePos = new THREE.Vector3();
 // drain, animations, hint timers (and later The Mother) all freeze together.
 let gameTime = 0;
 const frozen = () => state === 'paused' || state === 'home' || document.hidden;
+let shadowLights = null, frameNo = 0; const tmpShadowV = new THREE.Vector3();
 function loop() {
   const realDt = Math.min(clock.getDelta(), 0.05);
   const dt = frozen() ? 0 : realDt;
@@ -730,6 +783,14 @@ function loop() {
   lantern.update(dt, t, player.moving);
   lampMoths.update(t, camera);
   lightLimiter.update(camera);
+  // shadow maps: only for shadow-casting lamps near the player, refreshed every other frame
+  if (!shadowLights) { shadowLights = []; scene.traverse(o => { if (o.isLight && o.shadow && !o.isDirectionalLight && o.userData.shadowOn) shadowLights.push(o); }); }
+  frameNo++;
+  for (const l of shadowLights) {
+    l.shadow.autoUpdate = false;
+    let o = l, vis = true; while (o) { if (!o.visible) { vis = false; break; } o = o.parent; }
+    if (vis && l.castShadow && l.intensity > 0 && (frameNo & 1) === 0 && l.getWorldPosition(tmpShadowV).distanceTo(camera.position) < 14) l.shadow.needsUpdate = true;
+  }
   flashlight.update(dt, t, player.moving, currentQ, lantern.on ? { on: true, onTime: lantern.onTime, pos: lantern.worldPos(lurePos) } : null);
   setHiss(state === 'playing' && zone === 'room' ? ground.hiss : 0);
   if (state === 'playing') hintTick(dt);

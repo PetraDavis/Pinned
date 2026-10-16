@@ -33,6 +33,7 @@
     <button id="btnContinue">Continue</button>
     <button id="btnRestart">Restart</button>
     <button id="btnMulti">Multiplayer</button>
+    <button id="btnJournalHome">Moth Journal</button>
     <button id="btnSettingsHome">Settings</button>
     <p id="homeNote" class="note"></p>
   </div>
@@ -58,8 +59,29 @@
     <h2>Paused</h2>
     <button id="btnResume">Resume</button>
     <button id="btnHint">Hint (H)</button>
+    <button id="btnJournalPause">Moth Journal</button>
     <button id="btnSettingsPause">Settings</button>
     <button id="btnQuit">Quit to home screen</button>
+  </div>
+</div>
+
+<div id="mothCard" class="screen dim hidden">
+  <div class="menu mothcard">
+    <img id="mothCardImg" alt="">
+    <h2 id="mothCardName"></h2>
+    <em id="mothCardLatin"></em>
+    <p id="mothCardText"></p>
+    <p id="mothCardStory" class="note"></p>
+    <button id="mothCardClose">Keep it (E)</button>
+  </div>
+</div>
+<div id="journal" class="screen dim hidden">
+  <div class="journal">
+    <h2>Moth Journal</h2>
+    <p id="journalCount" class="note"></p>
+    <section id="journalStory"></section>
+    <div id="journalGrid"></div>
+    <button id="journalBack">Back</button>
   </div>
 </div>
 

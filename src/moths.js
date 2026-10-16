@@ -245,13 +245,29 @@ export const SPECIES = {
     hind: [[3, 3], [18, 5], [31, 10], [34, 18], [27, 25], [12, 25], [4, 16], [2, 8]],
     foreAngle: -0.02, hindAngle: 0.06,
     paintFore(g, r) {
-      g.fillStyle = '#e57fa4'; g.fillRect(-5, -25, 60, 40);
-      g.fillStyle = '#f3dc6a'; g.beginPath(); g.moveTo(6, -8); g.lineTo(40, -15); g.lineTo(44, -4); g.lineTo(10, 6); g.closePath(); g.fill(); // the yellow band
-      speckle(g, r, 160, 0, -16, 46, 8, 'rgba(255,240,200,0.3)', 0.8);
+      // rose-pink at the base and along the outer edge, a broad pale-yellow band across the middle
+      const gr = g.createLinearGradient(0, 0, 47, -10);
+      gr.addColorStop(0, '#e2789c'); gr.addColorStop(0.16, '#e889a8'); gr.addColorStop(0.26, '#f4e6a0'); gr.addColorStop(0.68, '#f6e8a8'); gr.addColorStop(0.8, '#ec9ab4'); gr.addColorStop(1, '#de7096');
+      g.fillStyle = gr; g.fillRect(-5, -25, 60, 40);
+      // soft, slightly wavy edges to the band, and a pink costa
+      band(g, [[11, 7], [12, -3], [15, -12]], 2.4, 'rgba(232,135,165,0.55)');
+      band(g, [[33, 6], [37, -5], [41, -14]], 2.4, 'rgba(232,135,165,0.5)');
+      band(g, [[4, -6], [22, -13], [44, -15]], 1.4, 'rgba(226,120,156,0.6)');
+      speckle(g, r, 220, 0, -16, 46, 8, 'rgba(255,248,220,0.28)', 0.8);
     },
-    paintHind(g, r) { g.fillStyle = '#f2df8a'; g.fillRect(-5, -5, 45, 35); band(g, [[10, 22], [24, 23], [32, 18]], 3, 'rgba(230,130,160,0.7)'); },
-    body: { thorax: [7.5, 9], abdomen: [6.5, 20], fur: '#f0d25a', furHi: '#fff4b0', head: 4.5, paint(g) { blob(g, 0, 14, 5, 6, 0, 'rgba(232,130,164,0.6)'); } },
-    antenna: { type: 'feather', len: 13, color: '#c86a8a' },
+    paintHind(g) {
+      const gr = g.createLinearGradient(0, 0, 34, 24);
+      gr.addColorStop(0, '#f6eaa8'); gr.addColorStop(0.55, '#f4e2a6'); gr.addColorStop(0.85, '#f2bcc4'); gr.addColorStop(1, '#ec9ab4');
+      g.fillStyle = gr; g.fillRect(-5, -5, 45, 35);
+    },
+    body: { thorax: [7.5, 9], abdomen: [6.5, 20], fur: '#f2d860', furHi: '#fff6b8', head: 4.5,
+      paint(g) {
+        // pink legs tucked under the thorax, a faint pink tip to the abdomen
+        g.strokeStyle = '#e07a9c'; g.lineWidth = 1.2; g.lineCap = 'round';
+        for (const sx of [-1, 1]) for (const [y, l] of [[-10, 6], [-6, 7], [-2, 6]]) { g.beginPath(); g.moveTo(sx * 4, y); g.lineTo(sx * (4 + l), y + 3); g.stroke(); }
+        blob(g, 0, 18, 3.5, 3, 0, 'rgba(232,140,170,0.45)');
+      } },
+    antenna: { type: 'feather', len: 13, color: '#e08aa8' },
   },
   caja: {
     latin: 'Arctia caja', common: 'Garden tiger moth', span: 64,
@@ -270,6 +286,172 @@ export const SPECIES = {
     body: { thorax: [7, 9], abdomen: [6, 24], fur: '#5a3220', furHi: '#a06040', head: 4.5,
       paint(g) { for (let i = 0; i < 5; i++) { blob(g, 0, 8 + i * 4.6, 5.6 - i * 0.5, 1.8, 0, '#e2502a'); blob(g, 0, 10 + i * 4.6, 2, 1, 0, '#111'); } blob(g, 0, -12, 6, 1.6, 0, '#d03020'); } },
     antenna: { type: 'thin', len: 18, color: '#2a1a10' },
+  },
+  quadripunctaria: {
+    latin: 'Euplagia quadripunctaria', common: 'Jersey tiger', span: 56,
+    fore: [[2, -5], [22, -13], [44, -19], [55, -16], [52, -5], [38, 5], [20, 9], [4, 5]],
+    hind: [[3, 3], [20, 6], [36, 12], [41, 22], [33, 31], [16, 31], [5, 22], [2, 10]],
+    foreAngle: -0.05, hindAngle: 0.07,
+    paintFore(g) {
+      g.fillStyle = '#1c1c22'; g.fillRect(-5, -30, 65, 45);
+      // the cream stripes, diagonal across the black
+      for (const pts of [[[4, -2], [20, -11]], [[10, 6], [28, -8], [36, -16]], [[24, 7], [40, -4], [50, -14]], [[38, 4], [52, -8]], [[6, 2], [44, 1], [54, -6]]]) band(g, pts, 2.6, '#efe6cc');
+    },
+    paintHind(g) {
+      g.fillStyle = '#e8541e'; g.fillRect(-5, -5, 50, 40);
+      for (const [x, y, rr] of [[14, 10, 3.5], [28, 15, 4.5], [22, 24, 3.8], [33, 25, 3]]) blob(g, x, y, rr, rr * 0.8, 0.3, '#16121a');
+    },
+    body: { thorax: [6.5, 8.5], abdomen: [5.5, 21], fur: '#2a2228', furHi: '#5a4a50', head: 4.2,
+      paint(g) { for (let i = 0; i < 5; i++) { blob(g, 0, 8 + i * 4.2, 5 - i * 0.5, 1.6, 0, '#e86a2a'); blob(g, 0, 10 + i * 4.2, 1.6, 0.9, 0, '#111'); } } },
+    antenna: { type: 'thin', len: 16, color: '#1a1418' },
+  },
+  miniata: {
+    latin: 'Miltochrista miniata', common: 'Rosy footman', span: 30,
+    fore: [[2, -4], [14, -9], [27, -12], [31, -9], [29, -2], [20, 4], [10, 6], [3, 3]],
+    hind: [[3, 3], [13, 4], [22, 8], [24, 14], [18, 19], [8, 19], [3, 12], [2, 6]],
+    foreAngle: -0.03, hindAngle: 0.06,
+    paintFore(g, r) {
+      g.fillStyle = '#ee9a7a'; g.fillRect(-5, -20, 45, 30);
+      g.fillStyle = 'rgba(250,200,150,0.5)'; g.fillRect(4, -6, 20, 6);
+      band(g, [[6, 4], [10, -2], [8, -8]], 0.7, 'rgba(40,24,20,0.85)');
+      const pts = []; for (let i = 0; i <= 8; i++) pts.push([14 + (i % 2) * 2.5, 5 - i * 2]); band(g, pts, 0.6, 'rgba(40,24,20,0.85)');
+      for (let i = 0; i < 6; i++) blob(g, 24 + (i % 2) * 1.5, -9 + i * 2.2, 0.6, 0.6, 0, 'rgba(40,24,20,0.8)');
+    },
+    paintHind(g) { g.fillStyle = '#f2b090'; g.fillRect(-5, -5, 35, 30); },
+    body: { thorax: [5, 6.5], abdomen: [4, 15], fur: '#e8a080', furHi: '#ffd0b0', head: 3.4, paint() {} },
+    antenna: { type: 'thin', len: 10, color: '#6a3a2a' },
+  },
+  nupta: {
+    latin: 'Catocala nupta', common: 'Red underwing', span: 70,
+    fore: [[2, -5], [26, -14], [54, -21], [68, -18], [64, -6], [46, 6], [22, 10], [4, 5]],
+    hind: [[3, 3], [24, 6], [42, 12], [48, 24], [38, 34], [18, 34], [6, 24], [2, 10]],
+    foreAngle: -0.03, hindAngle: 0.06,
+    paintFore(g, r) {
+      g.fillStyle = '#7a7670'; g.fillRect(-5, -30, 75, 45);
+      speckle(g, r, 500, 0, -20, 66, 8, 'rgba(40,36,32,0.45)', 0.9);
+      for (const pts of [[[12, 8], [16, -2], [12, -14]], [[36, 6], [42, -6], [38, -18]], [[50, 2], [56, -8], [52, -18]]]) band(g, pts, 1, 'rgba(30,26,22,0.8)');
+      blob(g, 30, -8, 3.5, 2.5, 0.3, 'rgba(40,36,32,0.5)');
+    },
+    paintHind(g) { g.fillStyle = '#d02a2a'; g.fillRect(-5, -5, 55, 45); band(g, [[8, 18], [26, 22], [44, 18]], 3, '#16100e'); band(g, [[6, 30], [26, 34], [42, 28]], 3.5, '#16100e'); },
+    body: { thorax: [7, 9], abdomen: [6, 24], fur: '#6a6660', furHi: '#9a948c', head: 4.5, paint() {} },
+    antenna: { type: 'thin', len: 20, color: '#4a4440' },
+  },
+  papilionaria: {
+    latin: 'Geometra papilionaria', common: 'Large emerald', span: 52,
+    fore: [[2, -5], [22, -13], [44, -18], [52, -15], [50, -4], [36, 6], [18, 9], [4, 5]],
+    hind: [[3, 3], [20, 6], [36, 12], [42, 22], [36, 30], [18, 30], [5, 20], [2, 10]],
+    foreAngle: -0.08, hindAngle: 0.1,
+    paintFore(g) { g.fillStyle = '#5aa26a'; g.fillRect(-5, -25, 60, 40); for (const pts of [[[12, 8], [16, -4], [12, -14]], [[30, 6], [34, -6], [30, -16]]]) band(g, pts, 1.6, 'rgba(225,245,225,0.75)'); },
+    paintHind(g) { g.fillStyle = '#62aa72'; g.fillRect(-5, -5, 50, 40); band(g, [[8, 20], [24, 24], [38, 18]], 1.6, 'rgba(225,245,225,0.75)'); },
+    body: { thorax: [5, 7], abdomen: [4, 20], fur: '#7ab884', furHi: '#c8e8c8', head: 3.6, paint() {} },
+    antenna: { type: 'feather', len: 12, color: '#6a8a5a' },
+  },
+  grossulariata: {
+    latin: 'Abraxas grossulariata', common: 'Magpie moth', span: 44,
+    fore: [[2, -5], [20, -12], [38, -16], [45, -13], [42, -3], [30, 6], [14, 8], [4, 4]],
+    hind: [[3, 3], [18, 5], [30, 10], [34, 18], [27, 25], [12, 25], [4, 16], [2, 8]],
+    foreAngle: -0.05, hindAngle: 0.08,
+    paintFore(g, r) {
+      g.fillStyle = '#f2efe8'; g.fillRect(-5, -25, 55, 40);
+      band(g, [[4, -2], [12, -10]], 2.4, '#e8b030'); band(g, [[20, 6], [26, -4], [24, -14]], 2.4, '#e8b030');
+      for (let i = 0; i < 30; i++) blob(g, 4 + r() * 38, -13 + r() * 18, 1 + r() * 1.6, 1 + r() * 1.4, 0, '#16141a');
+    },
+    paintHind(g, r) { g.fillStyle = '#f2efe8'; g.fillRect(-5, -5, 40, 35); for (let i = 0; i < 14; i++) blob(g, 4 + r() * 28, 4 + r() * 18, 1 + r() * 1.4, 1 + r(), 0, '#16141a'); },
+    body: { thorax: [5, 7], abdomen: [4.5, 18], fur: '#e8b030', furHi: '#ffe080', head: 3.6, paint(g) { for (let i = 0; i < 4; i++) blob(g, 0, 8 + i * 4, 1.4, 1.2, 0, '#16141a'); } },
+    antenna: { type: 'thin', len: 14, color: '#1a1a1a' },
+  },
+  filipendulae: {
+    latin: 'Zygaena filipendulae', common: 'Six-spot burnet', span: 34,
+    fore: [[2, -4], [16, -9], [30, -12], [36, -11], [35, -5], [26, 2], [12, 5], [3, 3]],
+    hind: [[3, 2], [14, 4], [22, 7], [24, 12], [18, 16], [8, 15], [3, 10]],
+    foreAngle: 0.0, hindAngle: 0.1,
+    paintFore(g) { g.fillStyle = '#1a2430'; g.fillRect(-5, -20, 45, 30); for (const [x, y] of [[8, -4], [10, 2], [18, -6], [20, 0], [28, -7], [30, -2]]) blob(g, x, y, 2.6, 2.2, 0, '#d81e28'); },
+    paintHind(g) { g.fillStyle = '#d81e28'; g.fillRect(-5, -5, 32, 25); band(g, [[6, 15], [16, 17], [22, 13]], 1.4, '#1a2430'); },
+    body: { thorax: [4.5, 6], abdomen: [3.8, 16], fur: '#1a2430', furHi: '#3a4a60', head: 3.4, paint() {} },
+    antenna: { type: 'thick', len: 14, color: '#141c26' },
+  },
+  luteolata: {
+    latin: 'Opisthograptis luteolata', common: 'Brimstone moth', span: 38,
+    fore: [[2, -4], [18, -10], [32, -14], [38, -12], [36, -3], [26, 5], [12, 7], [3, 4]],
+    hind: [[3, 3], [16, 5], [28, 9], [31, 16], [24, 22], [11, 22], [4, 14], [2, 7]],
+    foreAngle: -0.06, hindAngle: 0.08,
+    paintFore(g) { g.fillStyle = '#f2d630'; g.fillRect(-5, -20, 50, 35); for (const [x, y] of [[4, -6], [16, -11], [28, -13]]) blob(g, x, y, 2, 1.4, 0, '#a85a2a'); blob(g, 22, -4, 2, 1.6, 0, '#f4f0e0'); blob(g, 22, -4, 2.6, 2.2, 0, 'rgba(168,90,42,0.6)'); },
+    paintHind(g) { g.fillStyle = '#f4dc40'; g.fillRect(-5, -5, 40, 30); },
+    body: { thorax: [4.5, 6.5], abdomen: [4, 17], fur: '#e8cc30', furHi: '#fff080', head: 3.4, paint() {} },
+    antenna: { type: 'thin', len: 12, color: '#b0902a' },
+  },
+  maura: {
+    latin: 'Mormo maura', common: 'Old lady', span: 66,
+    fore: [[2, -5], [26, -14], [52, -20], [66, -17], [62, -4], [44, 7], [22, 10], [4, 5]],
+    hind: [[3, 3], [24, 6], [42, 12], [48, 24], [38, 34], [18, 34], [6, 24], [2, 10]],
+    foreAngle: 0.05, hindAngle: 0.15,
+    paintFore(g, r) {
+      g.fillStyle = '#4a4440'; g.fillRect(-5, -30, 75, 45);
+      for (const pts of [[[10, 8], [14, -4], [10, -16]], [[34, 6], [38, -6], [34, -18]], [[50, 4], [54, -8]]]) band(g, pts, 3, 'rgba(120,112,104,0.55)');
+      blob(g, 24, -6, 4, 3, 0, 'rgba(20,18,16,0.6)'); speckle(g, r, 200, 0, -20, 64, 8, 'rgba(140,130,120,0.25)', 0.9);
+    },
+    paintHind(g) { g.fillStyle = '#3a3634'; g.fillRect(-5, -5, 55, 45); band(g, [[6, 26], [26, 30], [44, 24]], 2, 'rgba(160,150,140,0.5)'); },
+    body: { thorax: [7, 9], abdomen: [6, 24], fur: '#3a3430', furHi: '#6a625a', head: 4.5, paint() {} },
+    antenna: { type: 'thin', len: 20, color: '#2a2624' },
+  },
+  libatrix: {
+    latin: 'Scoliopteryx libatrix', common: 'Herald', span: 44,
+    fore: [[2, -5], [18, -12], [34, -17], [44, -16], [42, -10], [44, -4], [36, 4], [18, 8], [4, 4]],
+    hind: [[3, 3], [18, 5], [30, 10], [33, 18], [26, 23], [12, 23], [4, 15], [2, 8]],
+    foreAngle: 0.05, hindAngle: 0.12,
+    paintFore(g, r) {
+      g.fillStyle = '#8a5a3a'; g.fillRect(-5, -25, 55, 35);
+      const gr = g.createRadialGradient(10, -4, 1, 10, -4, 14); gr.addColorStop(0, '#f08a2a'); gr.addColorStop(1, 'rgba(240,138,42,0)'); g.fillStyle = gr; g.fillRect(-5, -20, 30, 30);
+      band(g, [[8, 6], [12, -6], [10, -14]], 1, '#f4ece0'); band(g, [[28, 4], [32, -6], [30, -16]], 1, '#f4ece0');
+      speckle(g, r, 120, 0, -14, 44, 6, 'rgba(240,160,80,0.4)', 0.8);
+    },
+    paintHind(g) { g.fillStyle = '#8a7a6a'; g.fillRect(-5, -5, 45, 35); },
+    body: { thorax: [5.5, 7.5], abdomen: [4.5, 18], fur: '#9a6a44', furHi: '#d09a60', head: 4, paint() {} },
+    antenna: { type: 'thin', len: 16, color: '#6a4a30' },
+  },
+  humuli: {
+    latin: 'Hepialus humuli', common: 'Ghost moth', span: 50,
+    fore: [[2, -4], [22, -10], [42, -14], [50, -12], [48, -5], [36, 3], [18, 6], [4, 4]],
+    hind: [[3, 3], [20, 5], [34, 9], [38, 16], [30, 22], [14, 22], [4, 15], [2, 8]],
+    foreAngle: 0.02, hindAngle: 0.1,
+    paintFore(g, r) { g.fillStyle = '#f6f4ee'; g.fillRect(-5, -20, 60, 30); speckle(g, r, 160, 0, -12, 48, 5, 'rgba(255,255,255,0.6)', 0.7); },
+    paintHind(g) { g.fillStyle = '#f2f0ea'; g.fillRect(-5, -5, 45, 30); },
+    body: { thorax: [5, 7], abdomen: [4.2, 22], fur: '#e8e0d0', furHi: '#ffffff', head: 3.6, paint() {} },
+    antenna: { type: 'thin', len: 6, color: '#c8b8a0' },
+  },
+  jacobaeae: {
+    latin: 'Tyria jacobaeae', common: 'Cinnabar', span: 40,
+    fore: [[2, -4], [18, -10], [34, -14], [40, -12], [38, -4], [28, 4], [12, 6], [3, 3]],
+    hind: [[3, 3], [16, 5], [28, 9], [30, 16], [24, 21], [11, 21], [4, 14], [2, 7]],
+    foreAngle: -0.02, hindAngle: 0.08,
+    paintFore(g) { g.fillStyle = '#2a2a30'; g.fillRect(-5, -20, 50, 30); band(g, [[4, -6], [36, -12]], 2.2, '#d82a3a'); blob(g, 34, -4, 3, 2.4, 0, '#d82a3a'); blob(g, 38, -2, 2, 1.6, 0, '#d82a3a'); },
+    paintHind(g) { g.fillStyle = '#e02e40'; g.fillRect(-5, -5, 40, 30); band(g, [[6, 20], [18, 22], [28, 18]], 1.2, '#2a2a30'); },
+    body: { thorax: [4.5, 6.5], abdomen: [3.8, 17], fur: '#222228', furHi: '#4a4a52', head: 3.4, paint() {} },
+    antenna: { type: 'thin', len: 14, color: '#1a1a1e' },
+  },
+  bucephala: {
+    latin: 'Phalera bucephala', common: 'Buff-tip', span: 56,
+    fore: [[2, -4], [24, -10], [46, -13], [56, -10], [55, -4], [40, 3], [20, 6], [4, 4]],
+    hind: [[3, 3], [20, 5], [34, 9], [38, 16], [30, 22], [14, 22], [4, 15], [2, 8]],
+    foreAngle: 0.25, hindAngle: 0.35,
+    paintFore(g, r) {
+      g.fillStyle = '#a4a6a4'; g.fillRect(-5, -20, 65, 30); speckle(g, r, 300, 0, -12, 50, 5, 'rgba(70,70,70,0.4)', 0.9);
+      blob(g, 50, -6, 8, 6, 0, '#e8d49a'); blob(g, 50, -6, 3, 2, 0, 'rgba(120,90,50,0.5)');
+      band(g, [[42, 2], [46, -6], [44, -12]], 1, 'rgba(60,40,30,0.8)'); band(g, [[14, 4], [16, -4], [14, -10]], 1, 'rgba(60,40,30,0.8)');
+    },
+    paintHind(g) { g.fillStyle = '#e4dcc6'; g.fillRect(-5, -5, 45, 30); },
+    body: { thorax: [6, 8], abdomen: [5, 22], fur: '#c8b88a', furHi: '#f0e4b8', head: 4.5, paint(g) { blob(g, 0, -12, 5.5, 4, 0, '#e8d49a'); } },
+    antenna: { type: 'thin', len: 12, color: '#6a5a40' },
+  },
+  stellatarum: {
+    latin: 'Macroglossum stellatarum', common: 'Hummingbird hawk-moth', span: 46,
+    fore: [[2, -5], [20, -10], [36, -14], [46, -14], [42, -6], [28, 2], [12, 6], [3, 3]],
+    hind: [[3, 3], [14, 5], [24, 9], [26, 14], [20, 18], [9, 18], [3, 12], [2, 6]],
+    foreAngle: -0.15, hindAngle: -0.05,
+    paintFore(g, r) { g.fillStyle = '#6a625a'; g.fillRect(-5, -20, 55, 30); band(g, [[10, 4], [14, -6]], 1.2, 'rgba(30,26,22,0.8)'); band(g, [[22, 2], [26, -8]], 1.2, 'rgba(30,26,22,0.8)'); speckle(g, r, 120, 0, -12, 44, 5, 'rgba(160,150,140,0.3)', 0.8); },
+    paintHind(g) { g.fillStyle = '#e88a2a'; g.fillRect(-5, -5, 35, 25); band(g, [[4, 14], [14, 17], [24, 14]], 1.4, 'rgba(60,40,24,0.7)'); },
+    body: { thorax: [7, 8], abdomen: [7, 20], fur: '#6a625a', furHi: '#9a928a', head: 4.5, paint(g) { for (const sx of [-1, 1]) blob(g, sx * 4, 14, 2, 1.6, 0, '#f4f0e8'); blob(g, 0, 22, 5, 2.5, 0, '#2a2420'); } },
+    antenna: { type: 'thick', len: 14, color: '#2a2420' },
   },
   polyphemus: {
     latin: 'Antheraea polyphemus', common: 'Polyphemus moth', span: 105,
