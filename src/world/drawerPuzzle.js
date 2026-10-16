@@ -33,7 +33,7 @@ function specimenTexture(key) {
   return boxTex[key];
 }
 // A small glass-topped specimen box; its face points along +z.
-function makeSpecimenBox(key) {
+export function makeSpecimenBox(key) {
   const g = new THREE.Group();
   const wood = mat({ map: tex.wood, color: 0x7a5a40, roughness: 0.55 });
   const W = 0.34, H = 0.28, D = 0.05;
@@ -206,18 +206,20 @@ export function buildHallway(group, local) {
   floor.rotation.x = -Math.PI / 2; floor.position.set((X0 + X1) / 2, 0, zc); floor.receiveShadow = true; group.add(floor);
   const ceil = new THREE.Mesh(new THREE.PlaneGeometry(X1 - X0, Z1 - Z0), mat({ color: 0x3a3a3a }));
   ceil.rotation.x = Math.PI / 2; ceil.position.set((X0 + X1) / 2, H, zc); group.add(ceil);
-  box(group, X1 - X0, H, 0.2, (X0 + X1) / 2, H / 2, Z0 - 0.1, wall, local);
-  box(group, X1 - X0, H, 0.2, (X0 + X1) / 2, H / 2, Z1 + 0.1, wall, local);
-  box(group, 0.2, H, Z1 - Z0, X1 + 0.1, H / 2, zc, wall, local);
-  for (const z of [Z0 + 0.02, Z1 - 0.02]) {
-    box(group, X1 - X0, 0.95, 0.03, (X0 + X1) / 2, 0.47, z, wains, null, { cast: false });
-    box(group, X1 - X0, 0.05, 0.06, (X0 + X1) / 2, 0.97, z, wains, null, { cast: false });
+  // north wall has the study doorway at x 14.4..15.6; the east end opens into the
+  // grand hall (that wall belongs to groundFloor.js)
+  for (const [a, b] of [[X0, 14.4], [15.6, X1]]) {
+    box(group, b - a, H, 0.2, (a + b) / 2, H / 2, Z0 - 0.1, wall, local);
+    box(group, b - a, 0.95, 0.03, (a + b) / 2, 0.47, Z0 + 0.02, wains, null, { cast: false });
+    box(group, b - a, 0.05, 0.06, (a + b) / 2, 0.97, Z0 + 0.02, wains, null, { cast: false });
   }
+  box(group, 1.2, H - 2.4, 0.2, 15, 2.4 + (H - 2.4) / 2, Z0 - 0.1, wall);
+  box(group, X1 - X0, H, 0.2, (X0 + X1) / 2, H / 2, Z1 + 0.1, wall, local);
+  box(group, X1 - X0, 0.95, 0.03, (X0 + X1) / 2, 0.47, Z1 - 0.02, wains, null, { cast: false });
+  box(group, X1 - X0, 0.05, 0.06, (X0 + X1) / 2, 0.97, Z1 - 0.02, wains, null, { cast: false });
   const rug = new THREE.Mesh(new THREE.PlaneGeometry(X1 - X0 - 1, 1.2), mat({ map: tex.rug, color: 0x9a8a8a }));
   rug.rotation.x = -Math.PI / 2; rug.position.set((X0 + X1) / 2 + 0.5, 0.01, zc); group.add(rug);
   const doorMat = mat({ map: tex.wood, color: 0x8a7462 });
-  box(group, 0.08, 2.5, 1.2, X1 - 0.02, 1.25, zc, doorMat, null, { cast: false });
-  box(group, 1.2, 2.5, 0.08, 15, 1.25, Z0 + 0.02, doorMat, null, { cast: false });
   box(group, 0.9, 0.8, 0.4, 12, 0.4, Z1 - 0.25, wains, local);
   const frame = new THREE.MeshStandardMaterial({ color: 0x5a4a2a, metalness: 0.5, roughness: 0.5 });
   box(group, 0.9, 1.1, 0.05, 12, 2.1, Z1 - 0.03, frame, null, { cast: false });

@@ -9,6 +9,7 @@ import { buildTextures } from './textures.js';
 import { buildExterior, SUN_DIR, CLIMB_SPOT, BROKEN_WINDOW, FRONT_DOOR, GATE, FENCE } from './world/exterior.js';
 import { buildFirstRoom, ROOM_LAMP, ROOM_SPAWN, ROOM_WINDOW, ROOM_DOOR, ROOM_ORIGIN, ROOM_CABINET, ROOM_MOSAIC, ROOM_STANDS, ROOM_PANEL } from './world/firstRoom.js';
 import { SPECIES } from './moths.js';
+import { JOURNAL } from './world/groundFloor.js';
 import { specimenCanvas } from './world/drawerPuzzle.js';
 import { Player } from './player.js';
 import { startAudio, setVolume, playThud, playGlass, playCreak, playGrind, playClick } from './audio.js';
@@ -48,7 +49,8 @@ const camera = new THREE.PerspectiveCamera(72, innerWidth / innerHeight, 0.08, 6
 
 buildTextures(settings.quality);
 const exterior = buildExterior(scene, settings.quality);
-const room = buildFirstRoom(scene, QUALITY.shadow);
+const room = buildFirstRoom(scene, QUALITY.shadow, settings.quality);
+const ground = room.ground;
 
 // low dusk sun: warm, raking, long shadows
 const moonLight = new THREE.DirectionalLight(0xffc49a, 3.0);
@@ -247,14 +249,25 @@ const interactables = [
       if (P.filled()) checkSequence();
     },
   })),
+  // ground floor doors
+  ...Object.values(ground.doors).map(d => ({
+    zone: 'room', pos: d.pos.clone().add(ROOM_ORIGIN), r: 1.3, when: () => !d.isOpen,
+    prompt: () => d.boarded ? 'E  examine the boarded door' : d.locked ? 'E  try the door' : 'E  open the door',
+    act: () => {
+      if (d.locked) { say(d.msg, 6000); playCreak(); return; }
+      d.open(); playThud(); if (d.openMsg) say(d.openMsg, 5000);
+    },
+  })),
   {
-    zone: 'room', pos: () => room.hall.endDoor, r: 1.4,
-    prompt: 'E  try the door', act: () => say('Locked. Something heavy has been pushed against it from the other side.'),
+    zone: 'room', pos: ground.journal.position.clone().add(ROOM_ORIGIN), r: 1.3, prompt: 'E  read the journal',
+    act: () => say(JOURNAL, 16000),
   },
-  {
-    zone: 'room', pos: () => room.hall.sideDoor, r: 1.3,
-    prompt: 'E  try the door', act: () => say('Locked. Through the keyhole, only darkness and the smell of camphor.'),
-  },
+  ...ground.mirrors.map(m => ({
+    zone: 'room', pos: m.pos.clone().add(ROOM_ORIGIN), r: 1.6, prompt: 'E  look in the mirror',
+    act: () => say(m.stage === 1
+      ? 'Your face, but not quite. The eyes are too dark, and there is a pale dust in your hair that will not brush out.'
+      : 'Something with your face looks back: black, glossy eyes, a ruff of pale fuzz at the throat, and behind its shoulders, folded, something like wings.', 7000),
+  })),
 ];
 let current = null;
 const ray = new THREE.Raycaster(); ray.far = 2.6;
@@ -272,6 +285,26 @@ function cabinetInteraction() {
   if (item && !P.held) return { prompt: `E  take the ${SPECIES[item].common}`, act: () => { P.takeFromDrawer(d); updateHeld(); } };
   if (!item && P.held) return { prompt: `E  put the ${SPECIES[P.held].common} in the drawer   ·   Q  close it`, act: () => { P.putIntoDrawer(d); updateHeld(); }, alt: () => { d.userData.target = 0; } };
   return { prompt: 'E  close the drawer', act: () => { d.userData.target = 0; } };
+}
+// the Specimen Study board: lift a case, then choose another to swap it with
+const BOARD_POS = new THREE.Vector3(ROOM_ORIGIN.x + 15.5, 0, ROOM_ORIGIN.z - 5.35);
+function lifespanInteraction() {
+  if (zone !== 'room' || Math.hypot(player.pos.x - BOARD_POS.x, player.pos.z - BOARD_POS.z) > 3.2) return null;
+  ray.setFromCamera(centre, camera); ray.far = 3.4;
+  const hit = ray.intersectObjects(ground.pickables, false)[0]; ray.far = 2.6;
+  if (!hit) return null;
+  const key = hit.object.userData.lifeCase, L = ground.lifespan, name = SPECIES[key].common;
+  if (L.solved) return { prompt: `${name}, ${SPECIES[key].latin}`, act: () => {} };
+  const lifted = L.lifted !== null ? L.order[L.lifted] : null;
+  const prompt = lifted === null ? `E  lift the ${name}` : lifted === key ? `E  hang the ${name} back` : `E  swap with the ${SPECIES[lifted].common}`;
+  return { prompt, act: () => {
+    const res = ground.useCase(key); playThud();
+    if (res === 'swapped' && ground.lifespanCorrect()) {
+      ground.solveLifespan(); playGrind();
+      say('The last case settles on its hook. Behind the walls, something heavy slides, and down the hallway a bolt draws back.', 7000);
+      save('study');
+    }
+  } };
 }
 // HUD: the specimen in hand
 function updateHeld() {
@@ -293,6 +326,7 @@ function checkSequence() {
   }
 }
 function findInteractable() {
+  const lb = lifespanInteraction(); if (lb) return lb;
   const cab = cabinetInteraction(); if (cab) return cab;
   let best = null, bd = Infinity;
   for (const it of interactables) {
@@ -322,7 +356,8 @@ function transition(mid) {
   setTimeout(() => { mid(); $('fade').style.opacity = 0; setTimeout(() => { state = 'playing'; player.enabled = true; }, 400); }, 550);
 }
 
-function save(checkpoint) { writeSave({ checkpoint, lampLit: room.lampOn, solved: room.puzzle.solved, battery: +flashlight.battery.toFixed(3), batteries: [...batteriesTaken] }); }
+function save(checkpoint) { writeSave({ checkpoint, lampLit: room.lampOn, solved: room.puzzle.solved, studySolved: ground.lifespan.solved, doorsOpen: Object.values(ground.doors).filter(d => d.isOpen).map(d => d.id), battery: +flashlight.battery.toFixed(3), batteries: [...batteriesTaken] }); }
+let grandHallSaved = false;
 function spawnAt(checkpoint, saved = {}) {
   room.resetPuzzle(); room.setLamp(!!saved.lampLit);
   flashlight.battery = saved.battery ?? 0.6; if (flashlight.on) flashlight.toggle();
@@ -330,7 +365,12 @@ function spawnAt(checkpoint, saved = {}) {
   for (const b of BATTERIES) b.mesh.visible = !batteriesTaken.has(b.id);
   updateBatteryHud();
   if (saved.solved) { room.puzzle.solveInstantly(); room.openPanel(true); }
+  ground.reset(); grandHallSaved = checkpoint === 'grandhall';
+  if (saved.studySolved) ground.solveLifespan();
+  for (const id of saved.doorsOpen || []) if (ground.doors[id]) ground.doors[id].open(true);
   updateHeld();
+  if (checkpoint === 'study') { setZone('room'); player.place(ROOM_ORIGIN.x + 15.5, ROOM_ORIGIN.z - 3.2, 0); return; }
+  if (checkpoint === 'grandhall') { setZone('room'); player.place(ROOM_ORIGIN.x + 21.4, ROOM_ORIGIN.z + 3.1, -Math.PI / 2); return; }
   if (checkpoint === 'hallway') { setZone('room'); player.place(room.hall.spawn.x, room.hall.spawn.z, -Math.PI / 2); return; }
   if (checkpoint === 'room') { setZone('room'); player.place(ROOM_SPAWN.x, ROOM_SPAWN.z, 0); }
   else if (checkpoint === 'grounds') { setZone('exterior'); player.place(CLIMB_SPOT.x, FENCE.front - 1.4, 0); }
@@ -357,7 +397,7 @@ function startGame(checkpoint, saved = {}) {
   startAudio(settings.volume);
   lock();
   if (!checkpoint) say('The Pale Wing house. Everyone at school says it’s haunted. Find a way past the fence.', 6000);
-  else say(checkpoint === 'hallway' ? 'You are back in the hallway.' : checkpoint === 'room' ? 'You are back in the drawing room.' : 'You are back on the grounds.');
+  else say(checkpoint === 'study' ? 'You are back in the Specimen Study.' : checkpoint === 'grandhall' ? 'You are back in the Grand Hall.' : checkpoint === 'hallway' ? 'You are back in the hallway.' : checkpoint === 'room' ? 'You are back in the drawing room.' : 'You are back on the grounds.');
 }
 function pause() {
   if (state !== 'playing') return;
@@ -419,7 +459,10 @@ function loop() {
   } else promptEl.textContent = '';
   flashlight.update(dt, t, player.moving, currentQ);
   if (state === 'playing' && flashlight.on) updateBatteryHud();
-  if (zone === 'room') room.update(t, dt);
+  if (zone === 'room') {
+    room.update(t, dt, camera);
+    if (state === 'playing' && !grandHallSaved && player.pos.x > ROOM_ORIGIN.x + 20.6) { grandHallSaved = true; save('grandhall'); say('The Grand Hall. Somewhere above, wings stir in the dark.', 5000); }
+  }
   else if (curtain) { curtain.rotation.x = -0.25 - Math.sin(t * 1.3) * 0.12 + Math.sin(t * 3.1) * 0.05; }
   if (state !== 'home') { if (currentQ.post && composer) composer.render(dt); else renderer.render(scene, camera); }
   requestAnimationFrame(loop);

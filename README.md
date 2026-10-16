@@ -25,6 +25,8 @@ The way in: climb the fence at the stone block left of the gate, then find the s
 
 Inside the first room the east door is stuck fast. Light the oil lamp and study the moth mosaic above the fireplace: in lamplight, five small moths show in the tiles of its lower border. Take boxed specimens from the cabinet drawers (E), one at a time, and set them on the five numbered stands (I to V) around the room in the mosaic's left-to-right order. Two specimens are decoys. A wrong order only rattles the frames, and you can pick specimens back up and rearrange them. The right order opens a hidden panel in the east wall onto the hallway, and the game saves there.
 
+Beyond the hallway, the ground floor follows the blueprint route: the **Specimen Study** (read the leader's journal on the desk, then rehang the five cases on the board by adult lifespan, shortest first, to unbolt the hallway's end door), the **Grand Hall** (the main stair is buried under a collapsed landing, the great moth mosaic is set into the floor, the front doors are boarded), the **Dining Room**, the **Servants' Passage** and the **Kitchen**, where the cellar stair is padlocked for now and the back stair is nailed shut. Two old mirrors, one in the hallway and one in the Grand Hall, show your reflection a little more moth-like each time. The game saves on solving the study and on entering the Grand Hall.
+
 Progress is saved automatically at save points (climbing the fence, entering the first room, unlocking the east door), and settings
 (mouse sensitivity, volume, brightness, field of view) are kept in `localStorage`. **Continue** on the home
 screen resumes from the last save point.
@@ -56,6 +58,8 @@ Any static server works (`npx serve`, etc.). An internet connection is needed to
 - `src/player.js` - first-person controller and collision
 - `src/world/exterior.js` - mansion, iron fence, grounds, sky
 - `src/world/firstRoom.js` - the drawing room behind the broken window, its oil lamp and door
+- `src/world/groundFloor.js` - study and lifespan board, grand hall, dining room, passage, kitchen, mirrors
+- `src/flashlight.js` - held torch, battery, beam, dust and moths
 - `src/world/drawerPuzzle.js` - specimen cabinet, numbered stands, sequence puzzle and the hallway
 - `src/moths.js` - species-accurate moth specimens (wing shapes, patterns, bodies, labels)
 - `src/textures.js` - canvas-generated textures, including the moth mosaics

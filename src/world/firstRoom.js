@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { tex } from '../textures.js';
 import { mat, box, rect, rep, rand } from './build.js';
 import { createPuzzle, buildHallway, STANDS } from './drawerPuzzle.js';
+import { buildGroundFloor } from './groundFloor.js';
 
 export const ROOM_ORIGIN = new THREE.Vector3(1000, 0, 0);
 const W = 14, D = 10, H = 4.6;
@@ -18,7 +19,7 @@ export const ROOM_PANEL = new THREE.Vector3(ROOM_ORIGIN.x + W / 2 - 0.6, 0, ROOM
 export const ROOM_STANDS = STANDS.map(s => new THREE.Vector3(ROOM_ORIGIN.x + s.pos[0] + Math.sin(s.ry) * 0.75, 0, ROOM_ORIGIN.z + s.pos[2] + Math.cos(s.ry) * 0.75));
 export const ROOM_MOSAIC = new THREE.Vector3(ROOM_ORIGIN.x, 0, ROOM_ORIGIN.z - 3.9);
 
-export function buildFirstRoom(scene, shadowSize = 2048) {
+export function buildFirstRoom(scene, shadowSize = 2048, quality = 'high') {
   const group = new THREE.Group();
   group.position.copy(ROOM_ORIGIN);
   scene.add(group);
@@ -115,6 +116,7 @@ export function buildFirstRoom(scene, shadowSize = 2048) {
   mosaic.position.set(0, 2.9, -D / 2 + 0.02); group.add(mosaic);
   const puzzle = createPuzzle(group, local, new THREE.Vector3(4.4, 0, -D / 2 + 0.36));
   const hall = buildHallway(group, local);
+  const ground = buildGroundFloor(group, local, { quality });
   const frameMat = mat({ color: 0x5a4a2a, metalness: 0.5, roughness: 0.5 });
   for (const [w, h, x, y] of [[2.6, 0.1, 0, 4.15], [2.6, 0.1, 0, 1.65], [0.1, 2.6, -1.25, 2.9], [0.1, 2.6, 1.25, 2.9]])
     box(group, w, h, 0.08, x, y, -D / 2 + 0.04, frameMat, null, { cast: false });
@@ -247,6 +249,11 @@ export function buildFirstRoom(scene, shadowSize = 2048) {
   // (box() uses world matrices) -> normalise: rects without world offset get shifted.
   const worldColliders = local.map(c => c.minX < 500 ? { ...c, minX: c.minX + ROOM_ORIGIN.x, maxX: c.maxX + ROOM_ORIGIN.x, minZ: c.minZ + ROOM_ORIGIN.z, maxZ: c.maxZ + ROOM_ORIGIN.z } : c);
   const panelCollider = worldColliders.find(c => c.panel);
+  const doorColliders = {}; for (const c of worldColliders) if (c.door) doorColliders[c.door] = c;
+  ground.bindColliders(
+    col => { const c = doorColliders[col.door], i = worldColliders.indexOf(c); if (i >= 0) worldColliders.splice(i, 1); },
+    col => { const c = doorColliders[col.door]; if (c && !worldColliders.includes(c)) worldColliders.push(c); },
+  );
 
   const baseFill = fill.intensity, baseBounce = bounce.intensity;
   let lampOn = false, panelOpen = false, panelAnim = 0;
@@ -257,7 +264,7 @@ export function buildFirstRoom(scene, shadowSize = 2048) {
     panel.position.set(W / 2 + T / 2 + a * 0.36, 0, 4.0 - b * 1.3);
   };
   return {
-    group, colliders: worldColliders,
+    group, colliders: worldColliders, ground,
     puzzle, drawers: puzzle.cabinet.drawers, pickables: puzzle.cabinet.pickables,
     hall: { spawn: toWorld(hall.spawn), endDoor: toWorld(hall.endDoor), sideDoor: toWorld(hall.sideDoor) },
     get lampOn() { return lampOn; },
@@ -279,8 +286,9 @@ export function buildFirstRoom(scene, shadowSize = 2048) {
       fill.color.set(on ? 0x8a6a5a : 0x6a5a70);
       bounce.intensity = on ? baseBounce * 0.6 : baseBounce;
     },
-    update(t, dt = 0.016) {
+    update(t, dt = 0.016, camera = null) {
       lamp.update(t); hall.update(t);
+      if (camera) ground.update(t, dt, camera);
       if (panelOpen && panelAnim < 1) { panelAnim = Math.min(1, panelAnim + dt * 0.35); placePanel(panelAnim); }
       puzzle.update(dt, t);
       const p = dg.attributes.position;
