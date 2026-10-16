@@ -8,16 +8,17 @@ import { buildTextures, tex } from './src/textures.js';
 import { buildMother, buildAttic } from './src/characters/mother.js';
 buildTextures('medium');
 const r = new THREE.WebGLRenderer({ antialias: true }); r.setPixelRatio(1); r.setSize(innerWidth, innerHeight); document.body.appendChild(r.domElement);
-r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 1.25; r.outputColorSpace = THREE.SRGBColorSpace; r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
+r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 1.1; r.outputColorSpace = THREE.SRGBColorSpace; r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
 const s = new THREE.Scene(); s.background = new THREE.Color(0x07070a); s.fog = new THREE.FogExp2(0x0a0a10, 0.06);
 s.add(buildAttic(tex.mosaicFloor));
 const m = buildMother(); s.add(m);
 // a soft key on her face from the candles below, and a cool rim from the window
-const key = new THREE.PointLight(0xf0dccc, 2.2, 4, 1.5); key.position.set(0.3, 1.6, 1.4); s.add(key);
+const key = new THREE.SpotLight(0xbcc8e8, 9, 9, 0.6, 0.8, 1.2); key.position.set(-1.2, 3.6, 2.6); key.target.position.set(0, 2.0, 0); s.add(key, key.target);
+const warm = new THREE.PointLight(0xffa860, 3.5, 4, 1.5); warm.position.set(0.5, 0.6, 1.3); s.add(warm);
 const cam = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 0.02, 40); s.add(cam);
 const VIEWS = {
-  front: [[0, 1.9, 4.2], [0, 1.75, 0]],
-  threequarter: [[2.4, 2.1, 3.0], [0, 1.8, 0]],
+  front: [[0, 2.0, 4.6], [0, 1.85, 0]],
+  threequarter: [[2.6, 2.2, 3.4], [0, 1.9, 0]],
   side: [[2.1, 2.0, 1.0], [0, 1.85, 0]],
   low: [[0.6, 0.5, 2.6], [0, 2.1, 0]],
   face: [[0.25, 2.62, 0.95], [0, 2.55, 0.05]],
