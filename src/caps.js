@@ -17,7 +17,7 @@ export function detectCaps() {
   const weak = software || /Intel.*(HD|UHD) Graphics [2-6]\d\d\b|Mali-[GT][0-7]\d\b|Adreno \(TM\) [3-5]\d\d/i.test(gpu);
   const defaultQuality = weak ? 'low' : (firefox || safari) ? 'medium' : 'high';
   // nearest-N point lights (a fixed count, so three.js never recompiles shaders on the move)
-  const maxLights = weak ? 6 : (firefox || safari) ? 8 : 12;
+  const maxLights = weak ? 8 : (firefox || safari) ? 8 : 12;
   return { firefox, safari, gpu, software, weak, defaultQuality, maxLights };
 }
 
@@ -38,7 +38,7 @@ export function createLightLimiter(scene, max) {
         let o = l.parent, vis = true; while (o) { if (!o.visible) { vis = false; break; } o = o.parent; }
         if (!vis) continue;
         l.getWorldPosition(p.v || (p.v = camera.position.clone()));
-        live.push([p.v.distanceToSquared(camera.position), l]);
+        live.push([p.v.distanceToSquared(camera.position) * (l.userData.fill ? 0.3 : 1), l]); // room fills win ties
       }
       live.sort((a, b) => a[0] - b[0]);
       live.forEach(([, l], i) => { l.visible = i < max; });

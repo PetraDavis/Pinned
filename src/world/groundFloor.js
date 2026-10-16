@@ -6,6 +6,7 @@
 // (x east, z south), so it shares the room zone, fog and colliders.
 import * as THREE from 'three';
 import { gasLampFixture } from './fixtures.js';
+import { buildLowerUpper } from './lowerUpper.js';
 import { buildGlassWindow, cultGlassTexture } from './stainedGlass.js';
 import { Reflector } from 'three/addons/objects/Reflector.js';
 import { tex } from '../textures.js';
@@ -360,12 +361,10 @@ export function buildGroundFloor(group, local, { quality: q0 = 'high' } = {}) {
   // =============== mirrors M1 (hallway) and M2 (grand hall) ===============
   // Each reflection shows the player a little more moth-like.
   const size = quality === 'low' ? 256 : quality === 'medium' ? 512 : 1024;
-  const avatars = [makeAvatar(1), makeAvatar(2)];
-  avatars.forEach(a => { a.visible = false; group.add(a); });
-  const mirrors = [
-    { id: 'M1', pos: new THREE.Vector3(17.6, 1.7, 4.78), ry: Math.PI, w: 0.9, h: 1.5, stage: 1 },
-    { id: 'M2', pos: new THREE.Vector3(20.32, 2.0, -3.0), ry: Math.PI / 2, w: 1.3, h: 2.3, stage: 2 },
-  ].map((m, i) => {
+  const avatars = [];
+  const mirrors = [];
+  function addMirror(m) {
+    const i = mirrors.length, av = makeAvatar(m.stage); av.visible = false; group.add(av); avatars.push(av);
     const mg = new THREE.Group(); mg.position.copy(m.pos); mg.rotation.y = m.ry; group.add(mg);
     const frame = new THREE.Mesh(new THREE.BoxGeometry(m.w + 0.16, m.h + 0.16, 0.05), new THREE.MeshStandardMaterial({ color: 0x8a6a30, metalness: 0.8, roughness: 0.35 }));
     frame.position.z = -0.02; mg.add(frame);
@@ -374,22 +373,27 @@ export function buildGroundFloor(group, local, { quality: q0 = 'high' } = {}) {
     // tarnish over the glass
     const tarnish = new THREE.Mesh(new THREE.PlaneGeometry(m.w, m.h), new THREE.MeshBasicMaterial({ map: tarnishTex(i), transparent: true, depthWrite: false }));
     tarnish.position.z = 0.008; mg.add(tarnish);
-    const orig = ref.onBeforeRender, av = avatars[i], world = new THREE.Vector3();
+    const orig = ref.onBeforeRender, world = new THREE.Vector3();
     ref.onBeforeRender = (renderer, scene, camera) => {
       ref.getWorldPosition(world);
       if (world.distanceTo(camera.position) > 9) return; // too far to matter: keep the last image
       av.visible = true; orig.call(ref, renderer, scene, camera); av.visible = false;
     };
-    return { ...m, group: mg, avatar: av, world: m.pos.clone() };
-  });
+    const out = { ...m, group: mg, avatar: av, world: m.pos.clone() }; mirrors.push(out); return out;
+  }
+  addMirror({ id: 'M1', pos: new THREE.Vector3(17.6, 1.7, 4.78), ry: Math.PI, w: 0.9, h: 1.5, stage: 1 });
+  addMirror({ id: 'M2', pos: new THREE.Vector3(20.32, 2.0, -3.0), ry: Math.PI / 2, w: 1.3, h: 2.3, stage: 2 });
+
+  // =============== the Cellar and the First Floor ===============
+  const lu = buildLowerUpper({ group, local, wall, room, plane, door, light, addMirror, doors, carpetTex, buildRubble });
 
   let hiss = 0; const tmpV = new THREE.Vector3();
   const api = {
     get hiss() { return hiss; },
-    dinner, note: noteMesh, doors, mirrors, lights, cases: Object.values(cases), lifespan: L,
+    lu, dinner, note: noteMesh, doors, mirrors, lights, cases: Object.values(cases), lifespan: L,
     journal: journalMesh,
     setQuality(q) { quality = q; glassWin.setQuality(q); },
-    bindColliders(remove, add) { removeCollider = remove; addColliderBack = add; },
+    bindColliders(remove, add) { removeCollider = remove; addColliderBack = add; lu.bindColliders(remove, add); },
     // aim interaction for the lifespan board cases (main.js raycasts against these)
     pickables: Object.values(cases).flatMap(b => { const out = []; b.traverse(o => o.isMesh && out.push(o)); return out; }),
     caseAt(key) { return L.order.indexOf(key); },
@@ -405,12 +409,14 @@ export function buildGroundFloor(group, local, { quality: q0 = 'high' } = {}) {
     reset() {
       L.order = [...START_ORDER]; L.lifted = null; L.solved = false; placeCases();
       for (const d of Object.values(doors)) { d.reset(); }
-      doors.grand.locked = true; dinner.reset();
+      doors.grand.locked = true; dinner.reset(); lu.reset();
+      for (const id of ['cWineEgg', 'fNurseryLeader', 'fLeaderBath', 'fBathLuna', 'fLeaderLinen']) doors[id].locked = true;
     },
     update(t, dt, camera) {
       glassWin.update(t);
       for (const d of Object.values(doors)) d.update(dt);
       dinner.update(dt, t);
+      lu.update(t, dt);
       // gas lights: a gentle waver; the creepier ones sputter, dip and now and then drop out
       hiss = 0;
       lights.forEach((l, i) => {

@@ -11,6 +11,7 @@ import { createLampMoths } from './lampMoths.js';
 import { buildFirstRoom, ROOM_LAMP, ROOM_SPAWN, ROOM_WINDOW, ROOM_DOOR, ROOM_ORIGIN, ROOM_CABINET, ROOM_MOSAIC, ROOM_STANDS, ROOM_PANEL } from './world/firstRoom.js';
 import { SPECIES } from './moths.js';
 import { JOURNAL, LIFESPAN_ORDER, SEATING_NOTE, DINNER_SOLUTION } from './world/groundFloor.js';
+import { CELLAR, FIRST, WARDROBE_VERSE, BOILER_NOTE, SILK_NOTE, PEPPERED_NOTE, DESK_CODE } from './world/lowerUpper.js';
 import { specimenCanvas } from './world/drawerPuzzle.js';
 import { Player } from './player.js';
 import { startAudio, setVolume, playThud, playGlass, playCreak, playGrind, playClick, setHiss, playSoftClicks } from './audio.js';
@@ -92,6 +93,8 @@ const LANTERNS = [
   { id: 'l2', zone: 'room', pos: new THREE.Vector3(ROOM_ORIGIN.x + 13.4, 0, ROOM_ORIGIN.z - 4.4) },
   { id: 'l3', zone: 'room', pos: new THREE.Vector3(ROOM_ORIGIN.x + 32.9, 0, ROOM_ORIGIN.z + 2.4) },
   { id: 'l4', zone: 'room', pos: new THREE.Vector3(ROOM_ORIGIN.x + 36.0, 0, ROOM_ORIGIN.z - 4.2) },
+  { id: 'l5', zone: 'room', pos: new THREE.Vector3(ROOM_ORIGIN.x + 37.6, 0, ROOM_ORIGIN.z + 45.6) },
+  { id: 'l6', zone: 'room', pos: new THREE.Vector3(ROOM_ORIGIN.x + 36.8, 0, ROOM_ORIGIN.z + 95.6) },
 ];
 let lanternsTaken = new Set();
 for (const l of LANTERNS) {
@@ -330,11 +333,62 @@ const interactables = [
   },
   ...ground.mirrors.map(m => ({
     zone: 'room', pos: m.pos.clone().add(ROOM_ORIGIN), r: 1.6, prompt: 'E  look in the mirror',
-    act: () => say(m.stage === 1
-      ? 'You look tired. Dust in your hair, a smudge on your cheek. Just you.'
-      : 'You, again. Paler than you remember, and somehow taller. The skin looks very smooth in this light.', 7000),
+    act: () => say(MIRROR_TEXT[m.stage] || MIRROR_TEXT[1], 7000),
   })),
+  // ---- stairs between floors ----
+  { zone: 'room', pos: W(ground.doors.stairC.pos), r: 1.3, when: () => ground.doors.stairC.isOpen, prompt: 'E  go down the cellar stairs',
+    act: () => transition(() => { player.place(ROOM_ORIGIN.x + CELLAR.spawn.x, ROOM_ORIGIN.z + CELLAR.spawn.z, Math.PI); playThud(); if (!visited.cellar) { visited.cellar = true; save('cellar'); say('The cellar. Cold stone, and under the cold, a faint warmth, like breath.', 6000); } }) },
+  { zone: 'room', pos: W(CELLAR.stairC), r: 1.2, prompt: 'E  climb up to the kitchen',
+    act: () => transition(() => player.place(ROOM_ORIGIN.x + 36.6, ROOM_ORIGIN.z - 9.3, Math.PI)) },
+  // TEMPORARY: cellar -> stair B shaft -> first floor, until the Catacombs exist (see lowerUpper.js)
+  { zone: 'room', pos: W(CELLAR.shaft), r: 1.2, prompt: () => ground.lu.shaftOpen ? 'E  climb the back stair' : 'E  try the gate',
+    act: () => {
+      if (!ground.lu.shaftOpen) { playCreak(); say('An iron gate across the old back stair, padlocked, the lock rusted into one lump. Somewhere above, the stair goes on into the dark.', 6000); return; }
+      transition(() => { player.place(ROOM_ORIGIN.x + FIRST.spawn.x, ROOM_ORIGIN.z + FIRST.spawn.z, Math.PI); playThud(); if (!visited.first) { visited.first = true; save('firstfloor'); say('The first floor. Silk everywhere, on the walls, in the corners, over the shapes on the trestles.', 7000); } });
+    } },
+  { zone: 'room', pos: W(FIRST.stairB), r: 1.1, prompt: 'E  go down the back stair',
+    act: () => transition(() => player.place(ROOM_ORIGIN.x + CELLAR.shaftFoot.x, ROOM_ORIGIN.z + CELLAR.shaftFoot.z, Math.PI)) },
+  { zone: 'room', pos: W(CELLAR.stairE), r: 1.5, prompt: 'E  look down the steps',
+    act: () => { playCreak(); say('Steps go on down, below the cellar, behind a locked grille. The air coming up smells of earth and something sweet. Not yet.', 6000); } },
+  { zone: 'room', pos: W(FIRST.ladderD), r: 1.2, prompt: 'E  try the ladder',
+    act: () => { playCreak(); say('The ladder goes up to a hatch in the ceiling, chained and padlocked. Above it, something heavy shifts, and is still.', 6000); } },
+  { zone: 'room', pos: W(FIRST.stairA), r: 1.3, prompt: 'E  look down the main stair',
+    act: () => say('The main stair, choked with the fallen landing. Far below, the Grand Hall. No way down here.', 5000) },
+  // ---- cellar ----
+  { zone: 'room', pos: W(ground.lu.wardrobe.pos), r: 1.3, prompt: () => ground.lu.wardOpen ? 'E  read the scratches inside the door' : 'E  open the wardrobe',
+    act: () => {
+      if (!ground.lu.wardOpen) { ground.lu.openWardrobe(); playCreak(); flashlight.scare && flashlight.scare(); say('The doors swing open and a cloud of tiny pale moths pours out, into your face, your hair. The coats inside are eaten to lace. There is writing scratched inside the door.', 8000); return; }
+      say(WARDROBE_VERSE, 14000);
+    } },
+  { zone: 'room', pos: W(ground.lu.boilerNote.position), r: 1.3, prompt: 'E  read the page', act: () => say(BOILER_NOTE, 12000) },
+  ...ground.lu.tiles.map(t => ({
+    zone: 'room', pos: W(t.pos), r: 0.5, when: () => !ground.lu.altarSolved && !t.pressed, prompt: `E  press the carved stone`,
+    act: () => {
+      const res = ground.lu.pressTile(t); playThud();
+      if (res === 'pressed') say(`The stone sinks into the altar with a grinding click.`, 2500);
+      if (res === 'wrong') { playCreak(); say('The stones grind back out, one after another. Wrong. The altar wants her life in its proper order.', 5000); }
+      if (res === 'solved') { playSoftClicks(4); playGrind(); say('The last stone sinks home. Deep in the walls, iron moves: back by the wine racks, a gate rattles and lifts.', 8000); save('chapel'); }
+    } })),
+  // ---- first floor ----
+  { zone: 'room', pos: W(ground.lu.silkNote.position), r: 1.3, prompt: 'E  read the note', act: () => say(SILK_NOTE, 11000) },
+  { zone: 'room', pos: W(ground.lu.pepNote.position), r: 1.3, prompt: 'E  read the card', act: () => say(PEPPERED_NOTE, 15000) },
+  { zone: 'room', pos: W(ground.lu.countdown.pos), r: 2.0, prompt: 'E  look at the wall',
+    act: () => say('Numbers scratched into the plaster with something sharp, counting down: sixty-six, sixty-five… each one struck through. The last, forty-eight, is circled again and again. Underneath: until I wake.', 10000) },
+  { zone: 'room', pos: W(ground.lu.desk.pos), r: 1.2, prompt: () => ground.lu.deskOpen ? 'An empty drawer.' : 'E  try the desk',
+    act: () => { if (ground.lu.deskOpen) return; openPadlock('desk'); } },
 ];
+function W(v) { return new THREE.Vector3(v.x, 0, v.z).add(ROOM_ORIGIN); }
+const visited = {};
+const MIRROR_TEXT = {
+  1: 'You look tired. Dust in your hair, a smudge on your cheek. Just you.',
+  2: 'You, again. Paler than you remember, and somehow taller. The skin looks very smooth in this light.',
+  3: 'Your eyes look darker than they should. Larger, too, or is it the candle? You blink. The reflection takes its time.',
+  4: 'A soft pale down along your hairline, like dust that will not brush away. Your skin has a faint powdery sheen.',
+  5: 'Your neck seems longer. Your fingers too. You are standing very, very still.',
+  6: 'Under the skin of your cheeks, faint markings, like the pattern on a wing seen through paper. You touch your face. Nothing there.',
+  7: 'Your eyes catch the light and throw it back, the way a cat’s do at night.',
+  8: 'Almost perfect. Almost you. It smiles a moment before you do.',
+};
 let current = null;
 const ray = new THREE.Raycaster(); ray.far = 2.6;
 const centre = new THREE.Vector2(0, 0);
@@ -403,6 +457,16 @@ HINTS.padlock = [
   'Four of the plates have a numeral and a figure underneath. Read them from I to IV.',
   'The padlock code is 1 8 8 7.',
 ];
+HINTS.altar = [
+  'The page above the boiler says to walk the clothes moth’s life at the altar, from the first day. Something in the boiler room may say how that life goes.',
+  'Open the wardrobe in the boiler room and read what is scratched inside its door. Each carved stone on the altar is one stage of that life.',
+  'Press the stones in this order: the eggs, the grub, the cocoon, the wings.',
+];
+HINTS.desk = [
+  'The desk in the leader’s room has a four-figure letter-lock. A card in the library is about it.',
+  'The card says eighteen-hundred-and-something: the rest is the number the girl in the Luna bedroom stopped counting at.',
+  'The desk code is 1 8 4 8.',
+];
 let hintState = {}, stuckTime = 0, nudged = {};
 function currentPuzzle() {
   if (zone !== 'room') return null;
@@ -415,6 +479,8 @@ const extraPuzzle = (x, z) => {
   const dining = x > 34.2 && x < 44 && z > 1 && z < 10, kitchen = x > 34.2 && x < 44 && z > -10 && z < -2.9;
   if ((dining || kitchen) && !ground.dinner.solved) return 'dinner';
   if ((dining || kitchen) && ground.doors.stairC.locked) return 'padlock';
+  if (x > 29 && x < 59 && z > 39 && z < 58 && !ground.lu.altarSolved) return 'altar';
+  if (x > 29 && x < 59 && z > 79 && z < 98 && !ground.lu.deskOpen) return 'desk';
   return null;
 };
 function showHint() {
@@ -445,12 +511,22 @@ function checkDinner() {
 // ---------- the cellar padlock: four brass dials ----------
 const dials = [0, 0, 0, 0]; let dialSel = 0;
 function drawDials() { document.querySelectorAll('#padlock .dial').forEach((el, i) => { el.querySelector('span').textContent = dials[i]; el.classList.toggle('sel', i === dialSel); }); }
-function openPadlock() {
+let padTarget = 'cellar';
+function openPadlock(target = 'cellar') {
+  padTarget = target; document.querySelector('#padlock h2').textContent = target === 'desk' ? 'A brass letter-lock on the desk drawer' : 'A brass padlock';
   state = 'padlock'; player.enabled = false; show('padlock', true); drawDials();
   if (document.pointerLockElement) document.exitPointerLock();
 }
 function closePadlock() { show('padlock', false); state = 'playing'; player.enabled = true; lock(); }
 function tryPadlock() {
+  if (padTarget === 'desk') {
+    if (dials.join('') === DESK_CODE) {
+      ground.lu.openDesk(); playThud(); closePadlock();
+      say('The dials click into line and the drawer slides out. Inside, on a brass tag stamped LINEN, a key. You take it.', 7000);
+      save('leader');
+    } else { playCreak(); $('padlockMsg').textContent = 'The drawer does not move.'; }
+    return;
+  }
   if (dials.join('') === '1887') {
     const d = ground.doors.stairC; d.locked = false; d.open(); playThud(); closePadlock();
     say('The shackle drops open. The door swings in on cold, damp air and stone steps going down.', 7000);
@@ -520,7 +596,7 @@ function transition(mid) {
   setTimeout(() => { mid(); $('fade').style.opacity = 0; setTimeout(() => { state = 'playing'; player.enabled = true; }, 400); }, 550);
 }
 
-function save(checkpoint) { writeSave({ checkpoint, lampLit: room.lampOn, solved: room.puzzle.solved, studySolved: ground.lifespan.solved, dinnerSolved: ground.dinner.solved, plates: ground.dinner.seats.filter(st => st.flipped).map(st => st.id), doorsOpen: Object.values(ground.doors).filter(d => d.isOpen).map(d => d.id), battery: +flashlight.battery.toFixed(3), batteries: [...batteriesTaken], lantern: lantern.have ? +lantern.fuel.toFixed(3) : null, lanterns: [...lanternsTaken] }); }
+function save(checkpoint) { writeSave({ checkpoint, lampLit: room.lampOn, solved: room.puzzle.solved, studySolved: ground.lifespan.solved, dinnerSolved: ground.dinner.solved, plates: ground.dinner.seats.filter(st => st.flipped).map(st => st.id), doorsOpen: Object.values(ground.doors).filter(d => d.isOpen).map(d => d.id), battery: +flashlight.battery.toFixed(3), batteries: [...batteriesTaken], lantern: lantern.have ? +lantern.fuel.toFixed(3) : null, lanterns: [...lanternsTaken], altarSolved: ground.lu.altarSolved, deskOpen: ground.lu.deskOpen, wardOpen: ground.lu.wardOpen, visited: { ...visited } }); }
 let grandHallSaved = false;
 function spawnAt(checkpoint, saved = {}) {
   room.resetPuzzle(); room.setLamp(!!saved.lampLit);
@@ -532,13 +608,22 @@ function spawnAt(checkpoint, saved = {}) {
   for (const b of BATTERIES) b.mesh.visible = !batteriesTaken.has(b.id);
   updateBatteryHud();
   if (saved.solved) { room.puzzle.solveInstantly(); room.openPanel(true); }
-  ground.reset(); grandHallSaved = checkpoint === 'grandhall';
+  ground.reset(); grandHallSaved = !!checkpoint && !['grounds', 'room', 'hallway', 'study'].includes(checkpoint);
   if (saved.studySolved) ground.solveLifespan();
   if (saved.dinnerSolved) ground.dinner.solve();
   for (const st of ground.dinner.seats) if ((saved.plates || []).includes(st.id)) { st.flipped = true; st.flip = 0; }
   if ((saved.doorsOpen || []).includes('stairC')) ground.doors.stairC.locked = false;
   for (const id of saved.doorsOpen || []) if (ground.doors[id]) ground.doors[id].open(true);
   updateHeld();
+  if (saved.altarSolved) ground.lu.solveAltar();
+  if (saved.deskOpen) ground.lu.openDesk();
+  if (saved.wardOpen) ground.lu.openWardrobe();
+  for (const k of Object.keys(visited)) delete visited[k]; Object.assign(visited, saved.visited || {});
+  const at = (v, yaw) => { setZone('room'); player.place(ROOM_ORIGIN.x + v.x, ROOM_ORIGIN.z + v.z, yaw); };
+  if (checkpoint === 'cellar') { at(CELLAR.spawn, Math.PI); return; }
+  if (checkpoint === 'chapel') { at({ x: 53.65, z: 43.2 }, 0); return; }
+  if (checkpoint === 'firstfloor') { at(FIRST.spawn, Math.PI); return; }
+  if (checkpoint === 'leader') { at({ x: 51.4, z: 82.6 }, 0); return; }
   if (checkpoint === 'dining') { setZone('room'); player.place(ROOM_ORIGIN.x + 35.2, ROOM_ORIGIN.z + 2.2, -Math.PI / 2); return; }
   if (checkpoint === 'kitchen') { setZone('room'); player.place(ROOM_ORIGIN.x + 36.6, ROOM_ORIGIN.z - 7.6, 0); return; }
   if (checkpoint === 'study') { setZone('room'); player.place(ROOM_ORIGIN.x + 15.5, ROOM_ORIGIN.z - 3.2, 0); return; }
@@ -569,7 +654,7 @@ function startGame(checkpoint, saved = {}) {
   startAudio(settings.volume);
   lock();
   if (!checkpoint) say('The Pale Wing house. Everyone at school says it’s haunted. Find a way past the fence.', 6000);
-  else say(checkpoint === 'dining' ? 'You are back in the dining room.' : checkpoint === 'kitchen' ? 'You are back in the kitchen, by the cellar door.' : checkpoint === 'study' ? 'You are back in the Specimen Study.' : checkpoint === 'grandhall' ? 'You are back in the Grand Hall.' : checkpoint === 'hallway' ? 'You are back in the hallway.' : checkpoint === 'room' ? 'You are back in the drawing room.' : 'You are back on the grounds.');
+  else say(checkpoint === 'cellar' ? 'You are back in the cellar, at the foot of the stairs.' : checkpoint === 'chapel' ? 'You are back in the chapel.' : checkpoint === 'firstfloor' ? 'You are back on the first floor.' : checkpoint === 'leader' ? 'You are back in the leader’s bedroom.' : checkpoint === 'dining' ? 'You are back in the dining room.' : checkpoint === 'kitchen' ? 'You are back in the kitchen, by the cellar door.' : checkpoint === 'study' ? 'You are back in the Specimen Study.' : checkpoint === 'grandhall' ? 'You are back in the Grand Hall.' : checkpoint === 'hallway' ? 'You are back in the hallway.' : checkpoint === 'room' ? 'You are back in the drawing room.' : 'You are back on the grounds.');
 }
 function pause() {
   if (state !== 'playing') return;
@@ -651,7 +736,7 @@ function loop() {
   if (state === 'playing' && flashlight.on) updateBatteryHud();
   if (zone === 'room') {
     room.update(t, dt, camera);
-    if (state === 'playing' && !grandHallSaved && player.pos.x > ROOM_ORIGIN.x + 20.6) { grandHallSaved = true; save('grandhall'); say('The Grand Hall. Somewhere above, wings stir in the dark.', 5000); }
+    if (state === 'playing' && !grandHallSaved && player.pos.x > ROOM_ORIGIN.x + 20.6 && player.pos.z < ROOM_ORIGIN.z + 12) { grandHallSaved = true; save('grandhall'); say('The Grand Hall. Somewhere above, wings stir in the dark.', 5000); }
   }
   else if (curtain) { curtain.rotation.x = -0.25 - Math.sin(t * 1.3) * 0.12 + Math.sin(t * 3.1) * 0.05; }
   if (state !== 'home') { if (currentQ.post && composer) composer.render(dt); else renderer.render(scene, camera); }
