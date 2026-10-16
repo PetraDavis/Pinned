@@ -1,5 +1,6 @@
 // Canvas-generated textures. No external assets.
 import * as THREE from 'three';
+import { drawMoth, drawLabel, SPECIES } from './moths.js';
 
 function rng(seed) {
   let s = seed >>> 0;
@@ -244,12 +245,23 @@ export function buildTextures(quality = 'high') {
     stains(g, w, h, 10, r, '150,140,130', 0.18);
   });
 
-  tex.sheet = canvasTex(128, 128, (g, w, h) => {
+  // off-white linen dust sheet: visible weave, grime and dust
+  tex.sheet = canvasTex(256, 256, (g, w, h) => {
     const r = rng(10);
-    g.fillStyle = '#a7a39a'; g.fillRect(0, 0, w, h);
-    stains(g, w, h, 18, r, '70,60,40', 0.2);
-    noise(g, w, h, 2000, r, 0.06);
-  });
+    g.fillStyle = '#bdb6a8'; g.fillRect(0, 0, w, h);
+    for (let y = 0; y < h; y += 2) { g.fillStyle = `rgba(80,70,55,${0.06 + r() * 0.06})`; g.fillRect(0, y, w, 1); }
+    for (let x = 0; x < w; x += 2) { g.fillStyle = `rgba(255,250,240,${0.04 + r() * 0.05})`; g.fillRect(x, 0, 1, h); }
+    stains(g, w, h, 22, r, '90,75,50', 0.18);
+    stains(g, w, h, 10, r, '200,195,185', 0.2);
+    noise(g, w, h, 3000, r, 0.05);
+  }, [1, 1], true, 1.2);
+  tex.velvet = canvasTex(128, 128, (g, w, h) => {
+    const r = rng(15);
+    g.fillStyle = '#4a1c22'; g.fillRect(0, 0, w, h);
+    stains(g, w, h, 14, r, '20,5,8', 0.35);
+    stains(g, w, h, 10, r, '160,150,140', 0.15); // dust
+    noise(g, w, h, 2500, r, 0.06);
+  }, [1, 1], true, 0.5);
 
   tex.rug = canvasTex(512, 384, (g, w, h) => {
     const r = rng(11);
@@ -292,7 +304,8 @@ export function buildTextures(quality = 'high') {
 
   tex.mosaic = makeMothMosaic(13);
   tex.mosaicFloor = makeMothMosaic(29, true);
-  tex.specimens = makeSpecimenCase();
+  tex.specimensA = makeSpecimenCase(['atropos', 'luna', 'rhipheus', 'atlas'], 31);
+  tex.specimensB = makeSpecimenCase(['betularia', 'mori', 'infusa', 'calyptra'], 57);
   tex.painting = canvasTex(256, 320, (g, w, h) => {
     const r = rng(14);
     const gr = g.createLinearGradient(0, 0, 0, h);
@@ -369,24 +382,21 @@ export function makeMothMosaic(seed, round = false) {
   return t;
 }
 
-function makeSpecimenCase() {
-  return canvasTex(512, 256, (g, w, h) => {
-    const r = rng(21);
-    g.fillStyle = '#c9c1a8'; g.fillRect(0, 0, w, h);
-    stains(g, w, h, 20, r, '90,70,40', 0.2);
-    for (let row = 0; row < 3; row++) for (let col = 0; col < 7; col++) {
-      const x = 40 + col * 68, y = 45 + row * 80, sc = 0.6 + r() * 0.5;
-      const hue = r();
-      g.save(); g.translate(x, y); g.scale(sc, sc);
-      g.fillStyle = hue < .3 ? '#6b5a3a' : hue < .6 ? '#8b8270' : hue < .8 ? '#3d3a35' : '#a08850';
-      for (const sx of [1, -1]) {
-        g.beginPath(); g.moveTo(0, -3); g.bezierCurveTo(sx * 10, -24, sx * 30, -20, sx * 26, -4); g.lineTo(0, 2); g.fill();
-        g.beginPath(); g.moveTo(0, 0); g.bezierCurveTo(sx * 20, 0, sx * 20, 18, sx * 6, 16); g.fill();
-      }
-      g.fillStyle = '#2a2016'; g.fillRect(-2, -10, 4, 24);
-      g.fillStyle = '#ddd'; g.beginPath(); g.arc(0, -6, 1.6, 0, 7); g.fill(); // the pin
-      g.restore();
-      g.fillStyle = '#4a4030'; g.fillRect(x - 12, y + 26, 24, 4); // label
-    }
+// Specimen drawers for the room's display cases: four real species each,
+// drawn at full resolution with handwritten labels.
+function makeSpecimenCase(keys, seed) {
+  const k = Math.min(Q, 4), w = 512 * k, h = 256 * k;
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const g = c.getContext('2d');
+  const r = rng(seed);
+  g.fillStyle = '#cbbf9e'; g.fillRect(0, 0, w, h);
+  g.save(); g.scale(k, k); stains(g, 512, 256, 20, r, '90,70,40', 0.18); g.restore();
+  grain(g, w, h, 6);
+  keys.forEach((key, i) => {
+    const cx = w * (0.125 + i * 0.25), span = w * (key === 'atlas' ? 0.23 : key === 'luna' ? 0.2 : 0.17) * (SPECIES[key].span / 105 * 0.5 + 0.5);
+    drawMoth(g, key, cx, h * 0.38, span, { seed: seed + i });
+    drawLabel(g, key, cx, h * 0.76, w * 0.2, `No. ${seed % 100 + i}`);
   });
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = ANISO[Q] || 8;
+  return t;
 }

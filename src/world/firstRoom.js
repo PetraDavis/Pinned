@@ -9,6 +9,7 @@ const W = 14, D = 10, H = 4.6;
 const WIN = { x: 2, w: 2.0, h: 2.6, sill: 0.75 }; // window in the +z wall
 export const ROOM_SPAWN = new THREE.Vector3(ROOM_ORIGIN.x + WIN.x, 0, ROOM_ORIGIN.z + D / 2 - 1.1);
 export const ROOM_WINDOW = new THREE.Vector3(ROOM_ORIGIN.x + WIN.x, 0, ROOM_ORIGIN.z + D / 2 - 0.4);
+export const ROOM_LAMP = new THREE.Vector3(ROOM_ORIGIN.x - 1.15, 0, ROOM_ORIGIN.z - 1.7);
 export const ROOM_DOOR = new THREE.Vector3(ROOM_ORIGIN.x + W / 2 - 0.4, 0, ROOM_ORIGIN.z - 1);
 
 export function buildFirstRoom(scene, shadowSize = 2048) {
@@ -103,22 +104,18 @@ export function buildFirstRoom(scene, shadowSize = 2048) {
     wax.position.set(x, 1.83, -D / 2 + 0.3); group.add(wax);
   }
 
-  // a dust-sheeted sofa
-  const sheet = mat({ map: tex.sheet, color: 0xb0aca4 });
+  // a Victorian sofa, half covered by a dust sheet
   const sofa = new THREE.Group(); sofa.position.set(-1, 0, 0.6); group.add(sofa);
-  box(sofa, 2.6, 0.5, 1.0, 0, 0.35, 0, sheet); box(sofa, 2.6, 0.7, 0.25, 0, 0.9, -0.4, sheet);
-  for (const s of [-1, 1]) box(sofa, 0.25, 0.4, 1.0, s * 1.3, 0.75, 0, sheet);
-  const drape = new THREE.Mesh(new THREE.ConeGeometry(1.7, 1.4, 4, 1, true), sheet);
-  drape.rotation.y = Math.PI / 4; drape.scale.set(1, 0.6, 0.45); drape.position.set(0, 0.6, 0); sofa.add(drape);
+  buildSofa(sofa, dark);
   rect(local, -2.4, 0.4, 0.05, 1.15);
 
-  // round table with a candelabra and a book
+  // round table with an oil lamp and a book
   const table = new THREE.Group(); table.position.set(-1, 0, -1.6); group.add(table);
   const top0 = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 0.06, 24), dark); top0.position.y = 0.75; top0.castShadow = true; table.add(top0);
   const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.12, 0.72, 8), dark); leg.position.y = 0.37; table.add(leg);
   const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.4, 0.06, 12), dark); foot.position.y = 0.03; table.add(foot);
   box(table, 0.32, 0.06, 0.24, 0.2, 0.81, 0.1, mat({ color: 0x3a1f1a }), null, { ry: 0.4 });
-  const cand = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.09, 0.5, 8), frameMat); cand.position.set(-0.2, 1.03, -0.1); table.add(cand);
+  const lamp = buildOilLamp(); lamp.group.position.set(-0.15, 0.78, -0.1); table.add(lamp.group);
   rect(local, -1.75, -0.25, -2.35, -0.85);
 
   // tipped-over armchair
@@ -158,11 +155,11 @@ export function buildFirstRoom(scene, shadowSize = 2048) {
   rect(local, -W / 2, -W / 2 + 0.6, 2.3, 2.9);
 
   // pinned-moth display cases on the right wall
-  for (const z of [-2.6, 0.2]) {
-    const cs = new THREE.Group(); cs.position.set(W / 2 - 0.05, 2.0, z); cs.rotation.y = -Math.PI / 2; group.add(cs);
-    box(cs, 2.0, 1.0, 0.08, 0, 0, 0, dark, null, { cast: false });
-    const back = new THREE.Mesh(new THREE.PlaneGeometry(1.85, 0.85), mat({ map: tex.specimens })); back.position.z = 0.05; cs.add(back);
-    const glass = new THREE.Mesh(new THREE.PlaneGeometry(1.85, 0.85), new THREE.MeshStandardMaterial({ color: 0x8899aa, transparent: true, opacity: 0.15, roughness: 0.05, metalness: 1 }));
+  for (const [z, specimens] of [[-2.6, tex.specimensA], [0.2, tex.specimensB]]) {
+    const cs = new THREE.Group(); cs.position.set(W / 2 - 0.05, 1.75, z); cs.rotation.y = -Math.PI / 2; group.add(cs);
+    box(cs, 2.4, 1.3, 0.1, 0, 0, 0, dark, null, { cast: false });
+    const back = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 1.1), mat({ map: specimens, roughness: 0.85 })); back.position.z = 0.05; cs.add(back);
+    const glass = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 1.1), new THREE.MeshStandardMaterial({ color: 0x8899aa, transparent: true, opacity: 0.15, roughness: 0.05, metalness: 1 }));
     glass.position.z = 0.1; cs.add(glass);
   }
   // sideboard under the cases
@@ -209,9 +206,20 @@ export function buildFirstRoom(scene, shadowSize = 2048) {
   // (box() uses world matrices) -> normalise: rects without world offset get shifted.
   const worldColliders = colliders.map(c => c.minX < 500 ? { minX: c.minX + ROOM_ORIGIN.x, maxX: c.maxX + ROOM_ORIGIN.x, minZ: c.minZ + ROOM_ORIGIN.z, maxZ: c.maxZ + ROOM_ORIGIN.z } : c);
 
+  const baseFill = fill.intensity, baseBounce = bounce.intensity;
+  let lampOn = false;
   return {
     group, colliders: worldColliders,
+    get lampOn() { return lampOn; },
+    setLamp(on) {
+      lampOn = on; lamp.set(on);
+      // the room warms up a little when the lamp is lit
+      fill.intensity = on ? baseFill * 1.2 : baseFill;
+      fill.color.set(on ? 0x8a6a5a : 0x6a5a70);
+      bounce.intensity = on ? baseBounce * 0.6 : baseBounce;
+    },
     update(t) {
+      lamp.update(t);
       const p = dg.attributes.position;
       for (let i = 0; i < N; i++) {
         let y = p.getY(i) - 0.0015 + Math.sin(t * 0.7 + i) * 0.0008;
@@ -232,4 +240,124 @@ function outsideTex() {
   for (let x = 0; x < 256; x += 7) g.fillRect(x, 120, 2, 50); // the fence, far off
   g.fillRect(0, 128, 256, 2);
   return new THREE.CanvasTexture(c);
+}
+
+// Victorian brass oil lamp: weighted base, glass font, brass burner, tall glass chimney.
+function buildOilLamp() {
+  const group = new THREE.Group();
+  const brass = new THREE.MeshStandardMaterial({ color: 0xb08a40, metalness: 0.9, roughness: 0.32 });
+  const lathe = (pts, m, segs = 32) => { const mesh = new THREE.Mesh(new THREE.LatheGeometry(pts.map(([x, y]) => new THREE.Vector2(x, y)), segs), m); mesh.castShadow = true; mesh.receiveShadow = true; group.add(mesh); return mesh; };
+  // base and stem
+  lathe([[0, 0], [0.085, 0], [0.09, 0.012], [0.07, 0.03], [0.04, 0.05], [0.025, 0.09], [0.03, 0.12], [0.05, 0.14], [0, 0.14]], brass);
+  // glass font holding the oil (amber, with a liquid level inside)
+  const fontGlass = new THREE.MeshPhysicalMaterial({ color: 0xd8a860, roughness: 0.05, transmission: 0.7, thickness: 0.02, transparent: true, opacity: 0.55, clearcoat: 1 });
+  lathe([[0.03, 0.14], [0.07, 0.16], [0.085, 0.2], [0.075, 0.24], [0.035, 0.26], [0.02, 0.265]], fontGlass);
+  lathe([[0, 0.145], [0.065, 0.15], [0.075, 0.19], [0, 0.19]], new THREE.MeshStandardMaterial({ color: 0x6a3a10, roughness: 0.2, transparent: true, opacity: 0.8 }));
+  // burner, gallery and wick knob
+  lathe([[0.022, 0.265], [0.03, 0.27], [0.032, 0.3], [0.045, 0.31], [0.045, 0.32], [0.03, 0.325], [0, 0.325]], brass);
+  const knob = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.01, 12), brass);
+  knob.rotation.z = Math.PI / 2; knob.position.set(0.05, 0.3, 0); group.add(knob);
+  // chimney glass: bulbous lower part and tall neck
+  const chimneyMat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.04, transmission: 0.9, thickness: 0.005, transparent: true, opacity: 0.28, emissive: 0x000000, side: THREE.DoubleSide, depthWrite: false });
+  lathe([[0.034, 0.32], [0.05, 0.35], [0.055, 0.39], [0.04, 0.43], [0.026, 0.46], [0.024, 0.6], [0.027, 0.61]], chimneyMat);
+  // flame: a teardrop that glows, plus a soft halo sprite
+  const flameMat = new THREE.MeshBasicMaterial({ color: 0xffc070, transparent: true, opacity: 0.95 });
+  const flame = lathe([[0, 0.33], [0.007, 0.338], [0.009, 0.35], [0.006, 0.365], [0, 0.39]], flameMat, 12);
+  flame.castShadow = false;
+  const hc = document.createElement('canvas'); hc.width = hc.height = 128; const hg = hc.getContext('2d');
+  const gr = hg.createRadialGradient(64, 64, 0, 64, 64, 64); gr.addColorStop(0, 'rgba(255,200,120,0.9)'); gr.addColorStop(0.25, 'rgba(255,150,60,0.35)'); gr.addColorStop(1, 'rgba(255,120,40,0)');
+  hg.fillStyle = gr; hg.fillRect(0, 0, 128, 128);
+  const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(hc), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+  halo.scale.set(0.35, 0.35, 1); halo.position.y = 0.37; group.add(halo);
+  const light = new THREE.PointLight(0xffa850, 0, 9, 1.6);
+  light.position.y = 0.42; light.castShadow = true; light.shadow.mapSize.set(1024, 1024); light.shadow.bias = -0.002; light.shadow.radius = 4;
+  group.add(light);
+  let on = false;
+  const set = v => { on = v; flame.visible = halo.visible = v; light.intensity = v ? 9 : 0; chimneyMat.emissive.set(v ? 0x3a2008 : 0x000000); };
+  set(false);
+  return {
+    group, set,
+    update(t) {
+      if (!on) return;
+      const f = 1 + Math.sin(t * 11) * 0.04 + Math.sin(t * 23.7) * 0.03 + Math.sin(t * 4.3) * 0.05;
+      light.intensity = 9 * f; flame.scale.set(1, 0.9 + f * 0.12, 1); halo.material.opacity = 0.75 + (f - 1) * 2;
+    },
+  };
+}
+
+// Box with rounded edges (subdivided box whose vertices are pushed onto a rounded shell).
+function roundedBox(w, h, d, rad, seg = 6) {
+  const geo = new THREE.BoxGeometry(w, h, d, seg, seg, seg);
+  const p = geo.attributes.position, v = new THREE.Vector3(), inner = new THREE.Vector3(w / 2 - rad, h / 2 - rad, d / 2 - rad);
+  for (let i = 0; i < p.count; i++) {
+    v.fromBufferAttribute(p, i);
+    const c = new THREE.Vector3(THREE.MathUtils.clamp(v.x, -inner.x, inner.x), THREE.MathUtils.clamp(v.y, -inner.y, inner.y), THREE.MathUtils.clamp(v.z, -inner.z, inner.z));
+    const n = v.clone().sub(c); if (n.lengthSq() > 0) n.normalize().multiplyScalar(rad);
+    p.setXYZ(i, c.x + n.x, c.y + n.y, c.z + n.z);
+  }
+  geo.computeVertexNormals();
+  return geo;
+}
+
+function buildSofa(sofa, wood) {
+  const velvet = mat({ map: tex.velvet, color: 0xb0a0a0 });
+  const part = (geo, m, x, y, z, rx = 0, rz = 0) => {
+    const mesh = new THREE.Mesh(geo, m); mesh.position.set(x, y, z); mesh.rotation.set(rx, 0, rz);
+    mesh.castShadow = mesh.receiveShadow = true; sofa.add(mesh); return mesh;
+  };
+  part(roundedBox(2.7, 0.3, 0.95, 0.06), velvet, 0, 0.32, 0);                       // seat base
+  for (let i = 0; i < 3; i++) part(roundedBox(0.86, 0.17, 0.8, 0.07), velvet, -0.87 + i * 0.87, 0.55, 0.05); // cushions
+  part(roundedBox(2.6, 0.62, 0.2, 0.09), velvet, 0, 0.86, -0.4, -0.12);             // back
+  part(roundedBox(2.4, 0.12, 0.16, 0.05), velvet, 0, 1.2, -0.44);                   // back crest
+  for (const s of [-1, 1]) {
+    part(roundedBox(0.2, 0.42, 0.95, 0.07), velvet, s * 1.28, 0.6, 0);               // arm panel
+    const roll = part(new THREE.CapsuleGeometry(0.12, 0.72, 6, 16), velvet, s * 1.32, 0.82, 0.02, Math.PI / 2);
+    roll.rotation.set(Math.PI / 2, 0, 0);
+    for (const z of [-0.38, 0.38]) {                                                 // turned legs
+      const leg = part(new THREE.LatheGeometry([[0.0, 0], [0.03, 0], [0.04, 0.04], [0.025, 0.09], [0.045, 0.14], [0.035, 0.18], [0, 0.18]].map(([a, b]) => new THREE.Vector2(a, b)), 12), wood, s * 1.22, 0, z);
+      leg.scale.y = 1;
+    }
+  }
+  // dust sheet draped over the left two-thirds: a height field over the sofa,
+  // falling away past the edges into soft hanging folds that pool on the floor
+  const x0 = -1.95, x1 = 0.55, z0 = -0.95, z1 = 0.95, NX = 90, NZ = 70;
+  const sofaH = (x, z) => {
+    if (Math.abs(x) > 1.42 || Math.abs(z) > 0.5) return -1;
+    let h = 0.68;
+    if (z < -0.28) h = 1.27;
+    if (Math.abs(x) > 1.16) h = Math.max(h, 0.95);
+    return h;
+  };
+  const H = new Float32Array((NX + 1) * (NZ + 1));
+  for (let j = 0; j <= NZ; j++) for (let i = 0; i <= NX; i++) {
+    const x = x0 + (x1 - x0) * i / NX, z = z0 + (z1 - z0) * j / NZ;
+    let h = sofaH(x, z);
+    if (h < 0) {
+      const cx = THREE.MathUtils.clamp(x, -1.42, 1.42), cz = THREE.MathUtils.clamp(z, -0.5, 0.5);
+      const d = Math.hypot(x - cx, z - cz);
+      h = sofaH(cx, cz) - d * 4.2;
+    }
+    H[j * (NX + 1) + i] = h;
+  }
+  for (let pass = 0; pass < 4; pass++) {
+    const T = H.slice();
+    for (let j = 1; j < NZ; j++) for (let i = 1; i < NX; i++) {
+      const k = j * (NX + 1) + i;
+      H[k] = (T[k] * 4 + T[k - 1] + T[k + 1] + T[k - NX - 1] + T[k + NX + 1]) / 8;
+    }
+  }
+  const geo = new THREE.PlaneGeometry(x1 - x0, z1 - z0, NX, NZ); geo.rotateX(-Math.PI / 2);
+  const p = geo.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i) + (x0 + x1) / 2, z = p.getZ(i) + (z0 + z1) / 2;
+    const gi = Math.round((x - x0) / (x1 - x0) * NX), gj = Math.round((z - z0) / (z1 - z0) * NZ);
+    let y = H[gj * (NX + 1) + gi];
+    const hang = THREE.MathUtils.clamp((0.7 - y) / 0.7, 0, 1);
+    y += Math.sin(x * 23 + z * 3) * 0.018 * hang + Math.sin(z * 31 - x * 5) * 0.014 * hang + Math.sin(x * 7 + z * 9) * 0.01; // folds
+    y = Math.max(y, 0.012 + Math.abs(Math.sin(x * 13 + z * 17)) * 0.015);           // pooled hem
+    p.setXYZ(i, x + Math.sin(z * 19) * 0.02 * hang, y + 0.03, z + Math.sin(x * 19) * 0.02 * hang);
+  }
+  geo.computeVertexNormals();
+  const cloth = new THREE.Mesh(geo, mat({ map: rep(tex.sheet, 3, 2), color: 0xd8d2c6, side: THREE.DoubleSide, bump: 0.8 }));
+  cloth.castShadow = cloth.receiveShadow = true; sofa.add(cloth);
 }

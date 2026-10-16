@@ -1,143 +1,123 @@
-// Home screen backdrop: a pinned moth in a Victorian display case behind dusty glass.
-// The moth's wings twitch now and then, as if it is not quite dead.
+// Home screen backdrop: a death's-head hawkmoth pinned in a Victorian display case
+// behind dusty glass. The wings twitch now and then, as if it is not quite dead.
+// Everything static is pre-rendered at device resolution on resize; each frame only
+// composites the layers, the twitching wings and the dust.
+import { renderMothLayers, drawLabel } from './moths.js';
+
+const SPECIES = 'atropos';
+
 export function startHomeBackdrop(canvas) {
   const g = canvas.getContext('2d');
-  let w, h, running = true, raf;
-  const dust = Array.from({ length: 70 }, () => ({ x: Math.random(), y: Math.random(), v: 0.002 + Math.random() * 0.006, s: 0.5 + Math.random() * 1.5 }));
-  // static backing paper with stains, regenerated on resize
-  let paper;
-  const resize = () => {
-    w = canvas.width = innerWidth; h = canvas.height = innerHeight;
-    paper = document.createElement('canvas'); paper.width = 512; paper.height = 384;
-    const p = paper.getContext('2d');
-    p.fillStyle = '#b8ad90'; p.fillRect(0, 0, 512, 384);
-    for (let i = 0; i < 40; i++) {
-      const x = Math.random() * 512, y = Math.random() * 384, r = 10 + Math.random() * 70;
-      const gr = p.createRadialGradient(x, y, 0, x, y, r);
-      gr.addColorStop(0, 'rgba(90,65,35,0.18)'); gr.addColorStop(1, 'rgba(90,65,35,0)');
-      p.fillStyle = gr; p.fillRect(x - r, y - r, r * 2, r * 2);
-    }
-    for (let i = 0; i < 4000; i++) { const v = Math.random() * 255; p.fillStyle = `rgba(${v},${v},${v},0.05)`; p.fillRect(Math.random() * 512, Math.random() * 384, 2, 2); }
-  };
-  resize(); addEventListener('resize', resize);
-
-  // twitch state: occasional small, quick wing movements
+  let running = true, raf, W, H, dpr, L;
+  const dust = Array.from({ length: 80 }, () => ({ x: Math.random(), y: Math.random(), v: 0.002 + Math.random() * 0.006, s: 0.5 + Math.random() * 1.5 }));
   let twitchStart = -10, twitchAmp = 0, nextTwitch = 2.5;
 
-  function wingPath(sx, upper, s) {
-    g.beginPath();
-    if (upper) {
-      g.moveTo(0, -6 * s);
-      g.bezierCurveTo(sx * 30 * s, -70 * s, sx * 120 * s, -78 * s, sx * 128 * s, -30 * s);
-      g.bezierCurveTo(sx * 120 * s, -4 * s, sx * 60 * s, 4 * s, 0, 4 * s);
-    } else {
-      g.moveTo(0, 2 * s);
-      g.bezierCurveTo(sx * 80 * s, 0, sx * 100 * s, 60 * s, sx * 60 * s, 80 * s);
-      g.bezierCurveTo(sx * 30 * s, 90 * s, sx * 8 * s, 40 * s, 0, 24 * s);
-    }
-    g.closePath();
+  function layout() {
+    const narrow = W < 800 * dpr;
+    const cw = Math.min(narrow ? W * 0.92 : W * 0.5, H * 0.95 * 4 / 3), ch = cw * 0.75;
+    const cx = narrow ? W / 2 : W * 0.66, cy = narrow ? H * 0.3 : H * 0.5;
+    const b = cw * 0.065;
+    return { cw, ch, cx, cy, x0: cx - cw / 2, y0: cy - ch / 2, b, ix: cx - cw / 2 + b, iy: cy - ch / 2 + b, iw: cw - 2 * b, ih: ch - 2 * b };
   }
 
-  function moth(cx, cy, s, t) {
-    let k = 0;
-    const dt = t - twitchStart;
-    if (dt < 0.5) k = Math.sin(dt / 0.5 * Math.PI * 3) * Math.exp(-dt * 6) * twitchAmp;
-    if (t > nextTwitch) { twitchStart = t; twitchAmp = 0.12 + Math.random() * 0.18; nextTwitch = t + 3 + Math.random() * 7; }
-    const breathe = Math.sin(t * 0.8) * 0.006;
-    // shadow on the paper
-    g.save(); g.translate(cx + 10 * s, cy + 14 * s); g.fillStyle = 'rgba(40,28,15,0.35)'; g.filter = 'blur(6px)';
-    for (const sx of [-1, 1]) { wingPath(sx, true, s); g.fill(); wingPath(sx, false, s); g.fill(); }
-    g.restore();
-    for (const sx of [-1, 1]) {
-      g.save(); g.translate(cx, cy);
-      g.scale(1 - Math.abs(k) * 0.9 - breathe, 1); g.rotate(sx * k * 0.25);
-      // hindwing
-      let gr = g.createLinearGradient(0, 0, sx * 100 * s, 80 * s);
-      gr.addColorStop(0, '#8a6f4a'); gr.addColorStop(1, '#c2a679');
-      g.fillStyle = gr; wingPath(sx, false, s); g.fill();
-      g.fillStyle = '#5c1b1b'; g.beginPath(); g.arc(sx * 52 * s, 46 * s, 11 * s, 0, 7); g.fill();
-      g.fillStyle = '#e8dfc4'; g.beginPath(); g.arc(sx * 52 * s, 46 * s, 4 * s, 0, 7); g.fill();
-      // forewing
-      gr = g.createLinearGradient(0, 0, sx * 128 * s, -40 * s);
-      gr.addColorStop(0, '#9c8664'); gr.addColorStop(0.6, '#d6cdb2'); gr.addColorStop(1, '#a89470');
-      g.fillStyle = gr; wingPath(sx, true, s); g.fill();
-      g.strokeStyle = 'rgba(70,50,30,0.5)'; g.lineWidth = 1.2 * s;
-      for (let v = 0; v < 5; v++) { g.beginPath(); g.moveTo(0, -2 * s); g.quadraticCurveTo(sx * (40 + v * 15) * s, -40 * s + v * 6 * s, sx * (90 + v * 8) * s, (-55 + v * 12) * s); g.stroke(); }
-      g.fillStyle = '#4a1414'; g.beginPath(); g.arc(sx * 78 * s, -36 * s, 14 * s, 0, 7); g.fill();
-      g.fillStyle = '#e8dfc4'; g.beginPath(); g.arc(sx * 78 * s, -36 * s, 5 * s, 0, 7); g.fill();
-      g.strokeStyle = 'rgba(60,40,20,0.7)'; g.lineWidth = 2 * s; wingPath(sx, true, s); g.stroke();
-      // antenna
-      g.strokeStyle = '#4a3726'; g.lineWidth = 1.6 * s;
-      g.beginPath(); g.moveTo(0, -30 * s); g.quadraticCurveTo(sx * 14 * s, -64 * s, sx * 34 * s, -72 * s); g.stroke();
-      g.restore();
+  function layer(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return [c, c.getContext('2d')]; }
+
+  function build() {
+    dpr = Math.min(devicePixelRatio || 1, 3);
+    W = canvas.width = Math.round(innerWidth * dpr); H = canvas.height = Math.round(innerHeight * dpr);
+    canvas.style.width = innerWidth + 'px'; canvas.style.height = innerHeight + 'px';
+    const P = layout();
+    // ---- static case layer ----
+    const [st, s] = layer(W, H);
+    s.fillStyle = '#060504'; s.fillRect(0, 0, W, H);
+    // mahogany frame with grain, mitred corners and a gilt slip
+    const wood = s.createLinearGradient(P.x0, P.y0, P.x0 + P.cw, P.y0 + P.ch);
+    wood.addColorStop(0, '#4a2c18'); wood.addColorStop(0.5, '#33200f'); wood.addColorStop(1, '#1e1108');
+    s.fillStyle = wood; s.fillRect(P.x0, P.y0, P.cw, P.ch);
+    s.save(); s.beginPath(); s.rect(P.x0, P.y0, P.cw, P.ch); s.clip();
+    for (let i = 0; i < 900; i++) {
+      const horiz = Math.random() < 0.5, t = Math.random();
+      s.strokeStyle = `rgba(${Math.random() < 0.5 ? '10,5,2' : '120,70,35'},${0.08 + Math.random() * 0.15})`; s.lineWidth = dpr * (0.5 + Math.random());
+      s.beginPath();
+      if (horiz) { const y = P.y0 + t * P.ch; s.moveTo(P.x0, y); s.bezierCurveTo(P.x0 + P.cw * 0.3, y + (Math.random() - 0.5) * 6 * dpr, P.x0 + P.cw * 0.7, y + (Math.random() - 0.5) * 6 * dpr, P.x0 + P.cw, y); }
+      else { const x = P.x0 + t * P.cw; s.moveTo(x, P.y0); s.bezierCurveTo(x + (Math.random() - 0.5) * 6 * dpr, P.y0 + P.ch * 0.3, x + (Math.random() - 0.5) * 6 * dpr, P.y0 + P.ch * 0.7, x, P.y0 + P.ch); }
+      s.stroke();
     }
-    // body
-    g.fillStyle = '#4a3726';
-    g.beginPath(); g.ellipse(cx, cy + 8 * s, 8 * s, 40 * s, 0, 0, 7); g.fill();
-    g.beginPath(); g.arc(cx, cy - 30 * s, 8 * s, 0, 7); g.fill();
-    g.strokeStyle = 'rgba(30,20,10,0.6)'; g.lineWidth = 1;
-    for (let i = 0; i < 6; i++) { g.beginPath(); g.moveTo(cx - 7 * s, cy + (i * 9 - 4) * s); g.lineTo(cx + 7 * s, cy + (i * 9 - 4) * s); g.stroke(); }
-    // the pin
-    g.fillStyle = '#ddd'; g.beginPath(); g.arc(cx, cy - 12 * s, 3.5 * s, 0, 7); g.fill();
-    g.fillStyle = 'rgba(255,255,255,0.8)'; g.beginPath(); g.arc(cx - 1 * s, cy - 13 * s, 1.2 * s, 0, 7); g.fill();
+    s.restore();
+    s.strokeStyle = 'rgba(0,0,0,0.5)'; s.lineWidth = dpr;
+    for (const [a, b2] of [[[P.x0, P.y0], [P.ix, P.iy]], [[P.x0 + P.cw, P.y0], [P.ix + P.iw, P.iy]], [[P.x0, P.y0 + P.ch], [P.ix, P.iy + P.ih]], [[P.x0 + P.cw, P.y0 + P.ch], [P.ix + P.iw, P.iy + P.ih]]]) { s.beginPath(); s.moveTo(...a); s.lineTo(...b2); s.stroke(); }
+    const gilt = s.createLinearGradient(P.ix, P.iy, P.ix + P.iw, P.iy + P.ih);
+    gilt.addColorStop(0, '#8a6a30'); gilt.addColorStop(0.5, '#c8a050'); gilt.addColorStop(1, '#6a4a20');
+    s.strokeStyle = gilt; s.lineWidth = 4 * dpr; s.strokeRect(P.ix - 2 * dpr, P.iy - 2 * dpr, P.iw + 4 * dpr, P.ih + 4 * dpr);
+    // aged linen backing
+    s.fillStyle = '#c4b896'; s.fillRect(P.ix, P.iy, P.iw, P.ih);
+    s.save(); s.beginPath(); s.rect(P.ix, P.iy, P.iw, P.ih); s.clip();
+    for (let y = P.iy; y < P.iy + P.ih; y += 2 * dpr) { s.fillStyle = `rgba(90,70,40,${Math.random() * 0.05})`; s.fillRect(P.ix, y, P.iw, dpr); }
+    for (let x = P.ix; x < P.ix + P.iw; x += 2 * dpr) { s.fillStyle = `rgba(255,250,230,${Math.random() * 0.05})`; s.fillRect(x, P.iy, dpr, P.ih); }
+    for (let i = 0; i < 30; i++) {
+      const x = P.ix + Math.random() * P.iw, y = P.iy + Math.random() * P.ih, r = (20 + Math.random() * 90) * dpr;
+      const gr = s.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, 'rgba(110,80,40,0.16)'); gr.addColorStop(1, 'rgba(110,80,40,0)');
+      s.fillStyle = gr; s.fillRect(x - r, y - r, 2 * r, 2 * r);
+    }
+    const sh = s.createLinearGradient(0, P.iy, 0, P.iy + 50 * dpr); sh.addColorStop(0, 'rgba(0,0,0,0.55)'); sh.addColorStop(1, 'rgba(0,0,0,0)');
+    s.fillStyle = sh; s.fillRect(P.ix, P.iy, P.iw, 50 * dpr);
+    s.restore();
+    // handwritten specimen label under the moth
+    drawLabel(s, SPECIES, P.cx, P.iy + P.ih * 0.7, P.iw * 0.3);
+    // brass plate on the frame
+    const lw = P.iw * 0.46, lh = P.b * 0.62, lx = P.cx - lw / 2, ly = P.y0 + P.ch - P.b * 0.81;
+    const brass = s.createLinearGradient(lx, ly, lx, ly + lh); brass.addColorStop(0, '#c8a458'); brass.addColorStop(0.45, '#8a6a30'); brass.addColorStop(1, '#5a4218');
+    s.fillStyle = brass; s.fillRect(lx, ly, lw, lh);
+    s.strokeStyle = 'rgba(255,230,170,0.4)'; s.lineWidth = dpr; s.strokeRect(lx + dpr, ly + dpr, lw - 2 * dpr, lh - 2 * dpr);
+    s.fillStyle = '#2a1c0a'; s.textAlign = 'center'; s.textBaseline = 'middle';
+    s.font = `${Math.round(lh * 0.42)}px Georgia, serif`;
+    s.fillText('THE ORDER OF THE PALE WING · MDCCCLXXXVII', P.cx, ly + lh / 2 + dpr);
+    for (const sx of [lx + lh * 0.3, lx + lw - lh * 0.3]) { s.fillStyle = '#3a2a10'; s.beginPath(); s.arc(sx, ly + lh / 2, lh * 0.12, 0, 7); s.fill(); }
+    // ---- moth layers ----
+    const size = P.iw * 0.78;
+    const m = renderMothLayers(SPECIES, size);
+    // ---- glass overlay (light pool, dust film, reflections) and vignette ----
+    const [gl, o] = layer(W, H);
+    const lg = o.createRadialGradient(P.cx - P.iw * 0.1, P.iy, 0, P.cx, P.cy, P.cw * 0.75);
+    lg.addColorStop(0, 'rgba(255,230,180,0.08)'); lg.addColorStop(0.6, 'rgba(0,0,0,0.12)'); lg.addColorStop(1, 'rgba(0,0,0,0.55)');
+    o.fillStyle = lg; o.fillRect(P.x0, P.y0, P.cw, P.ch);
+    o.save(); o.beginPath(); o.rect(P.ix, P.iy, P.iw, P.ih); o.clip();
+    o.fillStyle = 'rgba(200,200,190,0.05)'; o.fillRect(P.ix, P.iy, P.iw, P.ih);
+    for (let i = 0; i < 6; i++) { const x = P.ix + Math.random() * P.iw, y = P.iy + Math.random() * P.ih, r = (30 + Math.random() * 80) * dpr; const gr = o.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, 'rgba(230,225,210,0.05)'); gr.addColorStop(1, 'rgba(230,225,210,0)'); o.fillStyle = gr; o.fillRect(x - r, y - r, 2 * r, 2 * r); }
+    const rx = P.ix + P.iw * 0.15;
+    o.fillStyle = 'rgba(255,255,255,0.055)'; o.beginPath(); o.moveTo(rx, P.iy); o.lineTo(rx + P.iw * 0.12, P.iy); o.lineTo(rx - P.iw * 0.18, P.iy + P.ih); o.lineTo(rx - P.iw * 0.3, P.iy + P.ih); o.fill();
+    o.fillStyle = 'rgba(255,255,255,0.03)'; o.beginPath(); o.moveTo(rx + P.iw * 0.2, P.iy); o.lineTo(rx + P.iw * 0.24, P.iy); o.lineTo(rx - P.iw * 0.06, P.iy + P.ih); o.lineTo(rx - P.iw * 0.1, P.iy + P.ih); o.fill();
+    o.restore();
+    const vg = o.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.3, W / 2, H / 2, Math.max(W, H) * 0.75);
+    vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.85)');
+    o.fillStyle = vg; o.fillRect(0, 0, W, H);
+    L = { P, st, gl, m, mothY: P.iy + P.ih * 0.4 };
   }
 
   function frame(ms) {
     if (!running) return;
     const t = ms / 1000;
-    g.fillStyle = '#060504'; g.fillRect(0, 0, w, h);
-    const narrow = w < 800;
-    const cw = Math.min(narrow ? w * 0.92 : w * 0.5, h * 0.95 * 4 / 3), chh = cw * 0.75;
-    const cx = narrow ? w / 2 : w * 0.66, cy = narrow ? h * 0.3 : h * 0.5;
-    const x0 = cx - cw / 2, y0 = cy - chh / 2, b = cw * 0.06;
-    // wooden frame
-    const wood = g.createLinearGradient(x0, y0, x0 + cw, y0 + chh);
-    wood.addColorStop(0, '#3a2414'); wood.addColorStop(0.5, '#2a190d'); wood.addColorStop(1, '#1b0f07');
-    g.fillStyle = wood; g.fillRect(x0, y0, cw, chh);
-    g.strokeStyle = 'rgba(0,0,0,0.25)';
-    for (let i = 0; i < 40; i++) { g.beginPath(); const yy = y0 + (i / 40) * chh; g.moveTo(x0, yy); g.lineTo(x0 + cw, yy + Math.sin(i) * 3); g.stroke(); }
-    g.strokeStyle = '#5a3a1e'; g.lineWidth = 2; g.strokeRect(x0 + b * 0.4, y0 + b * 0.4, cw - b * 0.8, chh - b * 0.8);
-    // backing paper
-    g.drawImage(paper, x0 + b, y0 + b, cw - 2 * b, chh - 2 * b);
-    const ix = x0 + b, iy = y0 + b, iw = cw - 2 * b, ih = chh - 2 * b;
-    // inner shadow
-    const sh = g.createLinearGradient(0, iy, 0, iy + 30); sh.addColorStop(0, 'rgba(0,0,0,0.6)'); sh.addColorStop(1, 'rgba(0,0,0,0)');
-    g.fillStyle = sh; g.fillRect(ix, iy, iw, 30);
-    // moth
-    moth(cx, cy - ih * 0.04, iw / 380, t);
-    // brass label
-    const lw = iw * 0.46, lh = ih * 0.08, lx = cx - lw / 2, ly = iy + ih * 0.84;
-    const brass = g.createLinearGradient(lx, ly, lx, ly + lh); brass.addColorStop(0, '#a8874a'); brass.addColorStop(0.5, '#7a5f2e'); brass.addColorStop(1, '#5a4520');
-    g.fillStyle = brass; g.fillRect(lx, ly, lw, lh);
-    g.fillStyle = '#2a1c0c'; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.font = `italic ${Math.round(lh * 0.42)}px Georgia, serif`;
-    g.fillText('Phalaena pallida  —  Ord. P.W. 1887', cx, ly + lh / 2);
-    for (const sx of [lx + 6, lx + lw - 6]) { g.fillStyle = '#3a2a10'; g.beginPath(); g.arc(sx, ly + lh / 2, 2, 0, 7); g.fill(); }
-    // light pool from above, vignette
-    const lg = g.createRadialGradient(cx - iw * 0.1, iy, 0, cx, cy, cw * 0.75);
-    lg.addColorStop(0, 'rgba(255,230,180,0.08)'); lg.addColorStop(0.6, 'rgba(0,0,0,0.15)'); lg.addColorStop(1, 'rgba(0,0,0,0.6)');
-    g.fillStyle = lg; g.fillRect(x0, y0, cw, chh);
-    // glass: dust film, smudges, reflection streaks
-    g.fillStyle = 'rgba(200,200,190,0.05)'; g.fillRect(ix, iy, iw, ih);
-    g.save(); g.beginPath(); g.rect(ix, iy, iw, ih); g.clip();
-    const rx = ix + iw * (0.15 + Math.sin(t * 0.05) * 0.02);
-    g.fillStyle = 'rgba(255,255,255,0.06)';
-    g.beginPath(); g.moveTo(rx, iy); g.lineTo(rx + iw * 0.12, iy); g.lineTo(rx - iw * 0.18, iy + ih); g.lineTo(rx - iw * 0.3, iy + ih); g.fill();
-    g.fillStyle = 'rgba(255,255,255,0.035)';
-    g.beginPath(); g.moveTo(rx + iw * 0.2, iy); g.lineTo(rx + iw * 0.24, iy); g.lineTo(rx - iw * 0.06, iy + ih); g.lineTo(rx - iw * 0.1, iy + ih); g.fill();
-    g.restore();
-    // floating dust in the light
+    g.drawImage(L.st, 0, 0);
+    // twitch: a quick, damped flutter every few seconds
+    let k = 0; const dt = t - twitchStart;
+    if (dt < 0.5) k = Math.sin(dt / 0.5 * Math.PI * 3) * Math.exp(-dt * 6) * twitchAmp;
+    if (t > nextTwitch) { twitchStart = t; twitchAmp = 0.1 + Math.random() * 0.15; nextTwitch = t + 3 + Math.random() * 7; }
+    const { m, P } = L, cx = P.cx, cy = L.mothY;
+    for (const side of [1, -1]) {
+      g.save(); g.translate(cx, cy - m.originY); g.scale(side * (1 - Math.abs(k) * 0.8), 1);
+      g.drawImage(m.wing, -m.ox, 0); g.restore();
+    }
+    g.drawImage(m.body, cx - m.body.width / 2, cy - m.originY);
+    g.drawImage(L.gl, 0, 0);
     for (const d of dust) {
       d.y -= d.v / 60; d.x += Math.sin(t + d.y * 9) * 0.0002; if (d.y < 0) d.y = 1;
       g.fillStyle = `rgba(220,210,180,${0.25 + 0.2 * Math.sin(t * 2 + d.x * 30)})`;
-      g.fillRect(d.x * w, d.y * h, d.s, d.s);
+      g.fillRect(d.x * W, d.y * H, d.s * dpr, d.s * dpr);
     }
-    // overall vignette
-    const vg = g.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.3, w / 2, h / 2, Math.max(w, h) * 0.75);
-    vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.85)');
-    g.fillStyle = vg; g.fillRect(0, 0, w, h);
     raf = requestAnimationFrame(frame);
   }
+  build();
+  addEventListener('resize', () => { build(); });
   raf = requestAnimationFrame(frame);
   return {
     stop() { running = false; cancelAnimationFrame(raf); },

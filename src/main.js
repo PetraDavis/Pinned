@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { buildTextures } from './textures.js';
 import { buildExterior, SUN_DIR, CLIMB_SPOT, BROKEN_WINDOW, FRONT_DOOR, GATE, FENCE } from './world/exterior.js';
-import { buildFirstRoom, ROOM_SPAWN, ROOM_WINDOW, ROOM_DOOR, ROOM_ORIGIN } from './world/firstRoom.js';
+import { buildFirstRoom, ROOM_LAMP, ROOM_SPAWN, ROOM_WINDOW, ROOM_DOOR, ROOM_ORIGIN } from './world/firstRoom.js';
 import { Player } from './player.js';
 import { startAudio, setVolume, playThud, playGlass } from './audio.js';
 import { loadSettings, saveSettings, loadSave, writeSave, clearSave } from './storage.js';
@@ -127,6 +127,15 @@ const interactables = [
     act: () => transition(() => { setZone('exterior'); player.place(BROKEN_WINDOW.x, BROKEN_WINDOW.z + 1.3, Math.PI); }),
   },
   {
+    zone: 'room', pos: ROOM_LAMP, r: 1.5,
+    prompt: () => (room.lampOn ? 'E  turn the lamp down' : 'E  light the oil lamp'),
+    act: () => {
+      room.setLamp(!room.lampOn);
+      if (room.lampOn) say('The wick catches. Warm light crawls up the walls, and every pinned moth seems to lean towards it.');
+      const sv = loadSave(); if (sv) writeSave({ ...sv, lampLit: room.lampOn });
+    },
+  },
+  {
     zone: 'room', pos: ROOM_DOOR, r: 1.3, prompt: 'E  try the door',
     act: () => say('Locked. Something on the other side shifts, then is still.'),
   },
@@ -164,8 +173,9 @@ function transition(mid) {
   setTimeout(() => { mid(); $('fade').style.opacity = 0; setTimeout(() => { state = 'playing'; player.enabled = true; }, 400); }, 550);
 }
 
-function save(checkpoint) { writeSave({ checkpoint }); }
-function spawnAt(checkpoint) {
+function save(checkpoint) { writeSave({ checkpoint, lampLit: room.lampOn }); }
+function spawnAt(checkpoint, saved = {}) {
+  room.setLamp(!!saved.lampLit);
   if (checkpoint === 'room') { setZone('room'); player.place(ROOM_SPAWN.x, ROOM_SPAWN.z, 0); }
   else if (checkpoint === 'grounds') { setZone('exterior'); player.place(CLIMB_SPOT.x, FENCE.front - 1.4, 0); }
   else { setZone('exterior'); player.place(CLIMB_SPOT.x + 4, FENCE.front + 6, 0.15); }
@@ -184,8 +194,8 @@ function refreshHome() {
 }
 function lock() { try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch { /* headless etc. */ } }
 
-function startGame(checkpoint) {
-  spawnAt(checkpoint);
+function startGame(checkpoint, saved = {}) {
+  spawnAt(checkpoint, saved);
   show('home', false); show('hud', true); backdrop.stop();
   state = 'playing'; player.enabled = true;
   startAudio(settings.volume);
@@ -208,7 +218,7 @@ function quitHome() {
 }
 function openSettings(from) { settingsReturn = from; show(from, false); show('settings', true); }
 
-$('btnContinue').onclick = () => { const s = loadSave(); if (s) startGame(s.checkpoint); };
+$('btnContinue').onclick = () => { const s = loadSave(); if (s) startGame(s.checkpoint, s); };
 $('btnRestart').onclick = () => { if (loadSave()) show('confirm', true); else startGame(null); };
 $('btnConfirmYes').onclick = () => { show('confirm', false); clearSave(); startGame(null); };
 $('btnConfirmNo').onclick = () => show('confirm', false);
@@ -246,7 +256,7 @@ function loop() {
   if (anim) anim.update(dt);
   if (state === 'playing') {
     current = findInteractable();
-    promptEl.textContent = current ? current.prompt : '';
+    promptEl.textContent = current ? (typeof current.prompt === 'function' ? current.prompt() : current.prompt) : '';
   } else promptEl.textContent = '';
   if (zone === 'room') room.update(t);
   else if (curtain) { curtain.rotation.x = -0.25 - Math.sin(t * 1.3) * 0.12 + Math.sin(t * 3.1) * 0.05; }
@@ -262,6 +272,6 @@ loop();
 // Hook for automated tests / debugging.
 window.__pinned = {
   start: startGame, pause, resume, quitHome, player, setZone, interact: () => current && current.act(),
-  get state() { return state; }, get zone() { return zone; }, get prompt() { return current && current.prompt; },
+  get state() { return state; }, get zone() { return zone; }, get prompt() { return current && (typeof current.prompt === 'function' ? current.prompt() : current.prompt); }, room,
   renderer, scene, camera, get colliders() { return colliders(); },
 };
