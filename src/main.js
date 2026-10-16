@@ -1,7 +1,7 @@
 // Pinned - entry point: renderer, game states, menus, interactions, save points.
 import * as THREE from 'three';
 import { buildTextures } from './textures.js';
-import { buildExterior, CLIMB_SPOT, BROKEN_WINDOW, FRONT_DOOR, GATE, FENCE } from './world/exterior.js';
+import { buildExterior, SUN_DIR, CLIMB_SPOT, BROKEN_WINDOW, FRONT_DOOR, GATE, FENCE } from './world/exterior.js';
 import { buildFirstRoom, ROOM_SPAWN, ROOM_WINDOW, ROOM_DOOR, ROOM_ORIGIN } from './world/firstRoom.js';
 import { Player } from './player.js';
 import { startAudio, setVolume, playThud, playGlass } from './audio.js';
@@ -12,30 +12,37 @@ const $ = id => document.getElementById(id);
 const canvas = $('game');
 
 // ---------- renderer & scene ----------
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+let settings = loadSettings();
+const QUALITY = {
+  low: { pr: 1, shadow: 1024, soft: false },
+  medium: { pr: 1.5, shadow: 2048, soft: true },
+  high: { pr: 2, shadow: 4096, soft: true },
+}[settings.quality] || { pr: 2, shadow: 4096, soft: true };
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, QUALITY.pr));
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.type = QUALITY.soft ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 
 const scene = new THREE.Scene();
-const FOG_OUT = new THREE.FogExp2(0x0b1018, 0.024), FOG_IN = new THREE.FogExp2(0x07080a, 0.05);
-scene.background = new THREE.Color(0x0b1018);
+const FOG_OUT = new THREE.FogExp2(0x6a5a6a, 0.011), FOG_IN = new THREE.FogExp2(0x1a1412, 0.03);
+scene.background = new THREE.Color(0x3a3048);
 const camera = new THREE.PerspectiveCamera(72, innerWidth / innerHeight, 0.05, 600);
 
-buildTextures();
-const exterior = buildExterior(scene);
-const room = buildFirstRoom(scene);
+buildTextures(settings.quality);
+const exterior = buildExterior(scene, settings.quality);
+const room = buildFirstRoom(scene, QUALITY.shadow);
 
-const moonLight = new THREE.DirectionalLight(0xa9bbdd, 2.2);
-moonLight.position.set(-35, 55, 45);
+// low dusk sun: warm, raking, long shadows
+const moonLight = new THREE.DirectionalLight(0xffc49a, 3.0);
+moonLight.position.copy(SUN_DIR).multiplyScalar(120);
 moonLight.castShadow = true;
-moonLight.shadow.mapSize.set(2048, 2048);
-Object.assign(moonLight.shadow.camera, { left: -60, right: 60, top: 60, bottom: -60, near: 1, far: 200 });
-moonLight.shadow.bias = -0.0008;
-const sky = new THREE.HemisphereLight(0x34405a, 0x0b0d0a, 0.7);
+moonLight.shadow.mapSize.set(QUALITY.shadow, QUALITY.shadow);
+Object.assign(moonLight.shadow.camera, { left: -75, right: 75, top: 75, bottom: -75, near: 1, far: 300 });
+moonLight.shadow.bias = -0.0004; moonLight.shadow.normalBias = 0.03;
+const sky = new THREE.HemisphereLight(0x9a9cc4, 0x4a4030, 1.5);
 scene.add(moonLight, sky);
 
 const player = new Player(camera, canvas);
@@ -53,16 +60,15 @@ function setZone(z) {
   exterior.group.visible = out; room.group.visible = !out;
   moonLight.visible = sky.visible = out;
   scene.fog = out ? FOG_OUT : FOG_IN;
-  scene.background.set(out ? 0x0b1018 : 0x050506);
+  scene.background.set(out ? 0x3a3048 : 0x050506);
 }
 const colliders = () => (zone === 'exterior' ? exterior.colliders : room.colliders);
 
 // ---------- settings ----------
-let settings = loadSettings();
 function applySettings() {
   player.sensitivity = settings.sensitivity;
   setVolume(settings.volume);
-  renderer.toneMappingExposure = 1.15 * settings.brightness;
+  renderer.toneMappingExposure = 1.0 * settings.brightness;
   camera.fov = settings.fov; camera.updateProjectionMatrix();
   $('oSens').textContent = (+settings.sensitivity).toFixed(2);
   $('oVol').textContent = Math.round(settings.volume * 100) + '%';
@@ -74,6 +80,12 @@ for (const [id, key] of Object.entries(sliders)) {
   $(id).value = settings[key];
   $(id).addEventListener('input', e => { settings[key] = +e.target.value; applySettings(); saveSettings(settings); });
 }
+$('sQuality').addEventListener('change', e => {
+  // textures and shadow maps are built at load, so a quality change reloads the game
+  settings.quality = e.target.value; saveSettings(settings);
+  $('qualityNote').textContent = 'Reloading with the new quality\u2026';
+  setTimeout(() => location.reload(), 300);
+});
 applySettings();
 
 // ---------- interactions ----------
@@ -103,7 +115,7 @@ const interactables = [
     act: () => say('Boarded shut. Above the door, a mosaic moth stares down with red eyes.'),
   },
   {
-    zone: 'exterior', pos: new THREE.Vector3(BROKEN_WINDOW.x, 0, BROKEN_WINDOW.z + 0.9), r: 1.5, prompt: 'E  climb in through the window',
+    zone: 'exterior', pos: new THREE.Vector3(BROKEN_WINDOW.x, 0, BROKEN_WINDOW.z + 1.0), r: 2.6, prompt: 'E  climb in through the window',
     act: () => transition(() => {
       setZone('room'); player.place(ROOM_SPAWN.x, ROOM_SPAWN.z, 0); playGlass();
       say('Glass crunches underfoot. The air smells of dust and old wax.');
@@ -111,7 +123,7 @@ const interactables = [
     }),
   },
   {
-    zone: 'room', pos: ROOM_WINDOW, r: 1.0, prompt: 'E  climb back out',
+    zone: 'room', pos: ROOM_WINDOW, r: 1.6, prompt: 'E  climb back out',
     act: () => transition(() => { setZone('exterior'); player.place(BROKEN_WINDOW.x, BROKEN_WINDOW.z + 1.3, Math.PI); }),
   },
   {
@@ -217,7 +229,7 @@ addEventListener('keydown', e => {
   if ((e.code === 'KeyP' || e.code === 'Escape') && state === 'playing') { pause(); return; }
   if (e.code === 'KeyP' && state === 'paused' && !$('pause').classList.contains('hidden')) { resume(); return; }
   if (state !== 'playing') return;
-  if (e.code === 'KeyE' && current) current.act();
+  if ((e.code === 'KeyE' || e.key === 'e' || e.key === 'E') && current) current.act();
   if (e.code === 'KeyF') { torchOn = !torchOn; torch.intensity = torchOn ? 25 : 0; }
 });
 addEventListener('resize', () => {
@@ -227,7 +239,7 @@ addEventListener('resize', () => {
 
 // ---------- loop ----------
 const clock = new THREE.Clock();
-const mist = exterior.group.getObjectByName('mist');
+const curtain = exterior.group.getObjectByName('curtain');
 function loop() {
   const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
   if (state === 'playing') player.update(dt, colliders());
@@ -237,7 +249,7 @@ function loop() {
     promptEl.textContent = current ? current.prompt : '';
   } else promptEl.textContent = '';
   if (zone === 'room') room.update(t);
-  else if (mist) for (const m of mist.children) { m.position.x += m.userData.drift * dt; if (m.position.x > 60) m.position.x = -60; }
+  else if (curtain) { curtain.rotation.x = -0.25 - Math.sin(t * 1.3) * 0.12 + Math.sin(t * 3.1) * 0.05; }
   if (state !== 'home') renderer.render(scene, camera);
   requestAnimationFrame(loop);
 }

@@ -1,8 +1,19 @@
 // Small helpers shared by world builders.
 import * as THREE from 'three';
+import { pbrMaps } from '../textures.js';
 
+// Standard material; if the colour map has generated normal/roughness maps,
+// attach them with the same tiling.
 export function mat(opts) {
-  return new THREE.MeshStandardMaterial({ roughness: 0.9, metalness: 0, ...opts });
+  const o = { roughness: 0.9, metalness: 0, ...opts };
+  const pbr = o.map && o.map.image && pbrMaps.get(o.map.image);
+  if (pbr && !o.normalMap) {
+    o.normalMap = pbr.normal.clone(); o.normalMap.repeat.copy(o.map.repeat);
+    o.normalScale = new THREE.Vector2(o.bump ?? 1, o.bump ?? 1);
+    if (o.roughness > 0.3 && opts.roughness !== 1) { o.roughnessMap = pbr.rough.clone(); o.roughnessMap.repeat.copy(o.map.repeat); o.roughness = 1; }
+  }
+  delete o.bump;
+  return new THREE.MeshStandardMaterial(o);
 }
 
 // Adds a box mesh; if `colliders` is given, registers its XZ footprint.

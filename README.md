@@ -18,6 +18,10 @@ all geometry and textures are generated in code.
 | F | Flashlight |
 | Esc / P | Pause menu (or the II button, top right) |
 
+Settings also has **Graphics quality** (Low / Medium / High, default High). High renders at up to 2x pixel ratio with 2048px textures, generated normal/roughness maps and 4096px soft shadows; use Medium or Low on weaker computers. Changing it reloads the game.
+
+The way in: climb the fence at the stone block left of the gate, then find the smashed ground-floor window with the crate under it, right of the front door.
+
 Progress is saved automatically at save points (climbing the fence, entering the first room), and settings
 (mouse sensitivity, volume, brightness, field of view) are kept in `localStorage`. **Continue** on the home
 screen resumes from the last save point.

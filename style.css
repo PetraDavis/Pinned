@@ -29,3 +29,4 @@ output { color: var(--ink); }
 #message { position: absolute; left: 50%; bottom: 10%; transform: translateX(-50%); width: min(640px, calc(100vw - 32px)); text-align: center; font-style: italic; text-shadow: 0 0 6px #000, 0 0 2px #000; transition: opacity .6s; }
 #pauseBtn { position: absolute; top: 12px; right: 12px; pointer-events: auto; font-size: 14px; padding: 6px 10px; opacity: .6; }
 #fade { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; transition: opacity .5s; z-index: 8; }
+select { grid-column: 1 / -1; font: inherit; color: var(--ink); background: #14161a; border: 1px solid #3a3a36; padding: 6px; }

@@ -12,17 +12,70 @@ function rng(seed) {
   };
 }
 
-function canvasTex(w, h, draw, repeat = [1, 1], srgb = true) {
+// Texture resolution multiplier, set from the Graphics quality setting.
+let Q = 4;
+const ANISO = { 1: 2, 2: 8, 4: 16 };
+// Normal / roughness maps generated from a colour canvas, keyed by that canvas.
+export const pbrMaps = new WeakMap();
+
+function canvasTex(w, h, draw, repeat = [1, 1], srgb = true, bump = 0) {
+  const k = Math.min(Q, 2048 / Math.max(w, h));
   const c = document.createElement('canvas');
-  c.width = w; c.height = h;
-  const g = c.getContext('2d');
+  c.width = Math.round(w * k); c.height = Math.round(h * k);
+  const g = c.getContext('2d', { willReadFrequently: bump > 0 });
+  g.scale(k, k);
   draw(g, w, h);
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  if (k > 1) grain(g, c.width, c.height, 10);
   const t = new THREE.CanvasTexture(c);
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
   t.repeat.set(repeat[0], repeat[1]);
-  t.anisotropy = 4;
+  t.anisotropy = ANISO[Q] || 8;
   if (srgb) t.colorSpace = THREE.SRGBColorSpace;
+  if (bump) makePbr(c, bump);
   return t;
+}
+
+// Per-pixel grain at full resolution so upscaled drawings stay crisp.
+function grain(g, w, h, amt) {
+  const img = g.getImageData(0, 0, w, h), d = img.data;
+  let s = 12345;
+  for (let i = 0; i < d.length; i += 4) {
+    s = (s * 1103515245 + 12345) & 0x7fffffff;
+    const n = ((s >> 8) % 255 - 127) / 127 * amt;
+    d[i] += n; d[i + 1] += n; d[i + 2] += n;
+  }
+  g.putImageData(img, 0, 0);
+}
+
+// Sobel over luminance -> tangent-space normal map; luminance -> roughness.
+function makePbr(c, strength, roughBase = 0.75, roughRange = 0.25) {
+  const w = c.width, h = c.height;
+  const src = c.getContext('2d').getImageData(0, 0, w, h).data;
+  const L = new Float32Array(w * h);
+  for (let i = 0, j = 0; j < L.length; i += 4, j++) L[j] = (src[i] * 0.3 + src[i + 1] * 0.59 + src[i + 2] * 0.11) / 255;
+  const nc = document.createElement('canvas'), rc = document.createElement('canvas');
+  nc.width = rc.width = w; nc.height = rc.height = h;
+  const ng = nc.getContext('2d'), rg = rc.getContext('2d');
+  const nImg = ng.createImageData(w, h), rImg = rg.createImageData(w, h), nd = nImg.data, rd = rImg.data;
+  const s = strength * (w / 512);
+  for (let y = 0; y < h; y++) {
+    const y0 = ((y - 1 + h) % h) * w, y1 = y * w, y2 = ((y + 1) % h) * w;
+    for (let x = 0; x < w; x++) {
+      const x0 = (x - 1 + w) % w, x2 = (x + 1) % w;
+      const dx = (L[y0 + x2] + 2 * L[y1 + x2] + L[y2 + x2]) - (L[y0 + x0] + 2 * L[y1 + x0] + L[y2 + x0]);
+      const dy = (L[y2 + x0] + 2 * L[y2 + x] + L[y2 + x2]) - (L[y0 + x0] + 2 * L[y0 + x] + L[y0 + x2]);
+      let nx = -dx * s, ny = dy * s, nz = 1;
+      const len = Math.hypot(nx, ny, nz); nx /= len; ny /= len; nz /= len;
+      const o = (y1 + x) * 4;
+      nd[o] = (nx * 0.5 + 0.5) * 255; nd[o + 1] = (ny * 0.5 + 0.5) * 255; nd[o + 2] = (nz * 0.5 + 0.5) * 255; nd[o + 3] = 255;
+      const r = (roughBase + (0.5 - L[y1 + x]) * roughRange) * 255;
+      rd[o] = rd[o + 1] = rd[o + 2] = r; rd[o + 3] = 255;
+    }
+  }
+  ng.putImageData(nImg, 0, 0); rg.putImageData(rImg, 0, 0);
+  const mk = cv => { const t = new THREE.CanvasTexture(cv); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = ANISO[Q] || 8; return t; };
+  pbrMaps.set(c, { normal: mk(nc), rough: mk(rc) });
 }
 
 function noise(g, w, h, amount, r, alpha = 0.08) {
@@ -46,7 +99,8 @@ function stains(g, w, h, n, r, color = '0,0,0', a = 0.12) {
 
 export const tex = {};
 
-export function buildTextures() {
+export function buildTextures(quality = 'high') {
+  Q = { low: 1, medium: 2, high: 4 }[quality] || 4;
   // Grey ashlar stone for facades
   tex.stone = canvasTex(512, 512, (g, w, h) => {
     const r = rng(1);
@@ -69,7 +123,7 @@ export function buildTextures() {
       g.fillStyle = gr; g.fillRect(x, r() * h, 2 + r() * 6, len);
     }
     stains(g, w, h, 25, r, '30,40,25', 0.15);
-  }, [1, 1]);
+  }, [1, 1], true, 2.5);
 
   tex.slate = canvasTex(256, 256, (g, w, h) => {
     const r = rng(2);
@@ -85,7 +139,7 @@ export function buildTextures() {
       }
     }
     noise(g, w, h, 3000, r, 0.08);
-  });
+  }, [1, 1], true, 2);
 
   tex.grass = canvasTex(256, 256, (g, w, h) => {
     const r = rng(3);
@@ -97,7 +151,9 @@ export function buildTextures() {
       g.beginPath(); g.moveTo(x, y); g.lineTo(x + (r() - 0.5) * 4, y - 3 - r() * 6); g.stroke();
     }
     stains(g, w, h, 20, r, '40,30,20', 0.2);
-  }, [60, 60]);
+    stains(g, w, h, 12, r, '110,90,60', 0.25); // bare dirt
+    for (let i = 0; i < 300; i++) { g.fillStyle = `rgba(${90 + r() * 50},${70 + r() * 30},40,0.5)`; g.fillRect(r() * w, r() * h, 2, 1); } // dead leaves/straw
+  }, [60, 60], true, 1.5);
 
   tex.gravel = canvasTex(256, 256, (g, w, h) => {
     const r = rng(4);
@@ -108,7 +164,7 @@ export function buildTextures() {
       g.beginPath(); g.arc(r() * w, r() * h, 0.5 + r() * 2, 0, 7); g.fill();
     }
     stains(g, w, h, 30, r, '20,35,15', 0.3);
-  }, [2, 20]);
+  }, [2, 20], true, 1.5);
 
   // Grey damask wallpaper, peeling and stained
   tex.wallpaper = canvasTex(512, 512, (g, w, h) => {
@@ -137,7 +193,7 @@ export function buildTextures() {
       g.fillStyle = gr; g.fillRect(x, 0, 3 + r() * 10, len);
     }
     noise(g, w, h, 8000, r, 0.06);
-  });
+  }, [1, 1], true, 0.8);
 
   tex.floor = canvasTex(512, 512, (g, w, h) => {
     const r = rng(6);
@@ -158,7 +214,7 @@ export function buildTextures() {
     }
     stains(g, w, h, 40, r, '140,135,125', 0.12); // dust
     noise(g, w, h, 6000, r, 0.07);
-  }, [4, 3]);
+  }, [4, 3], true, 2);
 
   tex.wood = canvasTex(256, 256, (g, w, h) => {
     const r = rng(7);
@@ -169,7 +225,7 @@ export function buildTextures() {
       g.bezierCurveTo(w / 3, y + (r() - .5) * 10, 2 * w / 3, y + (r() - .5) * 10, w, y); g.stroke();
     }
     stains(g, w, h, 12, r, '120,115,105', 0.12);
-  });
+  }, [1, 1], true, 1.2);
 
   tex.plank = canvasTex(256, 64, (g, w, h) => {
     const r = rng(8);
@@ -179,7 +235,7 @@ export function buildTextures() {
       const y = r() * h; g.beginPath(); g.moveTo(0, y); g.lineTo(w, y + (r() - .5) * 6); g.stroke();
     }
     noise(g, w, h, 1500, r, 0.1);
-  });
+  }, [1, 1], true, 1.5);
 
   tex.fabric = canvasTex(128, 128, (g, w, h) => {
     const r = rng(9);
@@ -205,7 +261,7 @@ export function buildTextures() {
     g.strokeStyle = '#6b5530'; g.stroke();
     stains(g, w, h, 30, r, '150,140,120', 0.15);
     noise(g, w, h, 8000, r, 0.08);
-  });
+  }, [1, 1], true, 0.6);
 
   tex.web = canvasTex(256, 256, (g, w, h) => {
     g.clearRect(0, 0, w, h);
@@ -286,7 +342,7 @@ export function makeMothMosaic(seed, round = false) {
   s.beginPath(); s.arc(cx, cy - 14, 3, 0, 7); s.fill();
   const px = s.getImageData(0, 0, N, N).data;
 
-  const T = 12, out = document.createElement('canvas');
+  const T = 6 * Q, out = document.createElement('canvas');
   out.width = out.height = N * T;
   const g = out.getContext('2d');
   const r = rng(seed);
@@ -297,7 +353,7 @@ export function makeMothMosaic(seed, round = false) {
     const i = (y * N + x) * 4, j = (r() - 0.5) * 30;
     g.fillStyle = `rgb(${px[i] + j},${px[i + 1] + j},${px[i + 2] + j})`;
     const jx = (r() - .5) * 1.5, jy = (r() - .5) * 1.5;
-    g.fillRect(x * T + 1 + jx, y * T + 1 + jy, T - 2, T - 2);
+    g.fillRect(x * T + T / 12 + jx, y * T + T / 12 + jy, T - T / 6, T - T / 6);
   }
   stains(g, out.width, out.height, 40, r, '20,22,18', 0.25);
   // cracks
@@ -307,8 +363,9 @@ export function makeMothMosaic(seed, round = false) {
     for (let n = 0; n < 8; n++) { x += (r() - .5) * 120; y += (r() - .5) * 120; g.lineTo(x, y); }
     g.stroke();
   }
+  makePbr(out, 3, 0.55, 0.4);
   const t = new THREE.CanvasTexture(out);
-  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = ANISO[Q] || 8;
   return t;
 }
 

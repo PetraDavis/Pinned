@@ -6,12 +6,12 @@ import { mat, box, rect, rep, rand } from './build.js';
 
 export const ROOM_ORIGIN = new THREE.Vector3(1000, 0, 0);
 const W = 14, D = 10, H = 4.6;
-const WIN = { x: 2, w: 1.3, h: 2.5, sill: 0.9 }; // window in the +z wall
+const WIN = { x: 2, w: 2.0, h: 2.6, sill: 0.75 }; // window in the +z wall
 export const ROOM_SPAWN = new THREE.Vector3(ROOM_ORIGIN.x + WIN.x, 0, ROOM_ORIGIN.z + D / 2 - 1.1);
 export const ROOM_WINDOW = new THREE.Vector3(ROOM_ORIGIN.x + WIN.x, 0, ROOM_ORIGIN.z + D / 2 - 0.4);
 export const ROOM_DOOR = new THREE.Vector3(ROOM_ORIGIN.x + W / 2 - 0.4, 0, ROOM_ORIGIN.z - 1);
 
-export function buildFirstRoom(scene) {
+export function buildFirstRoom(scene, shadowSize = 2048) {
   const group = new THREE.Group();
   group.position.copy(ROOM_ORIGIN);
   scene.add(group);
@@ -57,7 +57,7 @@ export function buildFirstRoom(scene) {
   box(group, WIN.w + 0.2, 0.1, 0.4, WIN.x, WIN.sill, D / 2 + 0.05, dark);
   const mull = box(group, 0.06, 1.6, 0.06, WIN.x + 0.2, WIN.sill + 1.6, D / 2 + 0.1, dark); mull.rotation.z = 0.5;
   const curtainMat = mat({ map: tex.fabric, color: 0x7a6a6a, side: THREE.DoubleSide });
-  for (const [x, h] of [[WIN.x - 1.05, 3.6], [WIN.x + 0.95, 2.6]]) {
+  for (const [x, h] of [[WIN.x - 1.4, 3.6], [WIN.x + 1.35, 2.6]]) {
     const geo = new THREE.PlaneGeometry(0.7, h, 6, 1);
     const p = geo.attributes.position; for (let i = 0; i < p.count; i++) p.setZ(i, Math.sin(p.getX(i) * 18) * 0.06);
     geo.computeVertexNormals();
@@ -189,19 +189,19 @@ export function buildFirstRoom(scene) {
   }
 
   // ---------- light ----------
-  const moon = new THREE.SpotLight(0x9fb4d8, 90, 24, 0.5, 0.55, 1.2);
-  moon.position.set(WIN.x + 2.0, 6.5, D / 2 + 4);
-  moon.target.position.set(WIN.x - 0.6, 0, 0.6);
-  moon.castShadow = true; moon.shadow.mapSize.set(1024, 1024); moon.shadow.bias = -0.0005;
+  const moon = new THREE.SpotLight(0xff9a5a, 120, 24, 0.5, 0.6, 1.2);
+  moon.position.set(WIN.x + 3.5, 3.6, D / 2 + 4); // low sun: long patch across the floor
+  moon.target.position.set(WIN.x - 2.2, 0, -1.5);
+  moon.castShadow = true; moon.shadow.mapSize.set(Math.min(shadowSize, 2048), Math.min(shadowSize, 2048)); moon.shadow.bias = -0.0005;
   group.add(moon, moon.target);
-  const fill = new THREE.HemisphereLight(0x4a5670, 0x14110e, 1.6); group.add(fill);
-  const bounce = new THREE.PointLight(0x6d7a92, 6, 12, 1.2); bounce.position.set(WIN.x - 0.5, 1.2, 2.5); group.add(bounce);
+  const fill = new THREE.HemisphereLight(0x6a5a70, 0x1c1410, 1.5); group.add(fill);
+  const bounce = new THREE.PointLight(0xc08060, 5, 12, 1.2); bounce.position.set(WIN.x - 0.5, 1.2, 2.5); group.add(bounce);
 
   // dust motes drifting in the moonbeam
-  const N = 400, pos = new Float32Array(N * 3);
+  const N = 150, pos = new Float32Array(N * 3);
   for (let i = 0; i < N; i++) pos.set([WIN.x - 1.8 + r() * 3.2, r() * 3.5, -0.8 + r() * 5.6], i * 3);
   const dg = new THREE.BufferGeometry(); dg.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  const dust = new THREE.Points(dg, new THREE.PointsMaterial({ color: 0xc8d2e4, size: 0.007, transparent: true, opacity: 0.7, depthWrite: false }));
+  const dust = new THREE.Points(dg, new THREE.PointsMaterial({ color: 0xffd8b0, size: 0.004, transparent: true, opacity: 0.45, depthWrite: false }));
   group.add(dust);
 
   const colliders = local.map(c => ({ minX: c.minX, maxX: c.maxX, minZ: c.minZ, maxZ: c.maxZ }));
@@ -226,7 +226,7 @@ export function buildFirstRoom(scene) {
 function outsideTex() {
   const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d');
   const gr = g.createLinearGradient(0, 0, 0, 256);
-  gr.addColorStop(0, '#1a2436'); gr.addColorStop(0.6, '#3a4a62'); gr.addColorStop(0.62, '#141a14'); gr.addColorStop(1, '#0a0d0a');
+  gr.addColorStop(0, '#2a2a52'); gr.addColorStop(0.35, '#7a4a6a'); gr.addColorStop(0.6, '#f0965a'); gr.addColorStop(0.62, '#2a2418'); gr.addColorStop(1, '#141410');
   g.fillStyle = gr; g.fillRect(0, 0, 256, 256);
   g.fillStyle = '#05070a';
   for (let x = 0; x < 256; x += 7) g.fillRect(x, 120, 2, 50); // the fence, far off
