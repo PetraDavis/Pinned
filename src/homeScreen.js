@@ -63,7 +63,7 @@ export function startHomeBackdrop(canvas) {
     s.fillStyle = sh; s.fillRect(P.ix, P.iy, P.iw, 50 * dpr);
     s.restore();
     // handwritten specimen label under the moth
-    drawLabel(s, SPECIES, P.cx, P.iy + P.ih * 0.7, P.iw * 0.3);
+    drawLabel(s, SPECIES, P.cx, P.iy + P.ih * 0.66, Math.max(P.iw * 0.4, Math.min(P.iw * 0.7, 260 * dpr)));
     // brass plate on the frame
     const lw = P.iw * 0.46, lh = P.b * 0.62, lx = P.cx - lw / 2, ly = P.y0 + P.ch - P.b * 0.81;
     const brass = s.createLinearGradient(lx, ly, lx, ly + lh); brass.addColorStop(0, '#c8a458'); brass.addColorStop(0.45, '#8a6a30'); brass.addColorStop(1, '#5a4218');

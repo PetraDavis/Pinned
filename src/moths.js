@@ -302,17 +302,24 @@ export function renderMothLayers(key, size, seed = 7) {
   return { wing, body, originY: H * 0.32, ox: 4 };
 }
 
-// A small handwritten specimen label.
+// A small handwritten specimen label: three lines (Latin name, common name, collection),
+// each shrunk to fit inside the card with margins.
 export function drawLabel(g, key, x, y, w, extra = 'Coll. Ord. P.W. 1887') {
-  const sp = SPECIES[key], h = w * 0.36;
+  const sp = SPECIES[key], h = w * 0.46, pad = w * 0.07;
   g.save();
   g.fillStyle = 'rgba(40,30,20,0.25)'; g.fillRect(x - w / 2 + 2, y + 2, w, h);
   g.fillStyle = '#efe6cf'; g.fillRect(x - w / 2, y, w, h);
-  g.strokeStyle = 'rgba(60,40,20,0.5)'; g.lineWidth = Math.max(1, w / 220); g.strokeRect(x - w / 2 + w * 0.03, y + h * 0.08, w * 0.94, h * 0.84);
+  g.strokeStyle = 'rgba(60,40,20,0.5)'; g.lineWidth = Math.max(1, w / 220); g.strokeRect(x - w / 2 + w * 0.03, y + h * 0.06, w * 0.94, h * 0.88);
   g.fillStyle = '#2a1c10'; g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.font = `italic ${Math.round(h * 0.3)}px "Brush Script MT", "Segoe Script", "Lucida Handwriting", cursive`;
-  g.fillText(sp.latin, x, y + h * 0.33);
-  g.font = `${Math.round(h * 0.2)}px "Segoe Script", "Lucida Handwriting", cursive`;
-  g.fillText(`${sp.common} · ${extra}`, x, y + h * 0.7);
+  const line = (text, font, size, ly) => {
+    let px = size;
+    g.font = font(px);
+    const max = w - 2 * pad, m = g.measureText(text).width;
+    if (m > max) { px = px * max / m; g.font = font(px); }
+    g.fillText(text, x, ly);
+  };
+  line(sp.latin, px => `italic ${px}px "Brush Script MT", "Segoe Script", "Lucida Handwriting", cursive`, h * 0.26, y + h * 0.3);
+  line(sp.common, px => `${px}px "Segoe Script", "Lucida Handwriting", Georgia, cursive`, h * 0.17, y + h * 0.58);
+  line(extra, px => `${px}px Georgia, serif`, h * 0.13, y + h * 0.8);
   g.restore();
 }

@@ -281,7 +281,7 @@ export function buildBrokenWindow(house, x, z) {
   ig.beginPath(); ig.moveTo(0, 320); ig.lineTo(30, 300); ig.lineTo(226, 300); ig.lineTo(256, 320); ig.closePath(); ig.fill();
   const itex = new THREE.CanvasTexture(ic); itex.colorSpace = THREE.SRGBColorSpace;
   const view = new THREE.Mesh(new THREE.PlaneGeometry(W, H), new THREE.MeshBasicMaterial({ map: itex }));
-  view.position.set(0, H / 2, 0.012); g.add(view);
+  view.position.set(0, H / 2, 0.03); g.add(view);
   // stone surround: architrave, deep sill, hood, keystone
   for (const sx of [-1, 1]) add(0.22, H + 0.2, 0.3, sx * (W / 2 + 0.11), H / 2, 0.08, stone);
   add(W + 0.7, 0.18, 0.45, 0, -0.06, 0.18, stone);
@@ -303,7 +303,7 @@ export function buildBrokenWindow(house, x, z) {
     const sh = new THREE.Shape(); sh.moveTo(-base / 2, 0); sh.lineTo(base / 2, 0);
     sh.lineTo(base * (rr() - 0.5) * 0.6, len * 0.55); sh.lineTo((rr() - 0.5) * 0.08, len); sh.closePath();
     const m = new THREE.Mesh(new THREE.ShapeGeometry(sh), shardMat);
-    m.position.set(px, py, 0.03); m.rotation.z = rot; g.add(m);
+    m.position.set(px, py, 0.05); m.rotation.z = rot; g.add(m);
   };
   for (let i = 0; i < 7; i++) shard(-W / 2 + 0.15 + i * (W - 0.3) / 6, 0.1, (rr() - 0.5) * 0.4, 0.25 + rr() * 0.45, 0.22 + rr() * 0.15);
   for (let i = 0; i < 7; i++) shard(-W / 2 + 0.15 + i * (W - 0.3) / 6, H - 0.1, Math.PI + (rr() - 0.5) * 0.4, 0.2 + rr() * 0.5, 0.2 + rr() * 0.15);

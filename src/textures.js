@@ -395,7 +395,7 @@ function makeSpecimenCase(keys, seed) {
   keys.forEach((key, i) => {
     const cx = w * (0.125 + i * 0.25), span = w * (key === 'atlas' ? 0.23 : key === 'luna' ? 0.2 : 0.17) * (SPECIES[key].span / 105 * 0.5 + 0.5);
     drawMoth(g, key, cx, h * 0.38, span, { seed: seed + i });
-    drawLabel(g, key, cx, h * 0.76, w * 0.2, `No. ${seed % 100 + i}`);
+    drawLabel(g, key, cx, h * 0.7, w * 0.21, `No. ${seed % 100 + i}`);
   });
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = ANISO[Q] || 8;
   return t;

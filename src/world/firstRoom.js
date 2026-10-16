@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { tex } from '../textures.js';
 import { mat, box, rect, rep, rand } from './build.js';
+import { buildMosaicClue, buildCabinet, buildHallway } from './drawerPuzzle.js';
 
 export const ROOM_ORIGIN = new THREE.Vector3(1000, 0, 0);
 const W = 14, D = 10, H = 4.6;
@@ -10,7 +11,9 @@ const WIN = { x: 2, w: 2.0, h: 2.6, sill: 0.75 }; // window in the +z wall
 export const ROOM_SPAWN = new THREE.Vector3(ROOM_ORIGIN.x + WIN.x, 0, ROOM_ORIGIN.z + D / 2 - 1.1);
 export const ROOM_WINDOW = new THREE.Vector3(ROOM_ORIGIN.x + WIN.x, 0, ROOM_ORIGIN.z + D / 2 - 0.4);
 export const ROOM_LAMP = new THREE.Vector3(ROOM_ORIGIN.x - 1.15, 0, ROOM_ORIGIN.z - 1.7);
-export const ROOM_DOOR = new THREE.Vector3(ROOM_ORIGIN.x + W / 2 - 0.4, 0, ROOM_ORIGIN.z - 1);
+export const ROOM_DOOR = new THREE.Vector3(ROOM_ORIGIN.x + W / 2 - 0.5, 0, ROOM_ORIGIN.z + 2.6);
+export const ROOM_CABINET = new THREE.Vector3(ROOM_ORIGIN.x + 4.4, 0, ROOM_ORIGIN.z - 3.7);
+export const ROOM_MOSAIC = new THREE.Vector3(ROOM_ORIGIN.x, 0, ROOM_ORIGIN.z - 3.9);
 
 export function buildFirstRoom(scene, shadowSize = 2048) {
   const group = new THREE.Group();
@@ -41,7 +44,11 @@ export function buildFirstRoom(scene, shadowSize = 2048) {
   const T = 0.3;
   box(group, W, H, T, 0, H / 2, -D / 2 - T / 2, wallMat, local);           // back
   box(group, T, H, D, -W / 2 - T / 2, H / 2, 0, wallMatS, local);          // left
-  box(group, T, H, D, W / 2 + T / 2, H / 2, 0, wallMatS, local);           // right
+  // right wall, with the doorway to the hallway (z 2.0 .. 3.2)
+  box(group, T, H, 7, W / 2 + T / 2, H / 2, -1.5, wallMatS, local);
+  box(group, T, H, 1.8, W / 2 + T / 2, H / 2, 4.1, wallMatS, local);
+  box(group, T, H - 2.5, 1.2, W / 2 + T / 2, (H + 2.5) / 2, 2.6, wallMatS);
+  local.push({ minX: W / 2, maxX: W / 2 + T, minZ: 2.0, maxZ: 3.2, door: true });
   const fz = D / 2 + T / 2, wl = WIN.x - WIN.w / 2, wr = WIN.x + WIN.w / 2;
   box(group, wl + W / 2, H, T, (-W / 2 + wl) / 2, H / 2, fz, mat({ map: rep(tex.wallpaper, 2, 1), color: 0x9a9ca0 }), local);
   box(group, W / 2 - wr, H, T, (wr + W / 2) / 2, H / 2, fz, wallMatS, local);
@@ -92,7 +99,10 @@ export function buildFirstRoom(scene, shadowSize = 2048) {
   box(group, 3.0, 0.12, 0.65, 0, 1.36, -D / 2 + 0.3, marble);
   box(group, 1.1, 0.2, 0.3, 0, 0.1, -D / 2 + 0.7, mat({ color: 0x1a1612, metalness: 0.5 }), null); // grate
   const mosaic = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 2.4), mat({ map: tex.mosaic, roughness: 0.55 }));
-  mosaic.position.set(0, 2.9, -D / 2 + 0.01); group.add(mosaic);
+  mosaic.position.set(0, 2.9, -D / 2 + 0.02); group.add(mosaic);
+  const clue = buildMosaicClue(group, mosaic.position, 2.4);
+  const cabinet = buildCabinet(group, local, 4.4, -D / 2 + 0.36);
+  const hall = buildHallway(group, local);
   const frameMat = mat({ color: 0x5a4a2a, metalness: 0.5, roughness: 0.5 });
   for (const [w, h, x, y] of [[2.6, 0.1, 0, 4.15], [2.6, 0.1, 0, 1.65], [0.1, 2.6, -1.25, 2.9], [0.1, 2.6, 1.25, 2.9]])
     box(group, w, h, 0.08, x, y, -D / 2 + 0.04, frameMat, null, { cast: false });
@@ -115,7 +125,7 @@ export function buildFirstRoom(scene, shadowSize = 2048) {
   const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.12, 0.72, 8), dark); leg.position.y = 0.37; table.add(leg);
   const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.4, 0.06, 12), dark); foot.position.y = 0.03; table.add(foot);
   box(table, 0.32, 0.06, 0.24, 0.2, 0.81, 0.1, mat({ color: 0x3a1f1a }), null, { ry: 0.4 });
-  const lamp = buildOilLamp(); lamp.group.position.set(-0.15, 0.78, -0.1); table.add(lamp.group);
+  const lamp = buildOilLamp(Math.min(shadowSize, 2048) / 2 >= 1024 ? 2048 : 1024); lamp.group.position.set(-0.15, 0.78, -0.1); table.add(lamp.group);
   rect(local, -1.75, -0.25, -2.35, -0.85);
 
   // tipped-over armchair
@@ -155,21 +165,41 @@ export function buildFirstRoom(scene, shadowSize = 2048) {
   rect(local, -W / 2, -W / 2 + 0.6, 2.3, 2.9);
 
   // pinned-moth display cases on the right wall
-  for (const [z, specimens] of [[-2.6, tex.specimensA], [0.2, tex.specimensB]]) {
+  for (const [z, specimens] of [[-2.7, tex.specimensA], [-0.1, tex.specimensB]]) { // clear of the doorway (z 1.9 .. 3.3)
     const cs = new THREE.Group(); cs.position.set(W / 2 - 0.05, 1.75, z); cs.rotation.y = -Math.PI / 2; group.add(cs);
     box(cs, 2.4, 1.3, 0.1, 0, 0, 0, dark, null, { cast: false });
-    const back = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 1.1), mat({ map: specimens, roughness: 0.85 })); back.position.z = 0.05; cs.add(back);
+    const back = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 1.1), mat({ map: specimens, roughness: 0.85 })); back.position.z = 0.058; back.castShadow = false; cs.add(back);
     const glass = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 1.1), new THREE.MeshStandardMaterial({ color: 0x8899aa, transparent: true, opacity: 0.15, roughness: 0.05, metalness: 1 }));
-    glass.position.z = 0.1; cs.add(glass);
+    glass.position.z = 0.11; glass.castShadow = false; glass.material.depthWrite = false; glass.renderOrder = 2; cs.add(glass);
   }
   // sideboard under the cases
   box(group, 0.6, 0.9, 2.6, W / 2 - 0.3, 0.45, -1.2, dark, local);
 
   // locked door on the right wall
-  const door = new THREE.Group(); door.position.set(W / 2 - 0.02, 0, 2.6); door.rotation.y = -Math.PI / 2; group.add(door);
-  box(door, 1.2, 2.5, 0.08, 0, 1.25, 0, mat({ map: tex.wood, color: 0x7a6a5a }), null, { cast: false });
-  box(door, 1.5, 2.7, 0.04, 0, 1.35, -0.02, trim, null, { cast: false });
-  const knob = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), frameMat); knob.position.set(0.45, 1.1, 0.08); door.add(knob);
+  // the door hangs on a hinge at z = 2.0 so it can swing open into the room
+  const hinge = new THREE.Group(); hinge.position.set(W / 2 + 0.1, 0, 2.0); group.add(hinge);
+  const door = new THREE.Group(); door.position.set(0, 0, 0.6); door.rotation.y = -Math.PI / 2; hinge.add(door);
+  box(door, 1.2, 2.5, 0.08, 0, 1.25, 0, mat({ map: tex.wood, color: 0xa88a72 }), null, { cast: false });
+  for (const [px, py] of [[-0.28, 1.75], [0.28, 1.75], [-0.28, 0.65], [0.28, 0.65]]) box(door, 0.42, py > 1 ? 0.9 : 0.8, 0.02, px, py, 0.05, mat({ map: tex.wood, color: 0x8a7060 }), null, { cast: false });
+  // carved architrave: fluted jambs on plinth blocks, corner rosettes, a moulded head and cornice
+  const archMat = mat({ map: tex.wood, color: 0xb0947c, roughness: 0.6 });
+  for (const sx of [-1, 1]) {
+    const zc = 2.6 + sx * 0.7;
+    box(group, 0.07, 2.5, 0.16, W / 2 - 0.035, 1.25, zc, archMat, null, { cast: false });
+    for (const f of [-0.045, 0, 0.045]) box(group, 0.012, 2.2, 0.018, W / 2 - 0.075, 1.3, zc + f, dark, null, { cast: false }); // flutes
+    box(group, 0.09, 0.3, 0.2, W / 2 - 0.045, 0.15, zc, archMat, null, { cast: false });                                      // plinth block
+    box(group, 0.09, 0.2, 0.2, W / 2 - 0.045, 2.6, zc, archMat, null, { cast: false });                                       // corner block
+    const rosette = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.03, 12), dark); rosette.rotation.z = Math.PI / 2;
+    rosette.position.set(W / 2 - 0.095, 2.6, zc); group.add(rosette);
+  }
+  box(group, 0.07, 0.2, 1.24, W / 2 - 0.035, 2.6, 2.6, archMat, null, { cast: false });   // head
+  box(group, 0.16, 0.08, 1.8, W / 2 - 0.08, 2.76, 2.6, archMat, null, { cast: false });   // cornice
+  box(group, 0.1, 0.06, 1.7, W / 2 - 0.05, 2.83, 2.6, archMat, null, { cast: false });
+  const brassDoor = new THREE.MeshStandardMaterial({ color: 0xc09848, metalness: 0.9, roughness: 0.3 });
+  const knob = new THREE.Mesh(new THREE.SphereGeometry(0.045, 16, 12), brassDoor); knob.position.set(0.45, 1.05, 0.1); door.add(knob);
+  const knobRose = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.02, 16), brassDoor); knobRose.rotation.x = Math.PI / 2; knobRose.position.set(0.45, 1.05, 0.05); door.add(knobRose);
+  const plate = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.14, 0.01), brassDoor); plate.position.set(0.45, 0.88, 0.045); door.add(plate);
+  const keyhole = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.035, 0.012), new THREE.MeshBasicMaterial({ color: 0x000000 })); keyhole.position.set(0.45, 0.87, 0.05); door.add(keyhole);
 
   // paintings
   for (const [x, y] of [[-4.2, 2.6], [4.2, 2.6]]) {
@@ -189,9 +219,9 @@ export function buildFirstRoom(scene, shadowSize = 2048) {
   const moon = new THREE.SpotLight(0xff9a5a, 120, 24, 0.5, 0.6, 1.2);
   moon.position.set(WIN.x + 3.5, 3.6, D / 2 + 4); // low sun: long patch across the floor
   moon.target.position.set(WIN.x - 2.2, 0, -1.5);
-  moon.castShadow = true; moon.shadow.mapSize.set(Math.min(shadowSize, 2048), Math.min(shadowSize, 2048)); moon.shadow.bias = -0.0005;
+  moon.castShadow = true; moon.shadow.mapSize.set(Math.min(shadowSize, 2048), Math.min(shadowSize, 2048)); moon.shadow.bias = -0.0006; moon.shadow.normalBias = 0.035; moon.shadow.camera.near = 1; moon.shadow.camera.far = 20;
   group.add(moon, moon.target);
-  const fill = new THREE.HemisphereLight(0x6a5a70, 0x1c1410, 1.5); group.add(fill);
+  const fill = new THREE.HemisphereLight(0x7a6a80, 0x241a14, 2.4); group.add(fill);
   const bounce = new THREE.PointLight(0xc08060, 5, 12, 1.2); bounce.position.set(WIN.x - 0.5, 1.2, 2.5); group.add(bounce);
 
   // dust motes drifting in the moonbeam
@@ -204,22 +234,39 @@ export function buildFirstRoom(scene, shadowSize = 2048) {
   const colliders = local.map(c => ({ minX: c.minX, maxX: c.maxX, minZ: c.minZ, maxZ: c.maxZ }));
   // the local rects created via rect() are in group space; box() ones were already world-space
   // (box() uses world matrices) -> normalise: rects without world offset get shifted.
-  const worldColliders = colliders.map(c => c.minX < 500 ? { minX: c.minX + ROOM_ORIGIN.x, maxX: c.maxX + ROOM_ORIGIN.x, minZ: c.minZ + ROOM_ORIGIN.z, maxZ: c.maxZ + ROOM_ORIGIN.z } : c);
+  const worldColliders = local.map(c => c.minX < 500 ? { ...c, minX: c.minX + ROOM_ORIGIN.x, maxX: c.maxX + ROOM_ORIGIN.x, minZ: c.minZ + ROOM_ORIGIN.z, maxZ: c.maxZ + ROOM_ORIGIN.z } : c);
+  const doorCollider = worldColliders.find(c => c.door);
 
   const baseFill = fill.intensity, baseBounce = bounce.intensity;
-  let lampOn = false;
+  let lampOn = false, doorOpen = false, doorAnim = 0;
+  const toWorld = v => v.clone().add(ROOM_ORIGIN);
   return {
     group, colliders: worldColliders,
+    drawers: cabinet.drawers, pickables: cabinet.pickables,
+    hall: { spawn: toWorld(hall.spawn), endDoor: toWorld(hall.endDoor), sideDoor: toWorld(hall.sideDoor) },
     get lampOn() { return lampOn; },
+    get doorOpen() { return doorOpen; },
+    openDoor(instant = false) {
+      doorOpen = true;
+      const i = worldColliders.indexOf(doorCollider); if (i >= 0) worldColliders.splice(i, 1);
+      if (instant) { doorAnim = 1; hinge.rotation.y = -1.75; }
+    },
+    resetPuzzle() {
+      doorOpen = false; doorAnim = 0; hinge.rotation.y = 0;
+      if (!worldColliders.includes(doorCollider)) worldColliders.push(doorCollider);
+      for (const d of cabinet.drawers) { d.userData.target = d.userData.open = 0; d.position.z = 0.31; if (d.userData.keyMesh) d.userData.keyMesh.visible = true; }
+    },
     setLamp(on) {
-      lampOn = on; lamp.set(on);
+      lampOn = on; lamp.set(on); clue.visible = on;
       // the room warms up a little when the lamp is lit
-      fill.intensity = on ? baseFill * 1.2 : baseFill;
+      fill.intensity = on ? baseFill * 1.35 : baseFill;
       fill.color.set(on ? 0x8a6a5a : 0x6a5a70);
       bounce.intensity = on ? baseBounce * 0.6 : baseBounce;
     },
-    update(t) {
-      lamp.update(t);
+    update(t, dt = 0.016) {
+      lamp.update(t); hall.update(t);
+      if (doorOpen && doorAnim < 1) { doorAnim = Math.min(1, doorAnim + dt * 0.8); hinge.rotation.y = -1.75 * (1 - Math.pow(1 - doorAnim, 3)); }
+      for (const d of cabinet.drawers) { d.userData.open += (d.userData.target - d.userData.open) * Math.min(1, dt * 6); d.position.z = 0.31 + d.userData.open * 0.32; }
       const p = dg.attributes.position;
       for (let i = 0; i < N; i++) {
         let y = p.getY(i) - 0.0015 + Math.sin(t * 0.7 + i) * 0.0008;
@@ -243,7 +290,7 @@ function outsideTex() {
 }
 
 // Victorian brass oil lamp: weighted base, glass font, brass burner, tall glass chimney.
-function buildOilLamp() {
+function buildOilLamp(lampShadow = 1024) {
   const group = new THREE.Group();
   const brass = new THREE.MeshStandardMaterial({ color: 0xb08a40, metalness: 0.9, roughness: 0.32 });
   const lathe = (pts, m, segs = 32) => { const mesh = new THREE.Mesh(new THREE.LatheGeometry(pts.map(([x, y]) => new THREE.Vector2(x, y)), segs), m); mesh.castShadow = true; mesh.receiveShadow = true; group.add(mesh); return mesh; };
@@ -251,15 +298,16 @@ function buildOilLamp() {
   lathe([[0, 0], [0.085, 0], [0.09, 0.012], [0.07, 0.03], [0.04, 0.05], [0.025, 0.09], [0.03, 0.12], [0.05, 0.14], [0, 0.14]], brass);
   // glass font holding the oil (amber, with a liquid level inside)
   const fontGlass = new THREE.MeshPhysicalMaterial({ color: 0xd8a860, roughness: 0.05, transmission: 0.7, thickness: 0.02, transparent: true, opacity: 0.55, clearcoat: 1 });
-  lathe([[0.03, 0.14], [0.07, 0.16], [0.085, 0.2], [0.075, 0.24], [0.035, 0.26], [0.02, 0.265]], fontGlass);
+  lathe([[0.03, 0.14], [0.07, 0.16], [0.085, 0.2], [0.075, 0.24], [0.035, 0.26], [0.02, 0.265]], fontGlass).castShadow = false;
   lathe([[0, 0.145], [0.065, 0.15], [0.075, 0.19], [0, 0.19]], new THREE.MeshStandardMaterial({ color: 0x6a3a10, roughness: 0.2, transparent: true, opacity: 0.8 }));
   // burner, gallery and wick knob
-  lathe([[0.022, 0.265], [0.03, 0.27], [0.032, 0.3], [0.045, 0.31], [0.045, 0.32], [0.03, 0.325], [0, 0.325]], brass);
+  lathe([[0.022, 0.265], [0.03, 0.27], [0.032, 0.3], [0.045, 0.31], [0.045, 0.32], [0.03, 0.325], [0, 0.325]], brass).castShadow = false; // burner sits right under the flame
   const knob = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.01, 12), brass);
   knob.rotation.z = Math.PI / 2; knob.position.set(0.05, 0.3, 0); group.add(knob);
   // chimney glass: bulbous lower part and tall neck
   const chimneyMat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.04, transmission: 0.9, thickness: 0.005, transparent: true, opacity: 0.28, emissive: 0x000000, side: THREE.DoubleSide, depthWrite: false });
-  lathe([[0.034, 0.32], [0.05, 0.35], [0.055, 0.39], [0.04, 0.43], [0.026, 0.46], [0.024, 0.6], [0.027, 0.61]], chimneyMat);
+  // glass must not cast shadows: the light sits inside the chimney
+  lathe([[0.034, 0.32], [0.05, 0.35], [0.055, 0.39], [0.04, 0.43], [0.026, 0.46], [0.024, 0.6], [0.027, 0.61]], chimneyMat).castShadow = false;
   // flame: a teardrop that glows, plus a soft halo sprite
   const flameMat = new THREE.MeshBasicMaterial({ color: 0xffc070, transparent: true, opacity: 0.95 });
   const flame = lathe([[0, 0.33], [0.007, 0.338], [0.009, 0.35], [0.006, 0.365], [0, 0.39]], flameMat, 12);
@@ -269,18 +317,18 @@ function buildOilLamp() {
   hg.fillStyle = gr; hg.fillRect(0, 0, 128, 128);
   const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(hc), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
   halo.scale.set(0.35, 0.35, 1); halo.position.y = 0.37; group.add(halo);
-  const light = new THREE.PointLight(0xffa850, 0, 9, 1.6);
-  light.position.y = 0.42; light.castShadow = true; light.shadow.mapSize.set(1024, 1024); light.shadow.bias = -0.002; light.shadow.radius = 4;
+  const light = new THREE.PointLight(0xffa850, 0, 16, 1.15);
+  light.position.y = 0.45; light.castShadow = true; light.shadow.mapSize.set(lampShadow, lampShadow); light.shadow.bias = -0.0015; light.shadow.normalBias = 0.045; light.shadow.radius = 3; light.shadow.camera.near = 0.08; light.shadow.camera.far = 9;
   group.add(light);
   let on = false;
-  const set = v => { on = v; flame.visible = halo.visible = v; light.intensity = v ? 9 : 0; chimneyMat.emissive.set(v ? 0x3a2008 : 0x000000); };
+  const set = v => { on = v; flame.visible = halo.visible = v; light.intensity = v ? 7 : 0; chimneyMat.emissive.set(v ? 0x3a2008 : 0x000000); };
   set(false);
   return {
     group, set,
     update(t) {
       if (!on) return;
       const f = 1 + Math.sin(t * 11) * 0.04 + Math.sin(t * 23.7) * 0.03 + Math.sin(t * 4.3) * 0.05;
-      light.intensity = 9 * f; flame.scale.set(1, 0.9 + f * 0.12, 1); halo.material.opacity = 0.75 + (f - 1) * 2;
+      light.intensity = 7 * f; flame.scale.set(1, 0.9 + f * 0.12, 1); halo.material.opacity = 0.75 + (f - 1) * 2;
     },
   };
 }
