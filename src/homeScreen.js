@@ -14,8 +14,9 @@ export function startHomeBackdrop(canvas) {
 
   function layout() {
     const narrow = W < 800 * dpr;
-    const cw = Math.min(narrow ? W * 0.92 : W * 0.5, H * 0.95 * 4 / 3), ch = cw * 0.75;
-    const cx = narrow ? W / 2 : W * 0.66, cy = narrow ? H * 0.3 : H * 0.5;
+    // leave the top band clear and dark for the PINNED title
+    const cw = Math.min(narrow ? W * 0.92 : W * 0.5, H * (narrow ? 0.5 : 0.74) * 4 / 3), ch = cw * 0.75;
+    const cx = narrow ? W / 2 : W * 0.66, cy = narrow ? H * 0.36 : H * 0.58;
     const b = cw * 0.065;
     return { cw, ch, cx, cy, x0: cx - cw / 2, y0: cy - ch / 2, b, ix: cx - cw / 2 + b, iy: cy - ch / 2 + b, iw: cw - 2 * b, ih: ch - 2 * b };
   }
@@ -63,7 +64,9 @@ export function startHomeBackdrop(canvas) {
     s.fillStyle = sh; s.fillRect(P.ix, P.iy, P.iw, 50 * dpr);
     s.restore();
     // handwritten specimen label under the moth
-    drawLabel(s, SPECIES, P.cx, P.iy + P.ih * 0.66, Math.max(P.iw * 0.4, Math.min(P.iw * 0.7, 260 * dpr)));
+    // label: as wide as comfortable, but never taller than the space under the moth
+    const lw0 = Math.min(Math.max(P.iw * 0.4, Math.min(P.iw * 0.7, 260 * dpr)), (P.ih * 0.29) / 0.46);
+    drawLabel(s, SPECIES, P.cx, P.iy + P.ih * 0.66, lw0);
     // brass plate on the frame
     const lw = P.iw * 0.46, lh = P.b * 0.62, lx = P.cx - lw / 2, ly = P.y0 + P.ch - P.b * 0.81;
     const brass = s.createLinearGradient(lx, ly, lx, ly + lh); brass.addColorStop(0, '#c8a458'); brass.addColorStop(0.45, '#8a6a30'); brass.addColorStop(1, '#5a4218');
