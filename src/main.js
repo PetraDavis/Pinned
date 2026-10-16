@@ -28,6 +28,10 @@ let settings = loadSettings();
 // Medium: 1.25 pixel ratio, 2048 soft shadows, full materials.
 // High: full DPR (cap 2), 4096 soft shadows, ambient occlusion, bloom, dense grass and dust.
 // Texture canvases are 512 / 1024 / 2048 px (see textures.js) and need a restart to change.
+import { detectCaps, createLightLimiter } from './caps.js';
+const CAPS = detectCaps();
+// first run on this browser: pick a safe default
+if (!settings.qualityChosen) { settings.quality = CAPS.defaultQuality; settings.qualityChosen = true; saveSettings(settings); }
 const QUALITIES = {
   low: { pr: 0.75, shadow: 512, soft: false, lampShadows: false, pbr: false, grass: 0.2, dust: 0, post: false },
   medium: { pr: 1.25, shadow: 2048, soft: true, lampShadows: true, pbr: true, grass: 0.5, dust: 150, post: false },
@@ -53,6 +57,7 @@ buildTextures(settings.quality);
 const exterior = buildExterior(scene, settings.quality);
 const room = buildFirstRoom(scene, QUALITY.shadow, settings.quality);
 const ground = room.ground;
+const lightLimiter = createLightLimiter(scene, CAPS.maxLights);
 const lampMoths = createLampMoths(scene, settings.quality);
 
 // low dusk sun: warm, raking, long shadows
@@ -155,10 +160,12 @@ let currentQ = QUALITY;
 function applyQuality(q) {
   const Q = QUALITIES[q] || QUALITIES.high;
   currentQ = Q; if (typeof ground !== 'undefined') ground.setQuality(q); if (typeof lampMoths !== 'undefined') lampMoths.setQuality(q);
+  if (typeof lightLimiter !== 'undefined') setTimeout(() => { lightLimiter.refresh(); lightLimiter.update(camera, true); });
   renderer.setPixelRatio(Math.min(devicePixelRatio, Q.pr));
   renderer.setSize(innerWidth, innerHeight);
   renderer.shadowMap.type = Q.soft ? THREE.PCFSoftShadowMap : THREE.BasicShadowMap;
-  if (Q.post && !composer) composer = buildComposer();
+  // post effects (GTAO + bloom) fall back to plain rendering if this browser can't build them
+  if (Q.post && !composer) { try { composer = buildComposer(); } catch (e) { console.warn('Post-processing unavailable:', e); QUALITIES.high.post = false; } }
   if (composer) { composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(innerWidth, innerHeight); }
   scene.traverse(o => {
     if (o.userData.grass) o.count = Math.round(o.userData.max * Q.grass);
@@ -637,6 +644,7 @@ function loop() {
   } else promptEl.textContent = '';
   lantern.update(dt, t, player.moving);
   lampMoths.update(t, camera);
+  lightLimiter.update(camera);
   flashlight.update(dt, t, player.moving, currentQ, lantern.on ? { on: true, onTime: lantern.onTime, pos: lantern.worldPos(lurePos) } : null);
   setHiss(state === 'playing' && zone === 'room' ? ground.hiss : 0);
   if (state === 'playing') hintTick(dt);
@@ -658,6 +666,6 @@ loop();
 // Hook for automated tests / debugging.
 window.__pinned = {
   start: startGame, pause, resume, quitHome, player, setZone, interact: () => current && current.act(),
-  get state() { return state; }, get zone() { return zone; }, get prompt() { return current && (typeof current.prompt === 'function' ? current.prompt() : current.prompt); }, room,
+  caps: CAPS, get state() { return state; }, get zone() { return zone; }, get prompt() { return current && (typeof current.prompt === 'function' ? current.prompt() : current.prompt); }, room,
   renderer, scene, camera, flashlight, lantern, get gameTime() { return gameTime; }, get colliders() { return colliders(); },
 };

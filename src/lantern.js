@@ -25,7 +25,7 @@ export function lanternMesh() {
 export function createLantern(camera) {
   const model = lanternMesh(); model.scale.setScalar(0.85);
   model.position.set(0.26, -0.42, -0.5); model.visible = false; camera.add(model);
-  const light = new THREE.PointLight(0xffb468, 0, 10, 1.4); light.position.set(0.26, -0.28, -0.5); camera.add(light);
+  const light = new THREE.PointLight(0xffb468, 0, 10, 1.4); light.userData.noLimit = true; light.position.set(0.26, -0.28, -0.5); camera.add(light);
   const L = { have: false, on: false, fuel: 0, onTime: 0, model, light,
     pickUp(fuel = 0.8) { L.have = true; L.fuel = Math.max(L.fuel, fuel); },
     raise() { if (!L.have) return false; L.on = !L.on; L.onTime = 0; return L.on; },
