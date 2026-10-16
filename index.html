@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pinned</title>
+<link rel="stylesheet" href="style.css">
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
+</script>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="hud" class="hidden">
+  <div id="crosshair"></div>
+  <div id="prompt"></div>
+  <div id="message"></div>
+  <button id="pauseBtn" title="Pause (Esc / P)">II</button>
+</div>
+<div id="fade"></div>
+
+<div id="home" class="screen">
+  <canvas id="homeBg"></canvas>
+  <div class="menu">
+    <h1><span class="moth">&#x2766;</span> Pinned <span class="moth flip">&#x2766;</span></h1>
+    <p class="tag">The Order of the Pale Wing kept its secrets behind iron and glass.</p>
+    <button id="btnContinue">Continue</button>
+    <button id="btnRestart">Restart</button>
+    <button id="btnMulti">Multiplayer</button>
+    <button id="btnSettingsHome">Settings</button>
+    <p id="homeNote" class="note"></p>
+  </div>
+</div>
+
+<div id="pause" class="screen dim hidden">
+  <div class="menu">
+    <h2>Paused</h2>
+    <button id="btnResume">Resume</button>
+    <button id="btnSettingsPause">Settings</button>
+    <button id="btnQuit">Quit to home screen</button>
+  </div>
+</div>
+
+<div id="settings" class="screen dim hidden">
+  <div class="menu">
+    <h2>Settings</h2>
+    <label>Mouse sensitivity <output id="oSens"></output><input id="sSens" type="range" min="0.2" max="3" step="0.05"></label>
+    <label>Volume <output id="oVol"></output><input id="sVol" type="range" min="0" max="1" step="0.01"></label>
+    <label>Brightness <output id="oBright"></output><input id="sBright" type="range" min="0.5" max="2" step="0.05"></label>
+    <label>Field of view <output id="oFov"></output><input id="sFov" type="range" min="55" max="100" step="1"></label>
+    <button id="btnSettingsBack">Back</button>
+  </div>
+</div>
+
+<div id="confirm" class="screen dim hidden">
+  <div class="menu">
+    <p>Start a new game? Your saved progress will be lost.</p>
+    <button id="btnConfirmYes">Start over</button>
+    <button id="btnConfirmNo">Cancel</button>
+  </div>
+</div>
+
+<div id="loading" class="screen"><p>Loading…</p></div>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
