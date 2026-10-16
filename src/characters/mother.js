@@ -249,7 +249,7 @@ export function buildMother({ quality = 'high' } = {}) {
   const ll = new THREE.Mesh(new THREE.SphereGeometry(0.012, 16, 8), lips); ll.scale.set(1.05, 0.36, 0.45); ll.position.set(0, -0.066, surfZ(0, -0.066) - 0.002); head.add(ll);
   // hair: dark, long, parted, matted with silk
   const hairMat = new THREE.MeshPhysicalMaterial({ color: 0x2e241c, roughness: 0.7, sheen: 0.6, sheenColor: new THREE.Color(0x8a7a66) });
-  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.094, 32, 18, 0, Math.PI * 2, 0, Math.PI * 0.4), hairMat); cap.scale.set(0.92, 1.18, 1.05); cap.position.set(0, 0.012, -0.01); cap.rotation.x = -0.3; head.add(cap);
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.094, 32, 18, 0, Math.PI * 2, 0, Math.PI * 0.5), hairMat); cap.scale.set(0.95, 1.2, 1.06); cap.position.set(0, 0.01, -0.006); cap.rotation.x = -0.12; head.add(cap);
   for (let i = 0; i < 180; i++) {
     const a = Math.PI * 0.32 + (i / 179) * Math.PI * 1.36 + (r() - 0.5) * 0.05, rr = 0.088;
     const p0 = new THREE.Vector3(Math.sin(a) * rr * 0.9, 0.05 + r() * 0.04, Math.cos(a) * rr - 0.01);
