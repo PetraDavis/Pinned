@@ -15,7 +15,8 @@ all geometry and textures are generated in code.
 | Shift (hold) | Sprint |
 | Space | Jump |
 | E | Interact (climb, try doors, examine) |
-| F | Flashlight |
+| F | Flashlight (battery runs down; batteries can be found) |
+| Q | Close a drawer while holding a specimen |
 | Esc / P | Pause menu (or the II button, top right) |
 
 Settings also has **Graphics quality** (Low / Medium / High, default High). High renders at up to 2x pixel ratio with 2048px textures, generated normal/roughness maps and 4096px soft shadows; use Medium or Low on weaker computers. Changing it reloads the game.

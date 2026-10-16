@@ -110,10 +110,11 @@ export function startHomeBackdrop(canvas) {
     if (t > nextTwitch) { twitchStart = t; twitchAmp = 0.1 + Math.random() * 0.15; nextTwitch = t + 3 + Math.random() * 7; }
     const { m, P } = L, cx = P.cx, cy = L.mothY;
     for (const side of [1, -1]) {
-      g.save(); g.translate(cx, cy - m.originY); g.scale(side * (1 - Math.abs(k) * 0.8), 1);
-      g.drawImage(m.wing, -m.ox, 0); g.restore();
+      g.save(); g.translate(cx, cy - m.originY); g.scale(side * (1 - Math.abs(k) * (side > 0 ? 0.8 : 0.7)), 1);
+      g.drawImage(side > 0 ? m.wing : m.wing2, -m.ox, 0); g.restore();
     }
     g.drawImage(m.body, cx - m.body.width / 2, cy - m.originY);
+    g.drawImage(m.pin, cx - m.pin.width / 2, cy - m.originY);
     g.drawImage(L.gl, 0, 0);
     for (const d of dust) {
       d.y -= d.v / 60; d.x += Math.sin(t + d.y * 9) * 0.0002; if (d.y < 0) d.y = 1;

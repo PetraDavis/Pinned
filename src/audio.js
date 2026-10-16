@@ -80,3 +80,14 @@ export function playGrind() {
   g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.5, t + 0.3); g.gain.setValueAtTime(0.5, t + 2.4); g.gain.linearRampToValueAtTime(0, t + 3);
   src.connect(f).connect(g).connect(master); src.start(t);
 }
+
+// flashlight switch: a short plastic click
+export function playClick() {
+  if (!ctx) return;
+  const t = ctx.currentTime, len = Math.floor(ctx.sampleRate * 0.03), buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (len * 0.12));
+  const src = ctx.createBufferSource(); src.buffer = buf;
+  const hp = ctx.createBiquadFilter(); hp.type = 'bandpass'; hp.frequency.value = 3200; hp.Q.value = 1.5;
+  const g = ctx.createGain(); g.gain.value = 0.6;
+  src.connect(hp).connect(g).connect(master); src.start(t);
+}

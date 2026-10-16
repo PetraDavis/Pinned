@@ -38,32 +38,58 @@ export const SPECIES = {
     hind: [[3, 2], [26, 6], [48, 14], [56, 24], [48, 34], [26, 36], [8, 28], [2, 14]],
     foreAngle: -0.05, hindAngle: 0.05,
     paintFore(g, r) {
-      const gr = g.createLinearGradient(0, -25, 0, 15); gr.addColorStop(0, '#3a2a20'); gr.addColorStop(0.6, '#4a3626'); gr.addColorStop(1, '#2a1c14');
+      // sooty brown-black ground, bluish-grey frosting toward the outer half
+      const gr = g.createLinearGradient(0, -25, 0, 15); gr.addColorStop(0, '#2c2119'); gr.addColorStop(0.55, '#3a2b20'); gr.addColorStop(1, '#22180f');
       g.fillStyle = gr; g.fillRect(-5, -40, 120, 70);
-      // mottled bark pattern: dark wavy cross-lines and pale ochre streaks
-      for (let i = 0; i < 9; i++) blob(g, 15 + r() * 80, -20 + r() * 30, 4 + r() * 10, 2 + r() * 5, r() * 3, `rgba(${120 + r() * 60},${90 + r() * 40},${50 + r() * 20},0.45)`);
-      for (const x of [22, 44, 70]) band(g, [[x, -22], [x + 4, -10], [x - 2, 2], [x + 3, 12]], 1.6, 'rgba(15,8,4,0.8)');
-      band(g, [[10, 2], [40, -2], [75, -8], [98, -18]], 2.5, 'rgba(170,140,90,0.5)');
-      blob(g, 48, -6, 3, 2, 0, '#e8dcb8'); // the pale stigma spot
-      speckle(g, r, 500, 0, -28, 105, 15, 'rgba(10,5,3,0.35)', 1.2);
-      speckle(g, r, 300, 0, -28, 105, 15, 'rgba(200,170,120,0.25)', 1);
+      g.filter = 'blur(2.2px)';
+      for (let i = 0; i < 7; i++) blob(g, 55 + r() * 45, -22 + r() * 22, 5 + r() * 9, 2 + r() * 4, r() * 3, `rgba(${110 + r() * 30},${112 + r() * 30},${120 + r() * 30},0.22)`);
+      // mottled bark pattern: ochre and rust patches between wavy dark cross-lines
+      for (let i = 0; i < 12; i++) blob(g, 12 + r() * 85, -20 + r() * 30, 3 + r() * 9, 1.5 + r() * 4, r() * 3, `rgba(${130 + r() * 60},${90 + r() * 35},${45 + r() * 20},${0.25 + r() * 0.25})`);
+      g.filter = 'none';
+      for (const x of [20, 43, 69]) band(g, [[x, -23], [x + 4 + r() * 2, -11], [x - 2, 1], [x + 3, 12]], 1.2 + r() * 0.8, 'rgba(12,7,3,0.75)');
+      band(g, [[10, 2], [40, -2], [75, -8], [98, -18]], 2.2, 'rgba(170,140,90,0.4)');
+      blob(g, 48, -6, 2.6, 1.8, 0.3, '#e2d4ae'); // the pale stigma spot
+      // fine scale texture: rows of tiny overlapping strokes
+      g.lineWidth = 0.25;
+      for (let i = 0; i < 2200; i++) { const x = r() * 105, y = -28 + r() * 43; g.strokeStyle = r() < 0.55 ? 'rgba(8,4,2,0.28)' : 'rgba(205,180,140,0.18)'; g.beginPath(); g.moveTo(x, y); g.lineTo(x + 0.9, y + 0.25); g.stroke(); }
     },
     paintHind(g, r) {
-      g.fillStyle = '#e3b42a'; g.fillRect(-5, -5, 70, 50);
-      band(g, [[4, 12], [24, 14], [42, 20], [54, 26]], 5, '#1c120a');
-      band(g, [[6, 26], [24, 30], [40, 33], [50, 33]], 4, '#1c120a');
-      band(g, [[0, 4], [3, 30]], 6, 'rgba(60,40,20,0.6)');
-      speckle(g, r, 120, 0, 0, 60, 40, 'rgba(120,70,10,0.25)', 1);
+      const gr = g.createLinearGradient(0, 0, 55, 30); gr.addColorStop(0, '#c8901e'); gr.addColorStop(0.5, '#deb032'); gr.addColorStop(1, '#d2a42a');
+      g.fillStyle = gr; g.fillRect(-5, -5, 70, 50);
+      band(g, [[4, 12], [24, 14], [42, 20], [54, 26]], 4.4, '#1c120a');
+      band(g, [[6, 26], [24, 30], [40, 33], [50, 33]], 3.6, '#1c120a');
+      band(g, [[0, 4], [3, 30]], 6, 'rgba(60,40,20,0.55)');
+      g.lineWidth = 0.25;
+      for (let i = 0; i < 900; i++) { const x = r() * 58, y = r() * 38; g.strokeStyle = r() < 0.5 ? 'rgba(110,60,10,0.25)' : 'rgba(255,230,150,0.2)'; g.beginPath(); g.moveTo(x, y); g.lineTo(x + 0.8, y + 0.3); g.stroke(); }
     },
-    body: { thorax: [9, 12], abdomen: [8, 36], fur: '#3a2a20', furHi: '#8a6a4a', head: 6,
+    body: { thorax: [11, 15], abdomen: [8, 36], fur: '#2e2118', furHi: '#6e5640', head: 6,
       paint(g, r) {
-        // the skull: pale yellow cranium with two dark orbits
-        blob(g, 0, -12, 6.5, 6, 0, '#e8d49a');
-        blob(g, -2.6, -12.5, 1.8, 2.2, 0.2, '#1a120a'); blob(g, 2.6, -12.5, 1.8, 2.2, -0.2, '#1a120a');
-        blob(g, 0, -8.5, 1, 1.3, 0, '#3a2a18');
+        // the skull: a pale, furry, yellow-ochre pattern on the dark thorax, cranium
+        // above, narrowing to the cheekbones, with two dark sockets and a small nasal mark
+        g.save(); g.translate(0, 4.5);
+        g.save();
+        g.beginPath(); g.moveTo(0, -18.2);
+        g.bezierCurveTo(5.8, -18.2, 7.4, -14, 6.4, -11); g.bezierCurveTo(5.8, -9, 4, -8.2, 3.2, -6.6);
+        g.lineTo(-3.2, -6.6); g.bezierCurveTo(-4, -8.2, -5.8, -9, -6.4, -11); g.bezierCurveTo(-7.4, -14, -5.8, -18.2, 0, -18.2);
+        g.clip();
+        const sk = g.createRadialGradient(-1, -14, 0.5, 0, -12, 8); sk.addColorStop(0, '#eadba8'); sk.addColorStop(0.7, '#cdb47a'); sk.addColorStop(1, '#8a7348');
+        g.fillStyle = sk; g.fillRect(-8, -19, 16, 13);
+        g.lineCap = 'round'; g.lineWidth = 0.3;
+        for (let i = 0; i < 700; i++) { const x = (r() - 0.5) * 14, y = -18.5 + r() * 12; g.strokeStyle = r() < 0.5 ? 'rgba(255,245,210,0.35)' : 'rgba(60,40,20,0.3)'; g.beginPath(); g.moveTo(x, y); g.lineTo(x + x * 0.06 + (r() - 0.5) * 0.4, y + 0.9); g.stroke(); }
+        g.restore();
+        g.filter = 'blur(0.35px)';
+        blob(g, -2.5, -12.4, 1.65, 2.0, 0.25, 'rgba(22,14,8,0.92)'); blob(g, 2.6, -12.3, 1.6, 2.05, -0.22, 'rgba(22,14,8,0.92)');
+        blob(g, 0.1, -9.4, 0.7, 0.9, 0, 'rgba(40,28,14,0.8)');
+        g.filter = 'none';
+        g.restore();
+        // blue-black tegulae (shoulder tufts) either side
+        for (const sx of [-1, 1]) blob(g, sx * 7.2, -9, 2.4, 5.2, sx * 0.25, 'rgba(30,32,40,0.75)');
         // yellow abdomen with black rings and a blue-grey dorsal stripe
-        for (let i = 0; i < 6; i++) { const y = 6 + i * 5.2; blob(g, 0, y, 7.6 - i * 0.6, 2.3, 0, '#d8a828'); blob(g, 0, y + 2.6, 7.4 - i * 0.6, 1.1, 0, '#1a1008'); }
-        g.fillStyle = 'rgba(70,90,120,0.75)'; g.fillRect(-1.6, 5, 3.2, 30);
+        for (let i = 0; i < 6; i++) { const y = 6 + i * 5.2; blob(g, 0, y, 7.6 - i * 0.6, 2.3, 0, '#cf9f26'); blob(g, 0, y + 2.6, 7.4 - i * 0.6, 1.1, 0, '#1a1008'); }
+        const st = g.createLinearGradient(-1.8, 0, 1.8, 0); st.addColorStop(0, 'rgba(60,72,95,0)'); st.addColorStop(0.5, 'rgba(70,85,110,0.85)'); st.addColorStop(1, 'rgba(60,72,95,0)');
+        g.fillStyle = st; g.fillRect(-1.8, 5, 3.6, 30);
+        g.lineWidth = 0.3;
+        for (let i = 0; i < 500; i++) { const x = (r() - 0.5) * 14, y = 4 + r() * 34; g.strokeStyle = r() < 0.5 ? 'rgba(255,230,160,0.2)' : 'rgba(0,0,0,0.25)'; g.beginPath(); g.moveTo(x, y); g.lineTo(x + x * 0.08, y + 0.9); g.stroke(); }
       } },
     antenna: { type: 'thick', len: 26, color: '#2a1c12' },
   },
@@ -460,13 +486,29 @@ function drawBody(g, sp, r, pin = true) {
   drawFurEllipse(g, r, 0, -17, b.head, b.head * 0.8, b.fur, b.furHi);
   for (const s of [-1, 1]) blob(g, s * b.head * 0.75, -17.5, b.head * 0.38, b.head * 0.45, 0, '#141010');
   b.paint(g, r);
-  if (pin) {
-    // shadow of the pin head, then the head itself with a specular highlight
-    blob(g, 2.4, -6, 2.4, 1.6, 0.3, 'rgba(20,12,6,0.35)');
-    const pg = g.createRadialGradient(-0.7, -9.8, 0.2, 0, -9, 2.4);
-    pg.addColorStop(0, '#ffffff'); pg.addColorStop(0.35, '#b8b8b4'); pg.addColorStop(1, '#2a2a28');
-    g.fillStyle = pg; g.beginPath(); g.arc(0, -9, 2.2, 0, 7); g.fill();
-  }
+  if (pin) drawPin(g);
+}
+
+// An insect pin seen from slightly above and to the left: a black enamel head on a
+// steel shaft that leans out of the thorax, with a soft shadow cast down-right.
+export function drawPin(g, scale = 1) {
+  g.save(); g.scale(scale, scale);
+  const hx = 5.6, hy = -4.2, bx = 2.4, by = -0.8; // head and entry point in the thorax
+  // cast shadow of shaft and head on the wing/backing
+  g.save(); g.filter = 'blur(1.2px)'; g.strokeStyle = 'rgba(15,8,4,0.45)'; g.lineWidth = 1; g.lineCap = 'round';
+  g.beginPath(); g.moveTo(bx, by); g.lineTo(bx + 9, by + 6); g.stroke();
+  g.fillStyle = 'rgba(15,8,4,0.45)'; g.beginPath(); g.ellipse(bx + 10.5, by + 7, 3, 2.3, 0.5, 0, 7); g.fill(); g.restore();
+  // dimple where the pin enters
+  blob(g, bx, by, 1.3, 0.9, 0, 'rgba(10,6,3,0.6)');
+  // steel shaft
+  const sg = g.createLinearGradient(bx - 0.6, 0, bx + 0.6, 0); sg.addColorStop(0, '#5a5a58'); sg.addColorStop(0.5, '#e8e8e2'); sg.addColorStop(1, '#4a4a48');
+  g.strokeStyle = sg; g.lineWidth = 0.75; g.lineCap = 'round'; g.beginPath(); g.moveTo(bx, by); g.lineTo(hx, hy); g.stroke();
+  g.strokeStyle = 'rgba(255,255,255,0.6)'; g.lineWidth = 0.25; g.beginPath(); g.moveTo(bx - 0.15, by - 0.3); g.lineTo(hx - 0.1, hy + 0.6); g.stroke();
+  // round black enamel head with a specular highlight
+  const pg = g.createRadialGradient(hx - 1, hy - 1.1, 0.1, hx, hy, 2.8);
+  pg.addColorStop(0, '#d8d8d8'); pg.addColorStop(0.18, '#4a4a4c'); pg.addColorStop(0.6, '#141416'); pg.addColorStop(1, '#050506');
+  g.fillStyle = pg; g.beginPath(); g.arc(hx, hy, 2.6, 0, 7); g.fill();
+  g.restore();
 }
 
 // Draw a complete specimen centred at (cx, cy); `size` is the wingspan in pixels.
@@ -486,9 +528,14 @@ export function renderMothLayers(key, size, seed = 7) {
   const W = Math.ceil(size * 0.6), H = Math.ceil(size * 0.75);
   const wing = document.createElement('canvas'); wing.width = W; wing.height = H;
   const wg = wing.getContext('2d'); wg.translate(4, H * 0.32); wg.scale(k, k); drawWingPair(wg, sp, rng(seed));
+  // the other side: a different scale pattern and a fractionally different set
+  const wing2 = document.createElement('canvas'); wing2.width = W; wing2.height = H;
+  const w2 = wing2.getContext('2d'); w2.translate(4, H * 0.32); w2.scale(k * 0.985, k * 0.985); w2.rotate(0.025); drawWingPair(w2, sp, rng(seed + 17));
   const body = document.createElement('canvas'); body.width = Math.ceil(size * 0.25); body.height = H;
-  const bg = body.getContext('2d'); bg.translate(body.width / 2, H * 0.32); bg.scale(k, k); drawBody(bg, sp, rng(seed + 1));
-  return { wing, body, originY: H * 0.32, ox: 4 };
+  const bg = body.getContext('2d'); bg.translate(body.width / 2, H * 0.32); bg.scale(k, k); drawBody(bg, sp, rng(seed + 1), false);
+  const pin = document.createElement('canvas'); pin.width = body.width * 2; pin.height = H;
+  const pg2 = pin.getContext('2d'); pg2.translate(pin.width / 2, H * 0.32); pg2.scale(k, k); drawPin(pg2, 1.1);
+  return { wing, wing2, body, pin, originY: H * 0.32, ox: 4 };
 }
 
 // A small handwritten specimen label: three lines (Latin name, common name, collection),

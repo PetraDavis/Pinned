@@ -11,7 +11,8 @@ import { buildFirstRoom, ROOM_LAMP, ROOM_SPAWN, ROOM_WINDOW, ROOM_DOOR, ROOM_ORI
 import { SPECIES } from './moths.js';
 import { specimenCanvas } from './world/drawerPuzzle.js';
 import { Player } from './player.js';
-import { startAudio, setVolume, playThud, playGlass, playCreak, playGrind } from './audio.js';
+import { startAudio, setVolume, playThud, playGlass, playCreak, playGrind, playClick } from './audio.js';
+import { createFlashlight, batteryMesh } from './flashlight.js';
 import { loadSettings, saveSettings, loadSave, writeSave, clearSave } from './storage.js';
 import { startHomeBackdrop } from './homeScreen.js';
 
@@ -60,11 +61,26 @@ const sky = new THREE.HemisphereLight(0x9a9cc4, 0x4a4030, 1.5);
 scene.add(moonLight, sky);
 
 const player = new Player(camera, canvas);
-// flashlight (F)
-const torch = new THREE.SpotLight(0xffe6c0, 0, 22, 0.42, 0.5, 1.6);
-torch.position.set(0.25, -0.2, 0); torch.target.position.set(0, -0.3, -3);
-camera.add(torch, torch.target); scene.add(camera);
-let torchOn = false;
+// flashlight (F): held in the right hand, battery-limited (see flashlight.js)
+scene.add(camera);
+const flashlight = createFlashlight(camera, scene, { playClick });
+// battery pickups: one in the grounds, one in the first room, one in the hallway
+const BATTERIES = [
+  { id: 'b1', zone: 'exterior', pos: new THREE.Vector3(CLIMB_SPOT.x + 1.6, 0, FENCE.front - 3.2), parent: () => exterior.group },
+  { id: 'b2', zone: 'room', pos: new THREE.Vector3(ROOM_ORIGIN.x - 1.0, 0, ROOM_ORIGIN.z + 2.2), parent: () => room.group },
+  { id: 'b3', zone: 'room', pos: new THREE.Vector3(ROOM_ORIGIN.x + 14, 0, ROOM_ORIGIN.z + 4.3), parent: () => room.group },
+];
+let batteriesTaken = new Set();
+for (const b of BATTERIES) {
+  b.mesh = batteryMesh(); b.mesh.rotation.y = Math.random() * 3;
+  const par = b.parent(); par.updateMatrixWorld(true); b.mesh.position.copy(par.worldToLocal(b.pos.clone())); par.add(b.mesh);
+}
+const batteryEl = $('battery'), batteryFill = $('batteryFill');
+function updateBatteryHud() {
+  batteryFill.style.width = Math.round(flashlight.battery * 100) + '%';
+  batteryEl.classList.toggle('low', flashlight.battery < 0.15);
+  batteryEl.classList.toggle('on', flashlight.on);
+}
 
 // ---------- zones ----------
 let zone = 'exterior';
@@ -157,6 +173,10 @@ function say(text, ms = 4000) {
 }
 
 const interactables = [
+  ...BATTERIES.map(b => ({
+    zone: b.zone, pos: b.pos, r: 1.1, when: () => !batteriesTaken.has(b.id), prompt: 'E  take the batteries',
+    act: () => { batteriesTaken.add(b.id); b.mesh.visible = false; flashlight.addBattery(0.5); updateBatteryHud(); say('Two batteries, still in their sleeve. They should be good for the torch.'); },
+  })),
   {
     zone: 'exterior', pos: new THREE.Vector3(CLIMB_SPOT.x, 0, FENCE.front + 1), r: 1.7,
     when: () => player.pos.z > FENCE.front, prompt: 'E  climb the fence',
@@ -250,7 +270,7 @@ function cabinetInteraction() {
   const open = d.userData.target > 0;
   if (!open) return { prompt: 'E  open the drawer', act: () => { d.userData.target = 1; if (!item) say(FLAVOUR_EMPTY); } };
   if (item && !P.held) return { prompt: `E  take the ${SPECIES[item].common}`, act: () => { P.takeFromDrawer(d); updateHeld(); } };
-  if (!item && P.held) return { prompt: `E  put the ${SPECIES[P.held].common} in the drawer`, act: () => { P.putIntoDrawer(d); updateHeld(); } };
+  if (!item && P.held) return { prompt: `E  put the ${SPECIES[P.held].common} in the drawer   ·   Q  close it`, act: () => { P.putIntoDrawer(d); updateHeld(); }, alt: () => { d.userData.target = 0; } };
   return { prompt: 'E  close the drawer', act: () => { d.userData.target = 0; } };
 }
 // HUD: the specimen in hand
@@ -302,9 +322,13 @@ function transition(mid) {
   setTimeout(() => { mid(); $('fade').style.opacity = 0; setTimeout(() => { state = 'playing'; player.enabled = true; }, 400); }, 550);
 }
 
-function save(checkpoint) { writeSave({ checkpoint, lampLit: room.lampOn, solved: room.puzzle.solved }); }
+function save(checkpoint) { writeSave({ checkpoint, lampLit: room.lampOn, solved: room.puzzle.solved, battery: +flashlight.battery.toFixed(3), batteries: [...batteriesTaken] }); }
 function spawnAt(checkpoint, saved = {}) {
   room.resetPuzzle(); room.setLamp(!!saved.lampLit);
+  flashlight.battery = saved.battery ?? 0.6; if (flashlight.on) flashlight.toggle();
+  batteriesTaken = new Set(saved.batteries || []);
+  for (const b of BATTERIES) b.mesh.visible = !batteriesTaken.has(b.id);
+  updateBatteryHud();
   if (saved.solved) { room.puzzle.solveInstantly(); room.openPanel(true); }
   updateHeld();
   if (checkpoint === 'hallway') { setZone('room'); player.place(room.hall.spawn.x, room.hall.spawn.z, -Math.PI / 2); return; }
@@ -373,7 +397,8 @@ addEventListener('keydown', e => {
   if (e.code === 'KeyP' && state === 'paused' && !$('pause').classList.contains('hidden')) { resume(); return; }
   if (state !== 'playing') return;
   if ((e.code === 'KeyE' || e.key === 'e' || e.key === 'E') && current) current.act();
-  if (e.code === 'KeyF') { torchOn = !torchOn; torch.intensity = torchOn ? 25 : 0; }
+  if (e.code === 'KeyQ' && current && current.alt) current.alt();
+  if (e.code === 'KeyF' && state === 'playing') { const on = flashlight.toggle(); if (!on && flashlight.battery <= 0) say('The torch is dead. It needs new batteries.'); updateBatteryHud(); }
 });
 addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight);
@@ -392,6 +417,8 @@ function loop() {
     current = findInteractable();
     promptEl.textContent = current ? ((typeof current.prompt === 'function' ? current.prompt() : current.prompt) || '') : '';
   } else promptEl.textContent = '';
+  flashlight.update(dt, t, player.moving, currentQ);
+  if (state === 'playing' && flashlight.on) updateBatteryHud();
   if (zone === 'room') room.update(t, dt);
   else if (curtain) { curtain.rotation.x = -0.25 - Math.sin(t * 1.3) * 0.12 + Math.sin(t * 3.1) * 0.05; }
   if (state !== 'home') { if (currentQ.post && composer) composer.render(dt); else renderer.render(scene, camera); }
@@ -407,5 +434,5 @@ loop();
 window.__pinned = {
   start: startGame, pause, resume, quitHome, player, setZone, interact: () => current && current.act(),
   get state() { return state; }, get zone() { return zone; }, get prompt() { return current && (typeof current.prompt === 'function' ? current.prompt() : current.prompt); }, room,
-  renderer, scene, camera, get colliders() { return colliders(); },
+  renderer, scene, camera, flashlight, get colliders() { return colliders(); },
 };
