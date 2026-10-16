@@ -49,3 +49,12 @@ select { grid-column: 1 / -1; font: inherit; color: var(--ink); background: #141
 #battery .cap { position: absolute; right: -6px; top: 4px; width: 4px; height: 6px; background: rgba(220,210,190,.55); border-radius: 0 2px 2px 0; }
 #batteryFill { display: block; height: 100%; width: 100%; background: #d8cfae; }
 #battery.low #batteryFill { background: #c0503a; }
+
+/* cellar padlock */
+.padlock .dials { display: flex; gap: 12px; justify-content: center; margin: 12px 0; }
+.padlock .dial { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px; border: 1px solid #5a4a30; background: linear-gradient(#5a4520, #2a2010); }
+.padlock .dial.sel { outline: 2px solid #d8b870; }
+.padlock .dial span { font: 700 32px Georgia, serif; color: #f0dca0; width: 40px; text-align: center; }
+.padlock .dial button { min-width: 44px; padding: 4px; margin: 0; }
+.menu label.check { flex-direction: row; align-items: center; justify-content: space-between; gap: 12px; }
+.menu label.check input { width: auto; }

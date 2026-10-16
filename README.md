@@ -13,9 +13,12 @@ all geometry and textures are generated in code.
 | Mouse | Look (click the game to capture the mouse) |
 | W A S D / arrows | Move |
 | Shift (hold) | Sprint |
+| C or Left Ctrl (hold) | Crouch: slower, quieter, lets you pass under low obstacles and hide. You stay down while something is overhead. Settings can make it a toggle. Careful: Ctrl+W closes the browser tab, so prefer C while moving forward. |
 | Space | Jump |
 | E | Interact (climb, try doors, examine) |
 | F | Flashlight (battery runs down; batteries can be found) |
+| L | Raise or lower a paraffin lantern once you have found one (it shares the torch hand; its light draws moths) |
+| H | Hint for the current puzzle (up to three, each more direct; also in the pause menu) |
 | Q | Close a drawer while holding a specimen |
 | Esc / P | Pause menu (or the II button, top right) |
 
@@ -25,7 +28,7 @@ The way in: climb the fence at the stone block left of the gate, then find the s
 
 Inside the first room the east door is stuck fast. Light the oil lamp and study the moth mosaic above the fireplace: in lamplight, five small moths show in the tiles of its lower border. Take boxed specimens from the cabinet drawers (E), one at a time, and set them on the five numbered stands (I to V) around the room in the mosaic's left-to-right order. Two specimens are decoys. A wrong order only rattles the frames, and you can pick specimens back up and rearrange them. The right order opens a hidden panel in the east wall onto the hallway, and the game saves there.
 
-Beyond the hallway, the ground floor follows the blueprint route: the **Specimen Study** (read the leader's journal on the desk, then rehang the five cases on the board by adult lifespan, shortest first, to unbolt the hallway's end door), the **Grand Hall** (the main stair is buried under a collapsed landing, the great moth mosaic is set into the floor, the front doors are boarded), the **Dining Room**, the **Servants' Passage** and the **Kitchen**, where the cellar stair is padlocked for now and the back stair is nailed shut. Two old mirrors, one in the hallway and one in the Grand Hall, show your reflection a little more moth-like each time. The game saves on solving the study and on entering the Grand Hall.
+Beyond the hallway, the ground floor follows the blueprint route: the **Specimen Study** (read the leader's journal on the desk, then rehang the five cases on the board by adult lifespan, shortest first, to unbolt the hallway's end door), the **Grand Hall** (the main stair is buried under a collapsed landing, a round stained-glass moth window over the boarded front doors throws coloured light onto a moth-eaten carpet, the front doors are boarded), the **Dining Room**, the **Servants' Passage** and the **Kitchen**, where the cellar stair is padlocked. In the Dining Room, six moth specimens must be seated at the dinner table as the seating note in the kitchen describes; plates rattle when the seating is right, and the digits painted under the plates open the four-dial padlock on the cellar stair (the game saves when it opens) and the back stair is nailed shut. Two old mirrors, one in the hallway and one in the Grand Hall, show your reflection a little more moth-like each time. The game saves on solving the study and on entering the Grand Hall.
 
 Progress is saved automatically at save points (climbing the fence, entering the first room, unlocking the east door), and settings
 (mouse sensitivity, volume, brightness, field of view) are kept in `localStorage`. **Continue** on the home

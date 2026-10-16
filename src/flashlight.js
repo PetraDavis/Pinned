@@ -103,7 +103,7 @@ export function createFlashlight(camera, scene, { playClick } = {}) {
     toggle() {
       if (!f.on && f.battery <= 0) { playClick && playClick(); return false; }
       f.on = !f.on; f.onTime = 0; playClick && playClick();
-      if (f.on) for (const m of moths) { m.arrive = 2 + m.i * (1.2 + Math.random()); m.s.visible = false; }
+      if (f.on) for (const m of moths) { m.arrive = 2 + m.i * (1.2 + Math.random()); }
       return f.on;
     },
     addBattery(x) { f.battery = Math.min(1, f.battery + x); },
@@ -117,7 +117,7 @@ export function createFlashlight(camera, scene, { playClick } = {}) {
       dispatchEvent(new CustomEvent('flashburst', { detail }));
       return detail;
     },
-    update(dt, t, moving, quality) {
+    update(dt, t, moving, quality, lure = null) {
       // gentle hand sway, more when walking
       const k = moving ? 1 : 0.35;
       model.position.set(0.24 + Math.sin(t * 1.7) * 0.004 * k + Math.sin(t * 7.5) * 0.006 * (moving ? 1 : 0), -0.23 + Math.cos(t * 1.3) * 0.003 * k + Math.abs(Math.sin(t * 7.5)) * 0.006 * (moving ? 1 : 0), -0.42);
@@ -141,9 +141,10 @@ export function createFlashlight(camera, scene, { playClick } = {}) {
       // moths: after a while in the dark with the torch on, a few flutter into the beam
       const camPos = new THREE.Vector3(), dir = new THREE.Vector3(); camera.getWorldPosition(camPos); camera.getWorldDirection(dir);
       for (const m of moths) {
-        if (f.on && f.onTime > m.arrive) {
+        const lured = !f.on && lure && lure.on && lure.onTime > m.arrive;
+        if ((f.on && f.onTime > m.arrive) || lured) {
           if (!m.s.visible) { m.s.visible = true; m.s.position.copy(camPos).addScaledVector(dir, 6).add(new THREE.Vector3((Math.random() - 0.5) * 6, 1 + Math.random() * 1.5, (Math.random() - 0.5) * 6)); m.vel.set(0, 0, 0); }
-          const goal = camPos.clone().addScaledVector(dir, 1.6 + m.i * 0.5).add(new THREE.Vector3(Math.sin(t * 1.3 + m.phase) * 0.35, Math.cos(t * 1.7 + m.phase) * 0.25, Math.sin(t * 0.9 + m.phase * 2) * 0.35));
+          const goal = (lured ? lure.pos.clone().add(new THREE.Vector3(0, 0.15, 0)).addScaledVector(new THREE.Vector3(Math.sin(t * 2 + m.i), 0, Math.cos(t * 2 + m.i)), 0.25 + m.i * 0.08) : camPos.clone().addScaledVector(dir, 1.6 + m.i * 0.5)).add(new THREE.Vector3(Math.sin(t * 1.3 + m.phase) * 0.35, Math.cos(t * 1.7 + m.phase) * 0.25, Math.sin(t * 0.9 + m.phase * 2) * 0.35));
           m.vel.addScaledVector(goal.sub(m.s.position), dt * 2.2).multiplyScalar(1 - dt * 1.4);
           m.vel.x += (Math.random() - 0.5) * dt * 3; m.vel.y += (Math.random() - 0.5) * dt * 3;
         } else if (m.s.visible) {

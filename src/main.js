@@ -7,13 +7,15 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { buildTextures } from './textures.js';
 import { buildExterior, SUN_DIR, CLIMB_SPOT, BROKEN_WINDOW, FRONT_DOOR, GATE, FENCE } from './world/exterior.js';
+import { createLampMoths } from './lampMoths.js';
 import { buildFirstRoom, ROOM_LAMP, ROOM_SPAWN, ROOM_WINDOW, ROOM_DOOR, ROOM_ORIGIN, ROOM_CABINET, ROOM_MOSAIC, ROOM_STANDS, ROOM_PANEL } from './world/firstRoom.js';
 import { SPECIES } from './moths.js';
-import { JOURNAL } from './world/groundFloor.js';
+import { JOURNAL, LIFESPAN_ORDER, SEATING_NOTE, DINNER_SOLUTION } from './world/groundFloor.js';
 import { specimenCanvas } from './world/drawerPuzzle.js';
 import { Player } from './player.js';
-import { startAudio, setVolume, playThud, playGlass, playCreak, playGrind, playClick } from './audio.js';
+import { startAudio, setVolume, playThud, playGlass, playCreak, playGrind, playClick, setHiss, playSoftClicks } from './audio.js';
 import { createFlashlight, batteryMesh } from './flashlight.js';
+import { createLantern, lanternMesh } from './lantern.js';
 import { loadSettings, saveSettings, loadSave, writeSave, clearSave } from './storage.js';
 import { startHomeBackdrop } from './homeScreen.js';
 
@@ -51,6 +53,7 @@ buildTextures(settings.quality);
 const exterior = buildExterior(scene, settings.quality);
 const room = buildFirstRoom(scene, QUALITY.shadow, settings.quality);
 const ground = room.ground;
+const lampMoths = createLampMoths(scene, settings.quality);
 
 // low dusk sun: warm, raking, long shadows
 const moonLight = new THREE.DirectionalLight(0xffc49a, 3.0);
@@ -77,6 +80,25 @@ for (const b of BATTERIES) {
   b.mesh = batteryMesh(); b.mesh.rotation.y = Math.random() * 3;
   const par = b.parent(); par.updateMatrixWorld(true); b.mesh.position.copy(par.worldToLocal(b.pos.clone())); par.add(b.mesh);
 }
+// lanterns: carried in the same (right) hand as the torch; specimens go in the left
+const lantern = createLantern(camera);
+const LANTERNS = [
+  { id: 'l1', zone: 'room', pos: new THREE.Vector3(ROOM_ORIGIN.x + 4.2, 0, ROOM_ORIGIN.z + 3.8) },
+  { id: 'l2', zone: 'room', pos: new THREE.Vector3(ROOM_ORIGIN.x + 13.4, 0, ROOM_ORIGIN.z - 4.4) },
+  { id: 'l3', zone: 'room', pos: new THREE.Vector3(ROOM_ORIGIN.x + 32.9, 0, ROOM_ORIGIN.z + 2.4) },
+  { id: 'l4', zone: 'room', pos: new THREE.Vector3(ROOM_ORIGIN.x + 36.0, 0, ROOM_ORIGIN.z - 4.2) },
+];
+let lanternsTaken = new Set();
+for (const l of LANTERNS) {
+  l.mesh = lanternMesh(); l.mesh.position.copy(l.pos).sub(ROOM_ORIGIN); l.mesh.rotation.y = Math.random() * 3; room.group.add(l.mesh);
+  const glow = new THREE.PointLight(0xffb060, 0.6, 2.5, 2); glow.position.y = 0.16; l.mesh.add(glow);
+}
+function raiseLantern() {
+  if (!lantern.have) return;
+  if (flashlight.on) { flashlight.toggle(); updateBatteryHud(); }
+  const on = lantern.raise();
+  if (on && lantern.fuel <= 0) { lantern.lower(); say('The lantern is dry. Another one might still have paraffin in it.'); }
+}
 const batteryEl = $('battery'), batteryFill = $('batteryFill');
 function updateBatteryHud() {
   batteryFill.style.width = Math.round(flashlight.battery * 100) + '%';
@@ -99,6 +121,8 @@ const colliders = () => (zone === 'exterior' ? exterior.colliders : room.collide
 // ---------- settings ----------
 function applySettings() {
   player.sensitivity = settings.sensitivity;
+  player.crouchToggle = !!settings.crouchToggle; if (!player.crouchToggle) player.crouchLatched = false;
+  $('sCrouchToggle').checked = player.crouchToggle;
   setVolume(settings.volume);
   renderer.toneMappingExposure = 1.0 * settings.brightness;
   camera.fov = settings.fov; camera.updateProjectionMatrix();
@@ -119,6 +143,8 @@ function buildComposer() {
   const c = new EffectComposer(renderer);
   c.addPass(new RenderPass(scene, camera));
   const ao = new GTAOPass(scene, camera, innerWidth, innerHeight);
+  // light shafts, dust and other additive effects must not write into the AO depth/normals
+  { const r0 = ao.render.bind(ao); const hidden = []; ao.render = (...a) => { hidden.length = 0; scene.traverseVisible(o => { if (o.userData.noAO) hidden.push(o); }); hidden.forEach(o => (o.visible = false)); r0(...a); hidden.forEach(o => (o.visible = true)); }; }
   ao.blendIntensity = 0.8; c.addPass(ao);
   // high threshold: only the lamp flame, sconces and lit glass bloom
   c.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.55, 0.5, 0.88));
@@ -128,7 +154,7 @@ function buildComposer() {
 let currentQ = QUALITY;
 function applyQuality(q) {
   const Q = QUALITIES[q] || QUALITIES.high;
-  currentQ = Q;
+  currentQ = Q; if (typeof ground !== 'undefined') ground.setQuality(q); if (typeof lampMoths !== 'undefined') lampMoths.setQuality(q);
   renderer.setPixelRatio(Math.min(devicePixelRatio, Q.pr));
   renderer.setSize(innerWidth, innerHeight);
   renderer.shadowMap.type = Q.soft ? THREE.PCFSoftShadowMap : THREE.BasicShadowMap;
@@ -154,6 +180,7 @@ function applyQuality(q) {
     if (o.material) for (const m of [].concat(o.material)) m.needsUpdate = true;
   });
 }
+$('sCrouchToggle').addEventListener('change', e => { settings.crouchToggle = e.target.checked; saveSettings(settings); applySettings(); });
 $('sQuality').addEventListener('change', e => {
   settings.quality = e.target.value; saveSettings(settings);
   applyQuality(settings.quality);
@@ -175,6 +202,13 @@ function say(text, ms = 4000) {
 }
 
 const interactables = [
+  ...LANTERNS.map(l => ({
+    zone: l.zone, pos: l.pos, r: 1.1, when: () => !lanternsTaken.has(l.id), prompt: 'E  take the lantern',
+    act: () => {
+      const first = !lantern.have; lanternsTaken.add(l.id); l.mesh.visible = false; lantern.pickUp(0.85); raiseLantern(); if (!lantern.on) raiseLantern();
+      say(first ? 'A paraffin lantern, still half full. L raises or lowers it; it shares a hand with the torch.' : 'Another lantern. You pour its paraffin into yours.', 6000);
+    },
+  })),
   ...BATTERIES.map(b => ({
     zone: b.zone, pos: b.pos, r: 1.1, when: () => !batteriesTaken.has(b.id), prompt: 'E  take the batteries',
     act: () => { batteriesTaken.add(b.id); b.mesh.visible = false; flashlight.addBattery(0.5); updateBatteryHud(); say('Two batteries, still in their sleeve. They should be good for the torch.'); },
@@ -252,12 +286,37 @@ const interactables = [
   // ground floor doors
   ...Object.values(ground.doors).map(d => ({
     zone: 'room', pos: d.pos.clone().add(ROOM_ORIGIN), r: 1.3, when: () => !d.isOpen,
-    prompt: () => d.boarded ? 'E  examine the boarded door' : d.locked ? 'E  try the door' : 'E  open the door',
+    prompt: () => d.boarded ? 'E  examine the boarded door' : d.id === 'stairC' && d.locked && ground.dinner.solved ? 'E  try the padlock' : d.locked ? 'E  try the door' : 'E  open the door',
     act: () => {
+      if (d.id === 'stairC' && d.locked && ground.dinner.solved) { openPadlock(); return; }
       if (d.locked) { say(d.msg, 6000); playCreak(); return; }
       d.open(); playThud(); if (d.openMsg) say(d.openMsg, 5000);
     },
   })),
+  ...ground.dinner.seats.map(st => ({
+    zone: 'room', pos: st.pos.clone().add(ROOM_ORIGIN), r: 0.75, when: () => !ground.dinner.solved,
+    prompt: () => {
+      const h = room.puzzle.held;
+      if (!h && st.key) return `E  lift the ${SPECIES[st.key].common} from the chair`;
+      if (h && !st.key) return `E  pin the ${SPECIES[h].common} to this chair`;
+      if (h && st.key) return `E  swap the ${SPECIES[h].common} for the ${SPECIES[st.key].common}`;
+      return `An empty chair: ${st.name}`;
+    },
+    act: () => {
+      const P = room.puzzle, h = P.held; if (!h && !st.key) return;
+      const prev = ground.dinner.use(st, h); P.held = prev; updateHeld(); playThud();
+      if (h) say(`You pin the ${SPECIES[h].common} to the chair at ${st.name}.`, 3000);
+      if (ground.dinner.filled()) checkDinner();
+    },
+  })),
+  ...ground.dinner.seats.filter(st => st.digit).map(st => ({
+    zone: 'room', pos: st.pos.clone().add(ROOM_ORIGIN), r: 0.75, when: () => ground.dinner.solved && !st.flipped, prompt: 'E  turn over the plate',
+    act: () => { st.flipped = true; playThud(); say(`Scratched into the glaze underneath: ${st.digit.replace(' · ', ', and the figure ')}.`, 7000); },
+  })),
+  {
+    zone: 'room', pos: ground.note.position.clone().add(ROOM_ORIGIN), r: 1.3, prompt: 'E  read the note',
+    act: () => say(SEATING_NOTE, 18000),
+  },
   {
     zone: 'room', pos: ground.journal.position.clone().add(ROOM_ORIGIN), r: 1.3, prompt: 'E  read the journal',
     act: () => say(JOURNAL, 16000),
@@ -299,13 +358,111 @@ function lifespanInteraction() {
   const prompt = lifted === null ? `E  lift the ${name}` : lifted === key ? `E  hang the ${name} back` : `E  swap with the ${SPECIES[lifted].common}`;
   return { prompt, act: () => {
     const res = ground.useCase(key); playThud();
+    if (res === 'lifted') say(`You lift the ${name} off its hook.`, 2500);
+    if (res === 'replaced') say(`You hang the ${name} back where it was.`, 2500);
+    if (res === 'swapped' && !ground.lifespanCorrect()) {
+      const n = L.order.filter((k, i) => k === LIFESPAN_ORDER[i]).length;
+      playSoftClicks(n);
+      say(`You swap the ${SPECIES[lifted].common} and the ${name}. ${n ? `${n === 1 ? 'One case clicks' : `${n} cases click`} softly against the board.` : 'Nothing clicks.'} Not quite. Something is out of place.`, 5000);
+    }
     if (res === 'swapped' && ground.lifespanCorrect()) {
+      playSoftClicks(5);
       ground.solveLifespan(); playGrind();
       say('The last case settles on its hook. Behind the walls, something heavy slides, and down the hallway a bolt draws back.', 7000);
       save('study');
     }
   } };
 }
+// ---------- hints: up to three per puzzle, from a nudge to the near-answer ----------
+const HINTS = {
+  room: [
+    'The room is too dark to read properly. The oil lamp on the side table would help, and so would a closer look at the mosaic over the fireplace.',
+    'By lamplight the mosaic’s lower border shows five small moths, left to right. The cabinet drawers hold boxed specimens, and there are five numbered stands around the room.',
+    'Match the stands to the border, I to V: Rosy maple, Garden tiger, Comet moth, Oleander hawkmoth, White ermine. The Io and the Elephant hawkmoth are decoys.',
+  ],
+  study: [
+    'Someone in this study kept notes. The journal on the desk might explain the board on the wall.',
+    'The journal gives each moth’s life on the wing. Hang the cases from the shortest life to the longest, left to right.',
+    'Left to right: Emperor moth, Polyphemus, Puss moth, Elephant hawkmoth, Death’s-head hawkmoth.',
+  ],
+};
+HINTS.dinner = [
+  'There is a seating plan on the kitchen table. Each dining chair has a moth pinned to its back: the moths are the guests.',
+  'Read the plan as moths: the pale one is the White ermine, the blood-drinker the Vampire moth, the one who eats everything the Clothes moth, the giant the Cecropia, the tiger the Garden tiger, the rosy one the Rosy maple.',
+  'Head: White ermine. Foot: Vampire moth. Sideboard side by the foot: Clothes moth, with the Cecropia across from it. Sideboard side by the head: Garden tiger. North side by the head: Rosy maple.',
+];
+HINTS.padlock = [
+  'The plan said to turn the plates once the guests were seated.',
+  'Four of the plates have a numeral and a figure underneath. Read them from I to IV.',
+  'The padlock code is 1 8 8 7.',
+];
+let hintState = {}, stuckTime = 0, nudged = {};
+function currentPuzzle() {
+  if (zone !== 'room') return null;
+  const x = player.pos.x - ROOM_ORIGIN.x, z = player.pos.z - ROOM_ORIGIN.z;
+  if (x < 7.2 && !room.puzzle.solved) return 'room';
+  if (x > 10.9 && x < 20 && z < 1.25 && !ground.lifespan.solved) return 'study';
+  return extraPuzzle ? extraPuzzle(x, z) : null;
+}
+const extraPuzzle = (x, z) => {
+  const dining = x > 34.2 && x < 44 && z > 1 && z < 10, kitchen = x > 34.2 && x < 44 && z > -10 && z < -2.9;
+  if ((dining || kitchen) && !ground.dinner.solved) return 'dinner';
+  if ((dining || kitchen) && ground.doors.stairC.locked) return 'padlock';
+  return null;
+};
+function showHint() {
+  const p = currentPuzzle();
+  if (!p) { say('Nothing here seems to need solving right now.', 3000); return; }
+  const n = Math.min(HINTS[p].length, (hintState[p] || 0) + 1); hintState[p] = n; stuckTime = 0;
+  say(`Hint ${n}/${HINTS[p].length}: ${HINTS[p][n - 1]}`, 11000);
+}
+// a gentle nudge if the player has been in a puzzle room for a few minutes without a hint
+function hintTick(dt) {
+  const p = currentPuzzle(); if (!p) { stuckTime = 0; return; }
+  stuckTime += dt;
+  if (stuckTime > 180 && !nudged[p] && !hintState[p]) { nudged[p] = true; say(`${HINTS[p][0]} (Press H for more hints.)`, 10000); }
+}
+$('btnHint').onclick = () => { resume(); setTimeout(showHint, 300); };
+function checkDinner() {
+  const D = ground.dinner;
+  if (D.correct()) {
+    D.solve(); D.rattle(); playCreak(); playSoftClicks(6);
+    say('Every guest in their place. The plates rattle on the cloth, as if the whole table shivered. Something scrapes underneath them.', 7000);
+    save('dining');
+  } else {
+    const n = D.seats.filter((st, i) => st.key === DINNER_SOLUTION[i]).length;
+    playSoftClicks(n);
+    say(`The table stays still. ${n ? `${n === 1 ? 'One chair creaks' : `${n} chairs creak`} quietly under its guest. ` : ''}Not quite. Someone is sitting in the wrong place.`, 5000);
+  }
+}
+// ---------- the cellar padlock: four brass dials ----------
+const dials = [0, 0, 0, 0]; let dialSel = 0;
+function drawDials() { document.querySelectorAll('#padlock .dial').forEach((el, i) => { el.querySelector('span').textContent = dials[i]; el.classList.toggle('sel', i === dialSel); }); }
+function openPadlock() {
+  state = 'padlock'; player.enabled = false; show('padlock', true); drawDials();
+  if (document.pointerLockElement) document.exitPointerLock();
+}
+function closePadlock() { show('padlock', false); state = 'playing'; player.enabled = true; lock(); }
+function tryPadlock() {
+  if (dials.join('') === '1887') {
+    const d = ground.doors.stairC; d.locked = false; d.open(); playThud(); closePadlock();
+    say('The shackle drops open. The door swings in on cold, damp air and stone steps going down.', 7000);
+    save('kitchen');
+  } else { playCreak(); $('padlockMsg').textContent = 'The shackle does not move.'; }
+}
+document.querySelectorAll('#padlock .dial').forEach((el, i) => {
+  el.querySelector('.up').onclick = () => { dials[i] = (dials[i] + 1) % 10; dialSel = i; drawDials(); };
+  el.querySelector('.down').onclick = () => { dials[i] = (dials[i] + 9) % 10; dialSel = i; drawDials(); };
+});
+$('padlockTry').onclick = tryPadlock; $('padlockClose').onclick = closePadlock;
+addEventListener('keydown', e => {
+  if (state !== 'padlock') return;
+  if (e.code === 'ArrowLeft') dialSel = (dialSel + 3) % 4; if (e.code === 'ArrowRight') dialSel = (dialSel + 1) % 4;
+  if (e.code === 'ArrowUp') dials[dialSel] = (dials[dialSel] + 1) % 10; if (e.code === 'ArrowDown') dials[dialSel] = (dials[dialSel] + 9) % 10;
+  if (/^Digit\d$/.test(e.code)) { dials[dialSel] = +e.code.slice(5); dialSel = Math.min(3, dialSel + 1); }
+  if (e.code === 'Enter') tryPadlock(); if (e.code === 'Escape') closePadlock();
+  if (e.code !== 'Enter') $('padlockMsg').textContent = ''; drawDials();
+});
 // HUD: the specimen in hand
 function updateHeld() {
   const k = room.puzzle.held, el = $('held');
@@ -356,19 +513,27 @@ function transition(mid) {
   setTimeout(() => { mid(); $('fade').style.opacity = 0; setTimeout(() => { state = 'playing'; player.enabled = true; }, 400); }, 550);
 }
 
-function save(checkpoint) { writeSave({ checkpoint, lampLit: room.lampOn, solved: room.puzzle.solved, studySolved: ground.lifespan.solved, doorsOpen: Object.values(ground.doors).filter(d => d.isOpen).map(d => d.id), battery: +flashlight.battery.toFixed(3), batteries: [...batteriesTaken] }); }
+function save(checkpoint) { writeSave({ checkpoint, lampLit: room.lampOn, solved: room.puzzle.solved, studySolved: ground.lifespan.solved, dinnerSolved: ground.dinner.solved, plates: ground.dinner.seats.filter(st => st.flipped).map(st => st.id), doorsOpen: Object.values(ground.doors).filter(d => d.isOpen).map(d => d.id), battery: +flashlight.battery.toFixed(3), batteries: [...batteriesTaken], lantern: lantern.have ? +lantern.fuel.toFixed(3) : null, lanterns: [...lanternsTaken] }); }
 let grandHallSaved = false;
 function spawnAt(checkpoint, saved = {}) {
   room.resetPuzzle(); room.setLamp(!!saved.lampLit);
   flashlight.battery = saved.battery ?? 0.6; if (flashlight.on) flashlight.toggle();
   batteriesTaken = new Set(saved.batteries || []);
+  lanternsTaken = new Set(saved.lanterns || []); for (const l of LANTERNS) l.mesh.visible = !lanternsTaken.has(l.id);
+  lantern.have = saved.lantern != null; lantern.fuel = saved.lantern || 0; lantern.lower();
+  hintState = {}; stuckTime = 0;
   for (const b of BATTERIES) b.mesh.visible = !batteriesTaken.has(b.id);
   updateBatteryHud();
   if (saved.solved) { room.puzzle.solveInstantly(); room.openPanel(true); }
   ground.reset(); grandHallSaved = checkpoint === 'grandhall';
   if (saved.studySolved) ground.solveLifespan();
+  if (saved.dinnerSolved) ground.dinner.solve();
+  for (const st of ground.dinner.seats) if ((saved.plates || []).includes(st.id)) { st.flipped = true; st.flip = 0; }
+  if ((saved.doorsOpen || []).includes('stairC')) ground.doors.stairC.locked = false;
   for (const id of saved.doorsOpen || []) if (ground.doors[id]) ground.doors[id].open(true);
   updateHeld();
+  if (checkpoint === 'dining') { setZone('room'); player.place(ROOM_ORIGIN.x + 35.2, ROOM_ORIGIN.z + 2.2, -Math.PI / 2); return; }
+  if (checkpoint === 'kitchen') { setZone('room'); player.place(ROOM_ORIGIN.x + 36.6, ROOM_ORIGIN.z - 7.6, 0); return; }
   if (checkpoint === 'study') { setZone('room'); player.place(ROOM_ORIGIN.x + 15.5, ROOM_ORIGIN.z - 3.2, 0); return; }
   if (checkpoint === 'grandhall') { setZone('room'); player.place(ROOM_ORIGIN.x + 21.4, ROOM_ORIGIN.z + 3.1, -Math.PI / 2); return; }
   if (checkpoint === 'hallway') { setZone('room'); player.place(room.hall.spawn.x, room.hall.spawn.z, -Math.PI / 2); return; }
@@ -397,7 +562,7 @@ function startGame(checkpoint, saved = {}) {
   startAudio(settings.volume);
   lock();
   if (!checkpoint) say('The Pale Wing house. Everyone at school says it’s haunted. Find a way past the fence.', 6000);
-  else say(checkpoint === 'study' ? 'You are back in the Specimen Study.' : checkpoint === 'grandhall' ? 'You are back in the Grand Hall.' : checkpoint === 'hallway' ? 'You are back in the hallway.' : checkpoint === 'room' ? 'You are back in the drawing room.' : 'You are back on the grounds.');
+  else say(checkpoint === 'dining' ? 'You are back in the dining room.' : checkpoint === 'kitchen' ? 'You are back in the kitchen, by the cellar door.' : checkpoint === 'study' ? 'You are back in the Specimen Study.' : checkpoint === 'grandhall' ? 'You are back in the Grand Hall.' : checkpoint === 'hallway' ? 'You are back in the hallway.' : checkpoint === 'room' ? 'You are back in the drawing room.' : 'You are back on the grounds.');
 }
 function pause() {
   if (state !== 'playing') return;
@@ -427,6 +592,9 @@ $('btnResume').onclick = resume;
 $('btnQuit').onclick = quitHome;
 $('pauseBtn').onclick = pause;
 
+// leaving the tab or window pauses too
+document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
+addEventListener('blur', () => pause());
 document.addEventListener('pointerlockchange', () => {
   // Esc releases pointer lock in the browser; treat that as pause.
   if (!document.pointerLockElement && state === 'playing') pause();
@@ -438,7 +606,9 @@ addEventListener('keydown', e => {
   if (state !== 'playing') return;
   if ((e.code === 'KeyE' || e.key === 'e' || e.key === 'E') && current) current.act();
   if (e.code === 'KeyQ' && current && current.alt) current.alt();
-  if (e.code === 'KeyF' && state === 'playing') { const on = flashlight.toggle(); if (!on && flashlight.battery <= 0) say('The torch is dead. It needs new batteries.'); updateBatteryHud(); }
+  if (e.code === 'KeyL' && state === 'playing') raiseLantern();
+  if (e.code === 'KeyH' && state === 'playing') showHint();
+  if (e.code === 'KeyF' && state === 'playing') { if (lantern.on) lantern.lower(); const on = flashlight.toggle(); if (!on && flashlight.battery <= 0) say('The torch is dead. It needs new batteries.'); updateBatteryHud(); }
 });
 addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight);
@@ -449,15 +619,27 @@ addEventListener('resize', () => {
 // ---------- loop ----------
 const clock = new THREE.Clock();
 const curtain = exterior.group.getObjectByName('curtain');
+const lurePos = new THREE.Vector3();
+// One game clock for the whole simulation. It stops while the game is paused, on the
+// home screen, or while the tab is hidden, so moths, flickering lights, battery and fuel
+// drain, animations, hint timers (and later The Mother) all freeze together.
+let gameTime = 0;
+const frozen = () => state === 'paused' || state === 'home' || document.hidden;
 function loop() {
-  const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
+  const realDt = Math.min(clock.getDelta(), 0.05);
+  const dt = frozen() ? 0 : realDt;
+  gameTime += dt; const t = gameTime;
   if (state === 'playing') player.update(dt, colliders());
   if (anim) anim.update(dt);
   if (state === 'playing') {
     current = findInteractable();
     promptEl.textContent = current ? ((typeof current.prompt === 'function' ? current.prompt() : current.prompt) || '') : '';
   } else promptEl.textContent = '';
-  flashlight.update(dt, t, player.moving, currentQ);
+  lantern.update(dt, t, player.moving);
+  lampMoths.update(t, camera);
+  flashlight.update(dt, t, player.moving, currentQ, lantern.on ? { on: true, onTime: lantern.onTime, pos: lantern.worldPos(lurePos) } : null);
+  setHiss(state === 'playing' && zone === 'room' ? ground.hiss : 0);
+  if (state === 'playing') hintTick(dt);
   if (state === 'playing' && flashlight.on) updateBatteryHud();
   if (zone === 'room') {
     room.update(t, dt, camera);
@@ -477,5 +659,5 @@ loop();
 window.__pinned = {
   start: startGame, pause, resume, quitHome, player, setZone, interact: () => current && current.act(),
   get state() { return state; }, get zone() { return zone; }, get prompt() { return current && (typeof current.prompt === 'function' ? current.prompt() : current.prompt); }, room,
-  renderer, scene, camera, flashlight, get colliders() { return colliders(); },
+  renderer, scene, camera, flashlight, lantern, get gameTime() { return gameTime; }, get colliders() { return colliders(); },
 };

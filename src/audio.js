@@ -91,3 +91,29 @@ export function playClick() {
   const g = ctx.createGain(); g.gain.value = 0.6;
   src.connect(hp).connect(g).connect(master); src.start(t);
 }
+
+// gas-light hiss: a quiet filtered noise loop whose level main.js sets each frame
+let hissGain = null;
+export function setHiss(level) {
+  if (!ctx) return;
+  if (!hissGain) {
+    const len = ctx.sampleRate * 2, buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
+    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 2500;
+    const hum = ctx.createOscillator(); hum.frequency.value = 100; const humG = ctx.createGain(); humG.gain.value = 0.15;
+    hissGain = ctx.createGain(); hissGain.gain.value = 0;
+    src.connect(hp).connect(hissGain); hum.connect(humG).connect(hissGain); hissGain.connect(master); src.start(); hum.start();
+  }
+  hissGain.gain.setTargetAtTime(level * 0.05, ctx.currentTime, 0.05);
+}
+// a soft click, n times in a row (one per case hung in its right place)
+export function playSoftClicks(n) {
+  if (!ctx) return;
+  for (let k = 0; k < n; k++) {
+    const t = ctx.currentTime + 0.25 + k * 0.18, o = ctx.createOscillator(), g = ctx.createGain();
+    o.frequency.setValueAtTime(1800, t); o.frequency.exponentialRampToValueAtTime(900, t + 0.04);
+    g.gain.setValueAtTime(0.12, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+    o.connect(g).connect(master); o.start(t); o.stop(t + 0.08);
+  }
+}

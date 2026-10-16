@@ -6,6 +6,7 @@
 //    east wall onto the hallway. A wrong full set rattles and creaks; specimens can be moved.
 // Also builds the hallway stub beyond the wall.
 import * as THREE from 'three';
+import { gasLampFixture } from './fixtures.js';
 import { tex } from '../textures.js';
 import { SPECIES, drawSpecimenFit, drawLabel } from '../moths.js';
 import { mat, box, rep } from './build.js';
@@ -226,9 +227,8 @@ export function buildHallway(group, local) {
   const pic = new THREE.Mesh(new THREE.PlaneGeometry(0.75, 0.95), mat({ map: tex.painting })); pic.position.set(12, 2.1, Z1 - 0.06); pic.rotation.y = Math.PI; group.add(pic);
   const sconces = [];
   for (const x of [10, 17]) {
-    const s = new THREE.PointLight(0xffa860, 3.5, 7, 1.6); s.position.set(x, 2.3, Z0 + 0.3); group.add(s); sconces.push(s);
-    const glass = new THREE.Mesh(new THREE.SphereGeometry(0.08, 12, 8), new THREE.MeshBasicMaterial({ color: 0xffb070 })); glass.position.copy(s.position); group.add(glass);
-    box(group, 0.06, 0.25, 0.12, x, 2.15, Z0 + 0.12, frame, null, { cast: false });
+    const s = new THREE.PointLight(0xffa860, 3.5, 7, 1.6); s.position.set(x, 2.3, Z0 + 0.3); s.userData.moths = true; group.add(s); sconces.push(s);
+    gasLampFixture(group, x, 2.3, Z0 + 0.3, '+z');
   }
   return {
     endDoor: new THREE.Vector3(X1 - 0.6, 0, zc), sideDoor: new THREE.Vector3(15, 0, Z0 + 0.6),

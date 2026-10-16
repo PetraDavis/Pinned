@@ -355,31 +355,44 @@ export function makeMothMosaic(seed, round = false, clue = null, contrast = 1) {
   s.fillStyle = '#4a3726';
   s.beginPath(); s.ellipse(cx, cy - 1, 3.2, 13, 0, 0, 7); s.fill();
   s.beginPath(); s.arc(cx, cy - 14, 3, 0, 7); s.fill();
-  const px = s.getImageData(0, 0, N, N).data;
-  // clue: small moths laid into the lower border as ordinary tesserae, in
-  // colours only a little off the ground unless contrast is high (lamplight)
-  if (clue) clue.forEach((key, i) => {
-    const M = 9, big = document.createElement('canvas'); big.width = big.height = 96;
-    const bg = big.getContext('2d'); bg.fillStyle = '#1e3036'; bg.fillRect(0, 0, 96, 96);
-    drawSpecimenFit(bg, key, 2, 2, 92, 92, { pin: false });
-    const tiny = document.createElement('canvas'); tiny.width = tiny.height = M;
-    const tg = tiny.getContext('2d'); tg.drawImage(big, 0, 0, M, M);
-    const mp = tg.getImageData(0, 0, M, M).data, ox = Math.round((0.2 + i * 0.15) * N - M / 2), oy = N - 13;
-    for (let y = 0; y < M; y++) for (let x = 0; x < M; x++) {
-      const a = (y * M + x) * 4, b = ((oy + y) * N + ox + x) * 4;
-      for (let ch = 0; ch < 3; ch++) px[b + ch] = px[b + ch] + (mp[a + ch] - px[b + ch]) * contrast;
-    }
-  });
-
-  const T = 6 * Q, out = document.createElement('canvas');
-  out.width = out.height = N * T;
+  let px = s.getImageData(0, 0, N, N).data, NN = N;
+  // clue: the five puzzle moths laid into a lower border band as ordinary tesserae,
+  // each in its own colours, with a Roman numeral under it. Unlit (low contrast) they
+  // only just show; in lamplight (contrast 1) they read clearly.
+  if (clue) {
+    NN = 104;
+    const big = document.createElement('canvas'); big.width = big.height = NN; const bg = big.getContext('2d');
+    bg.fillStyle = '#1e3036'; bg.fillRect(0, 0, NN, NN);
+    bg.drawImage(src, (NN - N) / 2, 0);                         // the Order's moth, as before, above the band
+    bg.strokeStyle = '#8a7346'; bg.lineWidth = 3; bg.strokeRect(2, 2, NN - 4, NN - 4);
+    bg.fillStyle = '#8a7346'; bg.fillRect(3, N - 1, NN - 6, 2);  // a fillet between picture and band
+    const base = bg.getImageData(0, 0, NN, NN).data;
+    const MW = 18, MH = 18, gap = (NN - 8 - 5 * MW) / 4;
+    clue.forEach((key, i) => {
+      const hi = document.createElement('canvas'); hi.width = MW * 10; hi.height = MH * 10; const hg = hi.getContext('2d');
+      hg.fillStyle = '#1e3036'; hg.fillRect(0, 0, hi.width, hi.height);
+      drawSpecimenFit(hg, key, 4, 4, hi.width - 8, hi.height - 8, { pin: false, seed: 5 });
+      const sm = document.createElement('canvas'); sm.width = MW; sm.height = MH; const sg = sm.getContext('2d');
+      sg.imageSmoothingQuality = 'high'; sg.drawImage(hi, 0, 0, MW, MH);
+      bg.drawImage(sm, Math.round(4 + i * (MW + gap)), N + 2);
+      // numeral tiles
+      bg.fillStyle = '#c8a050'; bg.font = 'bold 8px Georgia, serif'; bg.textAlign = 'center'; bg.textBaseline = 'top';
+      bg.fillText(['I', 'II', 'III', 'IV', 'V'][i], Math.round(4 + i * (MW + gap) + MW / 2), N + 3 + MH);
+    });
+    const lit = bg.getImageData(0, 0, NN, NN).data;
+    px = new Uint8ClampedArray(lit.length);
+    for (let k = 0; k < lit.length; k++) px[k] = base[k] + (lit[k] - base[k]) * contrast;
+  }
+  const N0 = N;
+  const T = Math.min(6 * Q, Math.floor(2400 / NN)), out = document.createElement('canvas');
+  out.width = out.height = NN * T;
   const g = out.getContext('2d');
   const r = rng(seed);
   g.fillStyle = '#2a2a27'; g.fillRect(0, 0, out.width, out.height);
-  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-    if (round && Math.hypot(x - N / 2, y - N / 2) > N / 2) continue;
-    if (r() < 0.035) continue; // missing tile
-    const i = (y * N + x) * 4, j = (r() - 0.5) * 30;
+  for (let y = 0; y < NN; y++) for (let x = 0; x < NN; x++) {
+    if (round && Math.hypot(x - NN / 2, y - NN / 2) > NN / 2) continue;
+    if (r() < (clue && y > N0 ? 0.008 : 0.035)) continue; // missing tile
+    const i = (y * NN + x) * 4, j = (r() - 0.5) * 30;
     g.fillStyle = `rgb(${px[i] + j},${px[i + 1] + j},${px[i + 2] + j})`;
     const jx = (r() - .5) * 1.5, jy = (r() - .5) * 1.5;
     g.fillRect(x * T + T / 12 + jx, y * T + T / 12 + jy, T - T / 6, T - T / 6);
@@ -395,6 +408,7 @@ export function makeMothMosaic(seed, round = false, clue = null, contrast = 1) {
   makePbr(out, 3, 0.55, 0.4);
   const t = new THREE.CanvasTexture(out);
   t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = ANISO[Q] || 8;
+  t.userData.design = src; // the clean 72px design, for the stained-glass windows
   return t;
 }
 

@@ -1,7 +1,7 @@
 // First-person player: pointer-lock mouse look, WASD, sprint, jump, collision.
 import * as THREE from 'three';
 
-const EYE = 1.62, RADIUS = 0.35, WALK = 2.6, SPRINT = 4.8, GRAVITY = 18, JUMP_V = 5.2;
+const EYE = 1.62, CROUCH_EYE = 0.95, STAND_H = 1.78, CROUCH_H = 1.15, CROUCH_SPEED = 1.3, RADIUS = 0.35, WALK = 2.6, SPRINT = 4.8, GRAVITY = 18, JUMP_V = 5.2;
 
 export class Player {
   constructor(camera, dom) {
@@ -15,8 +15,13 @@ export class Player {
     this.sensitivity = 1;
     this.bob = 0;
     this.moving = false;
+    this.crouchToggle = false; // Settings option: toggle instead of hold
+    this.crouchLatched = false; this.crouching = false; this.crouchT = 0;
 
-    addEventListener('keydown', e => { this.keys[e.code] = true; });
+    addEventListener('keydown', e => {
+      if (!e.repeat && (e.code === 'KeyC' || e.code === 'ControlLeft') && this.crouchToggle) this.crouchLatched = !this.crouchLatched;
+      this.keys[e.code] = true;
+    });
     addEventListener('keyup', e => { this.keys[e.code] = false; });
     addEventListener('blur', () => { this.keys = {}; });
     document.addEventListener('mousemove', e => {
@@ -36,8 +41,11 @@ export class Player {
     if (this.enabled) {
       const f = (this.keys.KeyW || this.keys.ArrowUp ? 1 : 0) - (this.keys.KeyS || this.keys.ArrowDown ? 1 : 0);
       const s = (this.keys.KeyD || this.keys.ArrowRight ? 1 : 0) - (this.keys.KeyA || this.keys.ArrowLeft ? 1 : 0);
-      const sprint = this.keys.ShiftLeft || this.keys.ShiftRight;
-      const speed = sprint ? SPRINT : WALK;
+      const want = this.crouchToggle ? this.crouchLatched : !!(this.keys.KeyC || this.keys.ControlLeft);
+      if (want) this.crouching = true;
+      else if (this.crouching && !this.blockedAbove(colliders)) this.crouching = false;
+      const sprint = !this.crouching && (this.keys.ShiftLeft || this.keys.ShiftRight);
+      const speed = this.crouching ? CROUCH_SPEED : sprint ? SPRINT : WALK;
       let dx = 0, dz = 0;
       if (f || s) {
         const len = Math.hypot(f, s);
@@ -47,9 +55,10 @@ export class Player {
       }
       this.moving = !!(f || s);
       this.pos.x += dx; this.pos.z += dz; this.resolve(colliders);
-      if (this.keys.Space && this.grounded) { this.vy = JUMP_V; this.grounded = false; }
-      if (this.moving && this.grounded) this.bob += dt * (sprint ? 13 : 8.5);
+      if (this.keys.Space && this.grounded && !this.crouching) { this.vy = JUMP_V; this.grounded = false; }
+      if (this.moving && this.grounded) this.bob += dt * (sprint ? 13 : this.crouching ? 6 : 8.5);
     } else this.moving = false;
+    this.crouchT += ((this.crouching ? 1 : 0) - this.crouchT) * Math.min(1, dt * 9);
     // vertical
     this.vy -= GRAVITY * dt; this.y += this.vy * dt;
     if (this.y <= 0) { this.y = 0; this.vy = 0; this.grounded = true; }
@@ -58,7 +67,9 @@ export class Player {
 
   // Push the player circle out of any overlapping XZ box along the shortest way out.
   resolve(colliders) {
+    const h = this.crouching ? CROUCH_H : STAND_H;
     for (const c of colliders) {
+      if (c.minY !== undefined && c.minY >= h) continue; // low overhang: pass beneath
       const nx = THREE.MathUtils.clamp(this.pos.x, c.minX, c.maxX);
       const nz = THREE.MathUtils.clamp(this.pos.z, c.minZ, c.maxZ);
       const ddx = this.pos.x - nx, ddz = this.pos.z - nz, d2 = ddx * ddx + ddz * ddz;
@@ -76,9 +87,22 @@ export class Player {
     }
   }
 
+  // Something with an underside (minY) lower than standing height overlaps the player.
+  blockedAbove(colliders) {
+    for (const c of colliders) {
+      if (c.minY === undefined || c.minY >= STAND_H) continue;
+      const nx = THREE.MathUtils.clamp(this.pos.x, c.minX, c.maxX), nz = THREE.MathUtils.clamp(this.pos.z, c.minZ, c.maxZ);
+      if ((this.pos.x - nx) ** 2 + (this.pos.z - nz) ** 2 < RADIUS * RADIUS) return true;
+    }
+    return false;
+  }
+
+  // Quieter footsteps / harder to notice while crouched.
+  get noise() { return this.crouching ? 0.35 : (this.keys.ShiftLeft || this.keys.ShiftRight) ? 1.6 : 1; }
+
   applyCamera(extraY = 0) {
-    const bobY = this.grounded ? Math.sin(this.bob) * 0.035 : 0;
-    this.camera.position.set(this.pos.x, EYE + this.y + bobY + extraY, this.pos.z);
+    const bobY = this.grounded ? Math.sin(this.bob) * (0.035 - 0.015 * this.crouchT) : 0;
+    this.camera.position.set(this.pos.x, EYE + (CROUCH_EYE - EYE) * this.crouchT + this.y + bobY + extraY, this.pos.z);
     this.camera.rotation.set(this.pitch, this.yaw, 0, 'YXZ');
   }
 }

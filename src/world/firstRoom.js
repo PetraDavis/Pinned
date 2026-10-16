@@ -11,7 +11,7 @@ const W = 14, D = 10, H = 4.6;
 const WIN = { x: 2, w: 2.0, h: 2.6, sill: 0.75 }; // window in the +z wall
 export const ROOM_SPAWN = new THREE.Vector3(ROOM_ORIGIN.x + WIN.x, 0, ROOM_ORIGIN.z + D / 2 - 1.1);
 export const ROOM_WINDOW = new THREE.Vector3(ROOM_ORIGIN.x + WIN.x, 0, ROOM_ORIGIN.z + D / 2 - 0.4);
-export const ROOM_LAMP = new THREE.Vector3(ROOM_ORIGIN.x - 1.15, 0, ROOM_ORIGIN.z - 1.7);
+export const ROOM_LAMP = new THREE.Vector3(ROOM_ORIGIN.x - 2.75, 0, ROOM_ORIGIN.z - 1.3);
 export const ROOM_DOOR = new THREE.Vector3(ROOM_ORIGIN.x + W / 2 - 0.5, 0, ROOM_ORIGIN.z + 2.6);
 export const ROOM_CABINET = new THREE.Vector3(ROOM_ORIGIN.x + 4.4, 0, ROOM_ORIGIN.z - 3.7);
 export const ROOM_PANEL = new THREE.Vector3(ROOM_ORIGIN.x + W / 2 - 0.6, 0, ROOM_ORIGIN.z + 4.0);
@@ -128,32 +128,33 @@ export function buildFirstRoom(scene, shadowSize = 2048, quality = 'high') {
     wax.position.set(x, 1.83, -D / 2 + 0.3); group.add(wax);
   }
 
-  // a Victorian sofa, half covered by a dust sheet
-  const sofa = new THREE.Group(); sofa.position.set(-1, 0, 0.6); group.add(sofa);
+  // a sitting area round the fire: the sheeted sofa faces the hearth across a rug,
+  // a lamp table at its left, an armchair either side of the fireplace
+  const sofa = new THREE.Group(); sofa.position.set(0, 0, -0.8); sofa.rotation.y = Math.PI; group.add(sofa);
   buildSofa(sofa, dark);
-  rect(local, -2.4, 0.4, 0.05, 1.15);
+  rect(local, -1.42, 1.42, -1.3, -0.3);
 
   // round table with an oil lamp and a book
-  const table = new THREE.Group(); table.position.set(-1, 0, -1.6); group.add(table);
+  const table = new THREE.Group(); table.position.set(-2.6, 0, -1.2); group.add(table);
   const top0 = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 0.06, 24), dark); top0.position.y = 0.75; top0.castShadow = true; table.add(top0);
   const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.12, 0.72, 8), dark); leg.position.y = 0.37; table.add(leg);
   const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.4, 0.06, 12), dark); foot.position.y = 0.03; table.add(foot);
   box(table, 0.32, 0.06, 0.24, 0.2, 0.81, 0.1, mat({ color: 0x3a1f1a }), null, { ry: 0.4 });
   const lamp = buildOilLamp(Math.min(shadowSize, 2048) / 2 >= 1024 ? 2048 : 1024); lamp.group.position.set(-0.15, 0.78, -0.1); table.add(lamp.group);
-  rect(local, -1.75, -0.25, -2.35, -0.85);
+  rect(local, -3.3, -1.9, -1.9, -0.5);
 
   // tipped-over armchair
   const chairMat = mat({ map: tex.fabric, color: 0x998888 });
-  const chair = new THREE.Group(); chair.position.set(2.2, 0, -1.2); chair.rotation.set(0, 0.6, 0); group.add(chair);
+  const chair = new THREE.Group(); chair.position.set(2.2, 0, -2.4); chair.rotation.set(0, -2.1, 0); group.add(chair);
   const ch = new THREE.Group(); ch.rotation.x = -Math.PI / 2 + 0.15; ch.position.y = 0.45; chair.add(ch);
   box(ch, 0.9, 0.4, 0.9, 0, 0, 0, chairMat); box(ch, 0.9, 1.0, 0.2, 0, 0.5, -0.4, chairMat);
   for (const s of [-1, 1]) box(ch, 0.15, 0.6, 0.9, s * 0.45, 0.2, 0, chairMat);
-  rect(local, 1.5, 2.9, -2.0, -0.4);
+  rect(local, 1.5, 2.9, -3.2, -1.6);
   // upright armchair by the fire
-  const chair2 = new THREE.Group(); chair2.position.set(-2.4, 0, -3.3); chair2.rotation.y = 0.9; group.add(chair2);
+  const chair2 = new THREE.Group(); chair2.position.set(-2.0, 0, -2.8); chair2.rotation.y = 2.1; group.add(chair2);
   box(chair2, 0.9, 0.45, 0.9, 0, 0.3, 0, chairMat); box(chair2, 0.9, 1.1, 0.2, 0, 0.9, -0.4, chairMat);
   for (const s of [-1, 1]) box(chair2, 0.15, 0.4, 0.9, s * 0.45, 0.65, 0, chairMat);
-  rect(local, -3.05, -1.75, -3.95, -2.65);
+  rect(local, -2.65, -1.35, -3.45, -2.15);
 
   // bookcase on the left wall, books toppled
   const bc = new THREE.Group(); bc.position.set(-W / 2 + 0.25, 0, -1.5); group.add(bc);
@@ -191,8 +192,8 @@ export function buildFirstRoom(scene, shadowSize = 2048, quality = 'high') {
 
   // locked door on the right wall
   // the old door: closed and rusted shut
-  const door = new THREE.Group(); door.position.set(W / 2 + 0.1, 0, 2.6); door.rotation.y = -Math.PI / 2; group.add(door);
-  box(door, 1.2, 2.5, 0.08, 0, 1.25, 0, mat({ map: tex.wood, color: 0xa88a72 }), null, { cast: false });
+  const door = new THREE.Group(); door.position.set(W / 2 + T / 2, 0, 2.6); door.rotation.y = -Math.PI / 2; group.add(door);
+  box(door, 1.194, 2.494, 0.06, 0, 1.25, 0, mat({ map: tex.wood, color: 0xa88a72 }), null, { cast: false });
   for (const [px, py] of [[-0.28, 1.75], [0.28, 1.75], [-0.28, 0.65], [0.28, 0.65]]) box(door, 0.42, py > 1 ? 0.9 : 0.8, 0.02, px, py, 0.05, mat({ map: tex.wood, color: 0x8a7060 }), null, { cast: false });
   // carved architrave: fluted jambs on plinth blocks, corner rosettes, a moulded head and cornice
   const archMat = mat({ map: tex.wood, color: 0xb0947c, roughness: 0.6 });
@@ -206,6 +207,11 @@ export function buildFirstRoom(scene, shadowSize = 2048, quality = 'high') {
     rosette.position.set(W / 2 - 0.095, 2.6, zc); group.add(rosette);
   }
   box(group, 0.07, 0.2, 1.24, W / 2 - 0.035, 2.6, 2.6, archMat, null, { cast: false });   // head
+  // linings across the wall thickness, and a plain architrave on the hallway side
+  for (const z of [1.994, 3.206]) box(group, T, 2.5, 0.012, W / 2 + T / 2, 1.25, z, archMat, null, { cast: false });
+  box(group, T, 0.012, 1.2, W / 2 + T / 2, 2.506, 2.6, archMat, null, { cast: false });
+  for (const z of [1.955, 3.245]) box(group, 0.03, 2.55, 0.09, W / 2 + T + 0.015, 1.275, z, archMat, null, { cast: false });
+  box(group, 0.03, 0.09, 1.38, W / 2 + T + 0.015, 2.545, 2.6, archMat, null, { cast: false });
   box(group, 0.16, 0.08, 1.8, W / 2 - 0.08, 2.76, 2.6, archMat, null, { cast: false });   // cornice
   box(group, 0.1, 0.06, 1.7, W / 2 - 0.05, 2.83, 2.6, archMat, null, { cast: false });
   const brassDoor = new THREE.MeshStandardMaterial({ color: 0xc09848, metalness: 0.9, roughness: 0.3 });
@@ -341,7 +347,7 @@ function buildOilLamp(lampShadow = 1024) {
   hg.fillStyle = gr; hg.fillRect(0, 0, 128, 128);
   const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(hc), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
   halo.scale.set(0.35, 0.35, 1); halo.position.y = 0.37; group.add(halo);
-  const light = new THREE.PointLight(0xffa850, 0, 16, 1.15);
+  const light = new THREE.PointLight(0xffa850, 0, 16, 1.15); light.userData.moths = true;
   light.position.y = 0.45; light.castShadow = true; light.shadow.mapSize.set(lampShadow, lampShadow); light.shadow.bias = -0.0015; light.shadow.normalBias = 0.045; light.shadow.radius = 3; light.shadow.camera.near = 0.08; light.shadow.camera.far = 9;
   group.add(light);
   let on = false;

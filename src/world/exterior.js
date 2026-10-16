@@ -1,5 +1,6 @@
 // The grounds and outside of the mansion: house, fence, overgrowth, sky.
 import * as THREE from 'three';
+import { cultGlassTexture } from './stainedGlass.js';
 import { tex } from '../textures.js';
 import { mat, box, rect, rep, rand, addCollider } from './build.js';
 
@@ -186,11 +187,13 @@ export function buildExterior(scene, quality = 'high') {
   // steps
   for (let i = 0; i < 3; i++) box(house, 5 - i * 0.4, 0.25, 1.2 - i * 0.3, 0, 0.12 + i * 0.25, -9.6 - i * 0.15, trimMat, i === 0 ? colliders : null);
   // the moth mosaic: the Order of the Pale Wing
-  const mosaic = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 4.2), mat({ map: tex.mosaic, roughness: 0.55, metalness: 0.1 }));
-  mosaic.position.set(0, 7.6, -10.48); house.add(mosaic);
-  box(house, 4.7, 0.25, 0.3, 0, 5.4, -10.4, trimMat);
-  box(house, 4.7, 0.25, 0.3, 0, 9.8, -10.4, trimMat);
-  for (const s of [-1, 1]) box(house, 0.25, 4.6, 0.3, s * 2.3, 7.6, -10.4, trimMat);
+  // a round leaded-glass rose window in the cult's moth design: the same window the Grand
+  // Hall shows from inside, set in a polished brass ring
+  const glassTex = cultGlassTexture(tex.mosaicFloor.userData.design, 512);
+  const mosaic = new THREE.Mesh(new THREE.CircleGeometry(2.0, 96), new THREE.MeshStandardMaterial({ map: glassTex, emissive: 0xffffff, emissiveMap: glassTex, emissiveIntensity: 0.22, roughness: 0.12, metalness: 0.05 }));
+  mosaic.position.set(0, 7.6, -10.47); house.add(mosaic);
+  const goldRing = new THREE.Mesh(new THREE.TorusGeometry(2.06, 0.11, 20, 128), new THREE.MeshStandardMaterial({ color: 0xd0a850, metalness: 1, roughness: 0.2 }));
+  goldRing.position.set(0, 7.6, -10.46); house.add(goldRing);
   // pillars flanking the porch
   for (const s of [-1, 1]) {
     const col = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.35, 4.5, 12), trimMat);
@@ -527,10 +530,10 @@ function buildSky(scene, group) {
   // brighter towards the sun
   const skyMat = new THREE.ShaderMaterial({
     side: THREE.BackSide, depthWrite: false, fog: false,
-    uniforms: { sunDir: { value: SUN_DIR } },
+    uniforms: { sunDir: { value: SUN_DIR }, moonDir: { value: new THREE.Vector3(150, 150, -280).normalize() } },
     vertexShader: 'varying vec3 vDir; void main(){ vDir = normalize(position); vec4 p = modelViewMatrix * vec4(position,1.0); gl_Position = projectionMatrix * p; gl_Position.z = gl_Position.w; }',
     fragmentShader: `
-      uniform vec3 sunDir; varying vec3 vDir;
+      uniform vec3 sunDir; uniform vec3 moonDir; varying vec3 vDir;
       void main(){
         float h = clamp(vDir.y, -0.2, 1.0);
         float s = max(dot(normalize(vec3(vDir.x,0.0,vDir.z)), normalize(vec3(sunDir.x,0.0,sunDir.z))), 0.0);
@@ -541,6 +544,10 @@ function buildSky(scene, group) {
         c = mix(c, zenith, smoothstep(0.15, 0.7, h));
         c += vec3(1.0,0.6,0.3) * pow(max(dot(vDir, sunDir), 0.0), 64.0) * 0.8;
         c = mix(c, vec3(0.22,0.18,0.24), smoothstep(0.0, -0.15, h));
+        // a faint dusk moon, part of the sky itself (no sprite quad)
+        float m = dot(normalize(vDir), moonDir);
+        c += vec3(0.45,0.5,0.62) * pow(max(m, 0.0), 900.0) * 0.18;
+        c = mix(c, vec3(0.86,0.86,0.8), smoothstep(0.99955, 0.99965, m) * 0.45);
         gl_FragColor = vec4(c, 1.0);
         #include <colorspace_fragment>
       }`,
@@ -556,16 +563,7 @@ function buildSky(scene, group) {
   const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   const stars = new THREE.Points(sg, new THREE.PointsMaterial({ color: 0xaab4c8, size: 1.1, sizeAttenuation: false, fog: false, transparent: true, opacity: 0.35 }));
   group.add(stars);
-  // moon with halo
-  const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d');
-  const gr = g.createRadialGradient(128, 128, 0, 128, 128, 128);
-  gr.addColorStop(0, 'rgba(240,240,225,1)'); gr.addColorStop(0.2, 'rgba(225,228,220,1)');
-  gr.addColorStop(0.24, 'rgba(160,175,200,0.35)'); gr.addColorStop(1, 'rgba(60,80,120,0)');
-  g.fillStyle = gr; g.fillRect(0, 0, 256, 256);
-  g.fillStyle = 'rgba(150,150,140,0.35)';
-  for (const [x, y, rr] of [[115, 120, 9], [138, 132, 6], [124, 142, 5]]) { g.beginPath(); g.arc(x, y, rr, 0, 7); g.fill(); }
-  const moon = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), fog: false, depthWrite: false, transparent: true, opacity: 0.4 }));
-  moon.scale.set(60, 60, 1); moon.position.set(150, 150, -280); group.add(moon);
+  // (the moon is drawn by the sky dome shader)
 
   // (no flat ground-mist planes: they read as standing water; scene fog does the job)
 }

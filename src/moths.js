@@ -182,6 +182,23 @@ export const SPECIES = {
     body: { thorax: [6, 8], abdomen: [5, 22], fur: '#4a3a2c', furHi: '#7a6650', head: 4, paint() {} },
     antenna: { type: 'thin', len: 20, color: '#3a2c20' },
   },
+  bisselliella: {
+    latin: 'Tineola bisselliella', common: 'Common clothes moth', span: 16,
+    fore: [[2, -3], [14, -6], [28, -7], [36, -6], [38, -4], [34, -1], [20, 2], [6, 3]],
+    hind: [[2, 2], [14, 3], [26, 3], [30, 4], [24, 6], [12, 6], [3, 5]],
+    foreAngle: -0.02, hindAngle: 0.04,
+    paintFore(g, r) {
+      const gr = g.createLinearGradient(0, -8, 38, 2); gr.addColorStop(0, '#b8964e'); gr.addColorStop(1, '#d8bc78');
+      g.fillStyle = gr; g.fillRect(-5, -12, 50, 20);
+      speckle(g, r, 160, 0, -8, 38, 3, 'rgba(255,240,190,0.35)', 0.5);
+      // long fringe of hair-scales along the trailing edge
+      g.strokeStyle = 'rgba(200,170,110,0.7)'; g.lineWidth = 0.25;
+      for (let x = 6; x < 36; x += 0.6) { g.beginPath(); g.moveTo(x, 2 - x * 0.08); g.lineTo(x + 0.6, 6 - x * 0.05); g.stroke(); }
+    },
+    paintHind(g) { g.fillStyle = '#c8b48a'; g.fillRect(-5, -5, 40, 15); g.strokeStyle = 'rgba(210,190,140,0.7)'; g.lineWidth = 0.25; for (let x = 3; x < 30; x += 0.5) { g.beginPath(); g.moveTo(x, 5.5); g.lineTo(x + 0.3, 10); g.stroke(); } },
+    body: { thorax: [3.2, 5], abdomen: [2.6, 12], fur: '#c8a868', furHi: '#f0d8a0', head: 2.6, paint(g) { blob(g, 0, -17, 3, 2.4, 0, '#e8b860'); } },
+    antenna: { type: 'thin', len: 14, color: '#a08050' },
+  },
   calyptra: {
     latin: 'Calyptra thalictri', common: 'Vampire moth', span: 45,
     fore: [[2, -5], [20, -12], [38, -16], [46, -18], [44, -12], [40, -6], [34, 2], [18, 6], [4, 4]],
