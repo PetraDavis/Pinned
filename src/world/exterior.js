@@ -213,7 +213,7 @@ export function buildExterior(scene, quality = 'high') {
   buildFence(group, colliders, ironMat, trimMat);
 
   // ---------- overgrowth ----------
-  buildGrass(group, { low: 2000, medium: 4500, high: 7000 }[quality] || 7000);
+  buildGrass(group, 10000); // the quality setting shows a share of these (main.js)
   const bushMat = mat({ color: 0x18220f, roughness: 1 });
   for (let i = 0; i < 70; i++) {
     let x, z;
@@ -498,6 +498,7 @@ function buildGrass(group, count) {
     const sc = 0.6 + r() * 1.1; s.set(sc, sc * (0.7 + r() * 0.8), sc); p.set(x, 0, z);
     m.compose(p, q, s); a.setMatrixAt(i, m); b.setMatrixAt(i, m); i++;
   }
+  a.userData.grass = b.userData.grass = true; a.userData.max = b.userData.max = count;
   group.add(a, b);
 }
 

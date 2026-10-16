@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { tex } from '../textures.js';
 import { mat, box, rect, rep, rand } from './build.js';
-import { buildMosaicClue, buildCabinet, buildHallway } from './drawerPuzzle.js';
+import { createPuzzle, buildHallway, STANDS } from './drawerPuzzle.js';
 
 export const ROOM_ORIGIN = new THREE.Vector3(1000, 0, 0);
 const W = 14, D = 10, H = 4.6;
@@ -13,6 +13,9 @@ export const ROOM_WINDOW = new THREE.Vector3(ROOM_ORIGIN.x + WIN.x, 0, ROOM_ORIG
 export const ROOM_LAMP = new THREE.Vector3(ROOM_ORIGIN.x - 1.15, 0, ROOM_ORIGIN.z - 1.7);
 export const ROOM_DOOR = new THREE.Vector3(ROOM_ORIGIN.x + W / 2 - 0.5, 0, ROOM_ORIGIN.z + 2.6);
 export const ROOM_CABINET = new THREE.Vector3(ROOM_ORIGIN.x + 4.4, 0, ROOM_ORIGIN.z - 3.7);
+export const ROOM_PANEL = new THREE.Vector3(ROOM_ORIGIN.x + W / 2 - 0.6, 0, ROOM_ORIGIN.z + 4.0);
+// interaction points 0.75 m in front of each specimen stand
+export const ROOM_STANDS = STANDS.map(s => new THREE.Vector3(ROOM_ORIGIN.x + s.pos[0] + Math.sin(s.ry) * 0.75, 0, ROOM_ORIGIN.z + s.pos[2] + Math.cos(s.ry) * 0.75));
 export const ROOM_MOSAIC = new THREE.Vector3(ROOM_ORIGIN.x, 0, ROOM_ORIGIN.z - 3.9);
 
 export function buildFirstRoom(scene, shadowSize = 2048) {
@@ -46,9 +49,18 @@ export function buildFirstRoom(scene, shadowSize = 2048) {
   box(group, T, H, D, -W / 2 - T / 2, H / 2, 0, wallMatS, local);          // left
   // right wall, with the doorway to the hallway (z 2.0 .. 3.2)
   box(group, T, H, 7, W / 2 + T / 2, H / 2, -1.5, wallMatS, local);
-  box(group, T, H, 1.8, W / 2 + T / 2, H / 2, 4.1, wallMatS, local);
+  box(group, T, H, 0.2, W / 2 + T / 2, H / 2, 3.3, wallMatS, local);
+  box(group, T, H, 0.4, W / 2 + T / 2, H / 2, 4.8, wallMatS, local);
+  box(group, T, H - 2.5, 1.2, W / 2 + T / 2, (H + 2.5) / 2, 4.0, wallMatS);
+  // the secret panel: a section of panelled wall that grinds back and slides aside
+  const panel = new THREE.Group(); panel.position.set(W / 2 + T / 2, 0, 4.0); group.add(panel);
+  box(panel, T, 2.5, 1.2, 0, 1.25, 0, wallMatS, null);
+  box(panel, 0.04, 0.95, 1.2, -T / 2 - 0.02, 0.48, 0, trim, null, { cast: false });   // wainscot to match the room
+  box(panel, 0.06, 0.06, 1.2, -T / 2 - 0.03, 1.0, 0, trim, null, { cast: false });
+  box(panel, 0.05, 0.25, 1.2, -T / 2 - 0.025, 0.125, 0, trim, null, { cast: false });
+  local.push({ minX: W / 2, maxX: W / 2 + T, minZ: 3.4, maxZ: 4.6, panel: true });
   box(group, T, H - 2.5, 1.2, W / 2 + T / 2, (H + 2.5) / 2, 2.6, wallMatS);
-  local.push({ minX: W / 2, maxX: W / 2 + T, minZ: 2.0, maxZ: 3.2, door: true });
+  local.push({ minX: W / 2, maxX: W / 2 + T, minZ: 2.0, maxZ: 3.2 }); // the old door, stuck shut
   const fz = D / 2 + T / 2, wl = WIN.x - WIN.w / 2, wr = WIN.x + WIN.w / 2;
   box(group, wl + W / 2, H, T, (-W / 2 + wl) / 2, H / 2, fz, mat({ map: rep(tex.wallpaper, 2, 1), color: 0x9a9ca0 }), local);
   box(group, W / 2 - wr, H, T, (wr + W / 2) / 2, H / 2, fz, wallMatS, local);
@@ -56,7 +68,8 @@ export function buildFirstRoom(scene, shadowSize = 2048) {
   const top = WIN.sill + WIN.h;
   box(group, WIN.w, H - top, T, WIN.x, (H + top) / 2, fz, wallMatS);
   // skirting & dado & cornice
-  for (const [w, d, x, z] of [[W, 0.05, 0, -D / 2], [0.05, D, -W / 2, 0], [0.05, D, W / 2, 0]]) {
+  // (the east wall's runs stop at the old door and the secret panel so nothing crosses the openings)
+  for (const [w, d, x, z] of [[W, 0.05, 0, -D / 2], [0.05, D, -W / 2, 0], [0.05, 6.9, W / 2, -1.55], [0.05, 0.2, W / 2, 3.3], [0.05, 0.4, W / 2, 4.8]]) {
     box(group, w, 0.25, d, x, 0.125, z, trim, null, { cast: false });
     box(group, w, 0.06, d, x, 1.0, z, trim, null, { cast: false });
     box(group, w, 0.2, d, x, H - 0.1, z, mat({ color: 0x6a6a68 }), null, { cast: false });
@@ -100,8 +113,7 @@ export function buildFirstRoom(scene, shadowSize = 2048) {
   box(group, 1.1, 0.2, 0.3, 0, 0.1, -D / 2 + 0.7, mat({ color: 0x1a1612, metalness: 0.5 }), null); // grate
   const mosaic = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 2.4), mat({ map: tex.mosaic, roughness: 0.55 }));
   mosaic.position.set(0, 2.9, -D / 2 + 0.02); group.add(mosaic);
-  const clue = buildMosaicClue(group, mosaic.position, 2.4);
-  const cabinet = buildCabinet(group, local, 4.4, -D / 2 + 0.36);
+  const puzzle = createPuzzle(group, local, new THREE.Vector3(4.4, 0, -D / 2 + 0.36));
   const hall = buildHallway(group, local);
   const frameMat = mat({ color: 0x5a4a2a, metalness: 0.5, roughness: 0.5 });
   for (const [w, h, x, y] of [[2.6, 0.1, 0, 4.15], [2.6, 0.1, 0, 1.65], [0.1, 2.6, -1.25, 2.9], [0.1, 2.6, 1.25, 2.9]])
@@ -165,7 +177,7 @@ export function buildFirstRoom(scene, shadowSize = 2048) {
   rect(local, -W / 2, -W / 2 + 0.6, 2.3, 2.9);
 
   // pinned-moth display cases on the right wall
-  for (const [z, specimens] of [[-2.7, tex.specimensA], [-0.1, tex.specimensB]]) { // clear of the doorway (z 1.9 .. 3.3)
+  for (const [z, specimens] of [[-2.7, tex.specimensA]]) { // clear of the doorway (z 1.9 .. 3.3)
     const cs = new THREE.Group(); cs.position.set(W / 2 - 0.05, 1.75, z); cs.rotation.y = -Math.PI / 2; group.add(cs);
     box(cs, 2.4, 1.3, 0.1, 0, 0, 0, dark, null, { cast: false });
     const back = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 1.1), mat({ map: specimens, roughness: 0.85 })); back.position.z = 0.058; back.castShadow = false; cs.add(back);
@@ -176,9 +188,8 @@ export function buildFirstRoom(scene, shadowSize = 2048) {
   box(group, 0.6, 0.9, 2.6, W / 2 - 0.3, 0.45, -1.2, dark, local);
 
   // locked door on the right wall
-  // the door hangs on a hinge at z = 2.0 so it can swing open into the room
-  const hinge = new THREE.Group(); hinge.position.set(W / 2 + 0.1, 0, 2.0); group.add(hinge);
-  const door = new THREE.Group(); door.position.set(0, 0, 0.6); door.rotation.y = -Math.PI / 2; hinge.add(door);
+  // the old door: closed and rusted shut
+  const door = new THREE.Group(); door.position.set(W / 2 + 0.1, 0, 2.6); door.rotation.y = -Math.PI / 2; group.add(door);
   box(door, 1.2, 2.5, 0.08, 0, 1.25, 0, mat({ map: tex.wood, color: 0xa88a72 }), null, { cast: false });
   for (const [px, py] of [[-0.28, 1.75], [0.28, 1.75], [-0.28, 0.65], [0.28, 0.65]]) box(door, 0.42, py > 1 ? 0.9 : 0.8, 0.02, px, py, 0.05, mat({ map: tex.wood, color: 0x8a7060 }), null, { cast: false });
   // carved architrave: fluted jambs on plinth blocks, corner rosettes, a moulded head and cornice
@@ -225,39 +236,44 @@ export function buildFirstRoom(scene, shadowSize = 2048) {
   const bounce = new THREE.PointLight(0xc08060, 5, 12, 1.2); bounce.position.set(WIN.x - 0.5, 1.2, 2.5); group.add(bounce);
 
   // dust motes drifting in the moonbeam
-  const N = 150, pos = new Float32Array(N * 3);
+  const N = 450, pos = new Float32Array(N * 3); // quality decides how many are drawn
   for (let i = 0; i < N; i++) pos.set([WIN.x - 1.8 + r() * 3.2, r() * 3.5, -0.8 + r() * 5.6], i * 3);
   const dg = new THREE.BufferGeometry(); dg.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   const dust = new THREE.Points(dg, new THREE.PointsMaterial({ color: 0xffd8b0, size: 0.004, transparent: true, opacity: 0.45, depthWrite: false }));
-  group.add(dust);
+  dust.userData.dust = N; group.add(dust);
 
   const colliders = local.map(c => ({ minX: c.minX, maxX: c.maxX, minZ: c.minZ, maxZ: c.maxZ }));
   // the local rects created via rect() are in group space; box() ones were already world-space
   // (box() uses world matrices) -> normalise: rects without world offset get shifted.
   const worldColliders = local.map(c => c.minX < 500 ? { ...c, minX: c.minX + ROOM_ORIGIN.x, maxX: c.maxX + ROOM_ORIGIN.x, minZ: c.minZ + ROOM_ORIGIN.z, maxZ: c.maxZ + ROOM_ORIGIN.z } : c);
-  const doorCollider = worldColliders.find(c => c.door);
+  const panelCollider = worldColliders.find(c => c.panel);
 
   const baseFill = fill.intensity, baseBounce = bounce.intensity;
-  let lampOn = false, doorOpen = false, doorAnim = 0;
+  let lampOn = false, panelOpen = false, panelAnim = 0;
   const toWorld = v => v.clone().add(ROOM_ORIGIN);
+  // panel motion: first back into the hallway (grinding), then aside along the hallway wall
+  const placePanel = k => {
+    const a = Math.min(1, k * 2.5), b = Math.max(0, (k - 0.4) / 0.6);
+    panel.position.set(W / 2 + T / 2 + a * 0.36, 0, 4.0 - b * 1.3);
+  };
   return {
     group, colliders: worldColliders,
-    drawers: cabinet.drawers, pickables: cabinet.pickables,
+    puzzle, drawers: puzzle.cabinet.drawers, pickables: puzzle.cabinet.pickables,
     hall: { spawn: toWorld(hall.spawn), endDoor: toWorld(hall.endDoor), sideDoor: toWorld(hall.sideDoor) },
     get lampOn() { return lampOn; },
-    get doorOpen() { return doorOpen; },
-    openDoor(instant = false) {
-      doorOpen = true;
-      const i = worldColliders.indexOf(doorCollider); if (i >= 0) worldColliders.splice(i, 1);
-      if (instant) { doorAnim = 1; hinge.rotation.y = -1.75; }
+    get panelOpen() { return panelOpen; },
+    openPanel(instant = false) {
+      panelOpen = true;
+      const i = worldColliders.indexOf(panelCollider); if (i >= 0) worldColliders.splice(i, 1);
+      if (instant) { panelAnim = 1; placePanel(1); }
     },
     resetPuzzle() {
-      doorOpen = false; doorAnim = 0; hinge.rotation.y = 0;
-      if (!worldColliders.includes(doorCollider)) worldColliders.push(doorCollider);
-      for (const d of cabinet.drawers) { d.userData.target = d.userData.open = 0; d.position.z = 0.31; if (d.userData.keyMesh) d.userData.keyMesh.visible = true; }
+      panelOpen = false; panelAnim = 0; placePanel(0);
+      if (!worldColliders.includes(panelCollider)) worldColliders.push(panelCollider);
+      puzzle.reset();
     },
     setLamp(on) {
-      lampOn = on; lamp.set(on); clue.visible = on;
+      lampOn = on; lamp.set(on); mosaic.material.map = on ? tex.mosaicLit : tex.mosaic; mosaic.material.needsUpdate = true;
       // the room warms up a little when the lamp is lit
       fill.intensity = on ? baseFill * 1.35 : baseFill;
       fill.color.set(on ? 0x8a6a5a : 0x6a5a70);
@@ -265,8 +281,8 @@ export function buildFirstRoom(scene, shadowSize = 2048) {
     },
     update(t, dt = 0.016) {
       lamp.update(t); hall.update(t);
-      if (doorOpen && doorAnim < 1) { doorAnim = Math.min(1, doorAnim + dt * 0.8); hinge.rotation.y = -1.75 * (1 - Math.pow(1 - doorAnim, 3)); }
-      for (const d of cabinet.drawers) { d.userData.open += (d.userData.target - d.userData.open) * Math.min(1, dt * 6); d.position.z = 0.31 + d.userData.open * 0.32; }
+      if (panelOpen && panelAnim < 1) { panelAnim = Math.min(1, panelAnim + dt * 0.35); placePanel(panelAnim); }
+      puzzle.update(dt, t);
       const p = dg.attributes.position;
       for (let i = 0; i < N; i++) {
         let y = p.getY(i) - 0.0015 + Math.sin(t * 0.7 + i) * 0.0008;

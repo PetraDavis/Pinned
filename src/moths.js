@@ -195,6 +195,195 @@ export const SPECIES = {
     body: { thorax: [9, 12], abdomen: [8, 30], fur: '#a0482a', furHi: '#e0b080', head: 5, paint(g) { for (let i = 0; i < 5; i++) blob(g, 0, 8 + i * 5, 7 - i * 0.6, 0.8, 0, '#f0e0c8'); } },
     antenna: { type: 'feather', len: 18, color: '#7a4a28' },
   },
+  // ---- species used in the first-room puzzle and its display case ----
+  rubicunda: {
+    latin: 'Dryocampa rubicunda', common: 'Rosy maple moth', span: 46,
+    fore: [[2, -5], [20, -12], [40, -16], [47, -12], [43, -2], [30, 6], [14, 8], [4, 4]],
+    hind: [[3, 3], [18, 5], [31, 10], [34, 18], [27, 25], [12, 25], [4, 16], [2, 8]],
+    foreAngle: -0.02, hindAngle: 0.06,
+    paintFore(g, r) {
+      g.fillStyle = '#e57fa4'; g.fillRect(-5, -25, 60, 40);
+      g.fillStyle = '#f3dc6a'; g.beginPath(); g.moveTo(6, -8); g.lineTo(40, -15); g.lineTo(44, -4); g.lineTo(10, 6); g.closePath(); g.fill(); // the yellow band
+      speckle(g, r, 160, 0, -16, 46, 8, 'rgba(255,240,200,0.3)', 0.8);
+    },
+    paintHind(g, r) { g.fillStyle = '#f2df8a'; g.fillRect(-5, -5, 45, 35); band(g, [[10, 22], [24, 23], [32, 18]], 3, 'rgba(230,130,160,0.7)'); },
+    body: { thorax: [7.5, 9], abdomen: [6.5, 20], fur: '#f0d25a', furHi: '#fff4b0', head: 4.5, paint(g) { blob(g, 0, 14, 5, 6, 0, 'rgba(232,130,164,0.6)'); } },
+    antenna: { type: 'feather', len: 13, color: '#c86a8a' },
+  },
+  caja: {
+    latin: 'Arctia caja', common: 'Garden tiger moth', span: 64,
+    fore: [[2, -5], [24, -14], [50, -20], [62, -16], [58, -4], [44, 6], [22, 10], [4, 5]],
+    hind: [[3, 3], [22, 6], [40, 12], [46, 24], [36, 34], [18, 34], [6, 24], [2, 10]],
+    foreAngle: -0.04, hindAngle: 0.06,
+    paintFore(g, r) {
+      g.fillStyle = '#4a2c1c'; g.fillRect(-5, -30, 70, 45);
+      // the cream network
+      for (const pts of [[[4, -3], [18, -12], [30, -17]], [[14, 6], [24, -4], [30, -16]], [[26, 8], [38, -6], [48, -18]], [[40, 4], [48, -4], [58, -12]], [[8, 2], [30, 2], [56, -6]]]) band(g, pts, 3.2, '#efe4c8');
+    },
+    paintHind(g, r) {
+      g.fillStyle = '#e2502a'; g.fillRect(-5, -5, 55, 45);
+      for (const [x, y, rr] of [[16, 10, 4], [32, 16, 5], [24, 26, 4.5], [38, 28, 3.5]]) { blob(g, x, y, rr, rr, 0, '#12121c'); blob(g, x, y, rr * 0.45, rr * 0.45, 0, '#3a5aa8'); }
+    },
+    body: { thorax: [7, 9], abdomen: [6, 24], fur: '#5a3220', furHi: '#a06040', head: 4.5,
+      paint(g) { for (let i = 0; i < 5; i++) { blob(g, 0, 8 + i * 4.6, 5.6 - i * 0.5, 1.8, 0, '#e2502a'); blob(g, 0, 10 + i * 4.6, 2, 1, 0, '#111'); } blob(g, 0, -12, 6, 1.6, 0, '#d03020'); } },
+    antenna: { type: 'thin', len: 18, color: '#2a1a10' },
+  },
+  polyphemus: {
+    latin: 'Antheraea polyphemus', common: 'Polyphemus moth', span: 105,
+    fore: [[2, -6], [30, -20], [70, -30], [96, -30], [102, -22], [92, -6], [70, 8], [36, 16], [6, 6]],
+    hind: [[3, 4], [30, 8], [62, 18], [76, 36], [66, 58], [42, 66], [18, 58], [6, 36], [2, 18]],
+    foreAngle: -0.05, hindAngle: 0.05,
+    paintFore(g, r) {
+      g.fillStyle = '#b48c5c'; g.fillRect(-5, -40, 110, 60);
+      band(g, [[70, 6], [86, -8], [94, -26]], 3, 'rgba(200,140,150,0.8)');
+      eyespot(g, 46, -8, 4, [[1, '#e8c860'], [0.6, '#f0ead8']]);
+      band(g, [[4, 4], [20, -16]], 2, 'rgba(240,230,210,0.6)');
+    },
+    paintHind(g, r) {
+      g.fillStyle = '#b08858'; g.fillRect(-5, -5, 85, 75);
+      eyespot(g, 40, 32, 13, [[1.3, '#1c1820'], [1, '#e2b840'], [0.8, '#3a5a9a'], [0.55, '#14121a'], [0.35, '#f2ecd8']]);
+      band(g, [[12, 56], [42, 64], [70, 50]], 2.5, 'rgba(200,140,150,0.7)');
+    },
+    body: { thorax: [9, 11], abdomen: [8, 30], fur: '#a8845a', furHi: '#e0c090', head: 5, paint() {} },
+    antenna: { type: 'feather', len: 18, color: '#7a5a30' },
+  },
+  io: {
+    latin: 'Automeris io', common: 'Io moth', span: 68,
+    fore: [[2, -5], [26, -15], [54, -22], [68, -18], [62, -4], [44, 6], [22, 10], [4, 5]],
+    hind: [[3, 3], [26, 6], [46, 14], [54, 28], [44, 40], [22, 40], [6, 26], [2, 10]],
+    foreAngle: -0.03, hindAngle: 0.06,
+    paintFore(g, r) {
+      g.fillStyle = '#e6c03a'; g.fillRect(-5, -30, 75, 45);
+      band(g, [[10, 6], [28, -6], [40, -20]], 1.2, 'rgba(140,90,30,0.7)'); band(g, [[30, 8], [50, -4], [60, -16]], 1.2, 'rgba(140,90,30,0.7)');
+      blob(g, 32, -6, 2.6, 2, 0, '#8a5a20');
+    },
+    paintHind(g, r) {
+      g.fillStyle = '#e8c23c'; g.fillRect(-5, -5, 65, 50);
+      band(g, [[4, 6], [10, 28], [24, 38]], 4, '#d2384a');
+      eyespot(g, 30, 22, 10, [[1.15, '#1a1a22'], [0.95, '#3a4a8a'], [0.6, '#141418'], [0.28, '#f2f2ea']]);
+    },
+    body: { thorax: [7, 9], abdomen: [6, 24], fur: '#e0b434', furHi: '#fff0a0', head: 4.5, paint() {} },
+    antenna: { type: 'feather', len: 14, color: '#a07830' },
+  },
+  cecropia: {
+    latin: 'Hyalophora cecropia', common: 'Cecropia moth', span: 125,
+    fore: [[2, -6], [34, -22], [78, -34], [104, -36], [112, -26], [100, -12], [76, 6], [40, 16], [6, 6]],
+    hind: [[3, 4], [34, 8], [66, 20], [82, 38], [72, 60], [46, 70], [20, 60], [6, 38], [2, 18]],
+    foreAngle: -0.05, hindAngle: 0.05,
+    paintFore(g, r) {
+      g.fillStyle = '#6a524a'; g.fillRect(-5, -45, 125, 70);
+      band(g, [[8, 10], [6, -6]], 4, '#c0443a');
+      band(g, [[60, 10], [66, -10], [70, -30]], 3.5, '#efe0d0'); band(g, [[63, 10], [69, -10], [73, -30]], 2.2, '#b84a3a');
+      blob(g, 44, -8, 5, 3, 0.4, '#f2e8d8'); blob(g, 44, -8, 4.2, 1.6, 0.4, '#c0443a');
+      blob(g, 100, -24, 5, 4, 0, '#1a1416'); blob(g, 101, -25, 1.8, 1.6, 0, '#7aa0c8');
+    },
+    paintHind(g, r) {
+      g.fillStyle = '#6a524a'; g.fillRect(-5, -5, 95, 80);
+      blob(g, 40, 32, 7, 4, 0.5, '#f2e8d8'); blob(g, 40, 32, 6, 2.4, 0.5, '#c0443a');
+      band(g, [[16, 54], [46, 62], [76, 40]], 3.2, '#efe0d0'); band(g, [[16, 50], [46, 58], [74, 37]], 2, '#b84a3a');
+    },
+    body: { thorax: [9, 12], abdomen: [8, 32], fur: '#b8443a', furHi: '#e08070', head: 5,
+      paint(g) { for (let i = 0; i < 6; i++) blob(g, 0, 8 + i * 5, 7.4 - i * 0.6, 1.1, 0, '#f0e8e0'); blob(g, 0, -14, 7, 1.4, 0, '#f0e8e0'); } },
+    antenna: { type: 'feather', len: 18, color: '#4a3020' },
+  },
+  pavonia: {
+    latin: 'Saturnia pavonia', common: 'Emperor moth', span: 58,
+    fore: [[2, -5], [24, -14], [48, -22], [58, -20], [56, -8], [42, 4], [22, 9], [4, 5]],
+    hind: [[3, 3], [22, 6], [38, 12], [44, 24], [36, 34], [18, 34], [6, 24], [2, 10]],
+    foreAngle: -0.04, hindAngle: 0.06,
+    paintFore(g, r) {
+      g.fillStyle = '#9a8a80'; g.fillRect(-5, -30, 65, 45);
+      blob(g, 54, -16, 7, 5, 0, '#b0607a');
+      band(g, [[8, 6], [12, -10]], 2, '#f0e8e0'); band(g, [[40, 4], [46, -18]], 2, '#f0e8e0');
+      eyespot(g, 28, -6, 6, [[1, '#1a1418'], [0.8, '#e0c870'], [0.6, '#b04848'], [0.4, '#141016'], [0.16, '#eae2d0']]);
+    },
+    paintHind(g) {
+      g.fillStyle = '#de8a42'; g.fillRect(-5, -5, 55, 45);
+      eyespot(g, 24, 18, 6, [[1, '#1a1418'], [0.8, '#e0c870'], [0.6, '#3a4a7a'], [0.4, '#141016'], [0.16, '#eae2d0']]);
+      band(g, [[8, 30], [24, 33], [40, 26]], 2, 'rgba(250,230,200,0.8)');
+    },
+    body: { thorax: [6.5, 8], abdomen: [5.5, 20], fur: '#8a7a70', furHi: '#c8b8a8', head: 4, paint() {} },
+    antenna: { type: 'feather', len: 13, color: '#5a4030' },
+  },
+  nerii: {
+    latin: 'Daphnis nerii', common: 'Oleander hawkmoth', span: 95,
+    fore: [[2, -6], [26, -15], [62, -22], [94, -24], [98, -18], [88, -8], [68, 2], [42, 10], [18, 12], [5, 6]],
+    hind: [[3, 2], [24, 5], [44, 12], [50, 22], [40, 30], [20, 30], [6, 22], [2, 10]],
+    foreAngle: -0.04, hindAngle: 0.05,
+    paintFore(g, r) {
+      g.fillStyle = '#5e8048'; g.fillRect(-5, -32, 105, 48);
+      g.fillStyle = '#a8c890'; g.beginPath(); g.moveTo(28, 10); g.lineTo(46, -20); g.lineTo(56, -20); g.lineTo(40, 10); g.fill();
+      g.fillStyle = '#c89aa8'; g.beginPath(); g.moveTo(60, 2); g.lineTo(80, -22); g.lineTo(88, -20); g.lineTo(70, 2); g.fill();
+      band(g, [[4, -2], [20, -10]], 3, '#2e4a24'); blob(g, 18, -2, 4, 3, 0, '#e8f0dc');
+      band(g, [[70, -2], [92, -14]], 2, '#2e4a24');
+    },
+    paintHind(g) { g.fillStyle = '#4a5a3a'; g.fillRect(-5, -5, 60, 40); band(g, [[10, 24], [30, 26], [46, 20]], 3, '#b8c8a0'); },
+    body: { thorax: [7, 10], abdomen: [6.5, 30], fur: '#5e8048', furHi: '#9ac080', head: 4.5, paint(g) { blob(g, 0, 7, 6, 1.2, 0, '#e8f0dc'); blob(g, 0, -12, 6.5, 1.2, 0, '#a8c890'); } },
+    antenna: { type: 'thick', len: 20, color: '#d8e0d0' },
+  },
+  lubricipeda: {
+    latin: 'Spilosoma lubricipeda', common: 'White ermine', span: 40,
+    fore: [[2, -5], [20, -12], [36, -16], [42, -12], [38, -2], [26, 6], [12, 8], [4, 4]],
+    hind: [[3, 3], [16, 5], [28, 10], [31, 18], [24, 24], [10, 24], [4, 16], [2, 8]],
+    foreAngle: -0.03, hindAngle: 0.06,
+    paintFore(g, r) {
+      g.fillStyle = '#f4f1ea'; g.fillRect(-5, -25, 55, 40);
+      for (let i = 0; i < 16; i++) blob(g, 8 + r() * 30, -12 + r() * 16, 0.9 + r() * 0.7, 0.9 + r() * 0.7, 0, '#141414');
+    },
+    paintHind(g, r) { g.fillStyle = '#f2efe6'; g.fillRect(-5, -5, 40, 35); blob(g, 18, 14, 1, 1, 0, '#141414'); },
+    body: { thorax: [6, 8], abdomen: [5, 18], fur: '#f4f0e6', furHi: '#ffffff', head: 4,
+      paint(g) { for (let i = 0; i < 4; i++) { blob(g, 0, 8 + i * 4.2, 4.2, 1.6, 0, '#f0d040'); blob(g, 0, 9 + i * 4.2, 1, 1, 0, '#111'); } } },
+    antenna: { type: 'feather', len: 11, color: '#2a2a2a' },
+  },
+  vinula: {
+    latin: 'Cerura vinula', common: 'Puss moth', span: 68,
+    fore: [[2, -5], [26, -14], [54, -20], [66, -17], [60, -4], [44, 6], [22, 10], [4, 5]],
+    hind: [[3, 3], [24, 6], [42, 12], [48, 24], [38, 34], [18, 34], [6, 24], [2, 10]],
+    foreAngle: -0.03, hindAngle: 0.06,
+    paintFore(g, r) {
+      g.fillStyle = '#e6e4de'; g.fillRect(-5, -30, 70, 45);
+      for (let k = 0; k < 5; k++) { const pts = []; for (let i = 0; i <= 6; i++) pts.push([8 + k * 10 + (i % 2) * 3, 8 - i * 4.5]); band(g, pts, 0.9, 'rgba(70,70,74,0.7)'); }
+      speckle(g, r, 120, 0, -20, 64, 8, 'rgba(60,60,64,0.4)', 0.8);
+    },
+    paintHind(g) { g.fillStyle = '#d6d4cc'; g.fillRect(-5, -5, 55, 45); band(g, [[8, 28], [28, 32], [44, 24]], 1, 'rgba(70,70,74,0.5)'); },
+    body: { thorax: [8, 10], abdomen: [7, 24], fur: '#eeece6', furHi: '#ffffff', head: 5,
+      paint(g) { for (const [x, y] of [[-3, -12], [3, -12], [0, -6]]) blob(g, x, y, 1.2, 1.2, 0, '#222'); } },
+    antenna: { type: 'feather', len: 14, color: '#3a3a3a' },
+  },
+  mittrei: {
+    latin: 'Argema mittrei', common: 'Comet moth', span: 92,
+    fore: [[2, -6], [28, -20], [62, -32], [80, -34], [86, -28], [72, -8], [50, 8], [26, 12], [6, 6]],
+    hind: [[3, 4], [26, 8], [44, 20], [46, 36], [38, 52], [34, 90], [32, 140], [28, 150], [24, 140], [22, 100], [16, 56], [6, 36], [2, 18]],
+    foreAngle: -0.08, hindAngle: 0.04,
+    paintFore(g, r) {
+      g.fillStyle = '#efc62a'; g.fillRect(-5, -40, 95, 60);
+      band(g, [[2, -7], [30, -21], [62, -33]], 3, '#8a4a20');
+      eyespot(g, 44, -12, 5, [[1, '#8a3a1c'], [0.7, '#d8a040'], [0.45, '#2a1a10'], [0.2, '#f2e2b0']]);
+    },
+    paintHind(g) {
+      const gr = g.createLinearGradient(0, 0, 0, 150); gr.addColorStop(0, '#f0c62c'); gr.addColorStop(0.45, '#e8b028'); gr.addColorStop(0.8, '#c86a28'); gr.addColorStop(1, '#a03a1c');
+      g.fillStyle = gr; g.fillRect(-5, -5, 60, 160);
+      eyespot(g, 28, 28, 5.5, [[1, '#8a3a1c'], [0.7, '#d8a040'], [0.45, '#2a1a10'], [0.2, '#f2e2b0']]);
+    },
+    body: { thorax: [8, 10], abdomen: [7, 28], fur: '#f2f0e6', furHi: '#ffffff', head: 5, paint(g) { blob(g, 0, -14, 7, 1.4, 0, '#c87a40'); } },
+    antenna: { type: 'feather', len: 17, color: '#9a6a30' },
+  },
+  elpenor: {
+    latin: 'Deilephila elpenor', common: 'Elephant hawkmoth', span: 62,
+    fore: [[2, -5], [22, -12], [48, -18], [64, -19], [66, -14], [56, -4], [36, 6], [14, 8], [4, 4]],
+    hind: [[3, 2], [18, 4], [32, 9], [36, 18], [28, 24], [14, 24], [5, 17], [2, 8]],
+    foreAngle: -0.05, hindAngle: 0.08,
+    paintFore(g) {
+      g.fillStyle = '#7e7c3c'; g.fillRect(-5, -25, 75, 35);
+      band(g, [[4, -5], [40, -16], [64, -18]], 2.6, '#d86a92');
+      band(g, [[10, 6], [36, -2], [62, -12]], 3.2, '#d86a92');
+      band(g, [[22, 6], [44, -4]], 1.6, '#e892b0');
+    },
+    paintHind(g) { g.fillStyle = '#d8789a'; g.fillRect(-5, -5, 45, 35); g.fillStyle = '#1a1414'; g.fillRect(-5, -5, 14, 35); },
+    body: { thorax: [6.5, 9], abdomen: [6, 26], fur: '#7e7c3c', furHi: '#c0b060', head: 4.5,
+      paint(g) { g.fillStyle = 'rgba(216,106,146,0.85)'; g.fillRect(-1.2, -14, 2.4, 40); g.fillRect(-6, -10, 1.6, 14); g.fillRect(4.4, -10, 1.6, 14); } },
+    antenna: { type: 'thick', len: 16, color: '#e8e0e0' },
+  },
 };
 
 // Draws one wing pair (left side, mirrored by the caller) in unit space.
@@ -216,7 +405,7 @@ function drawWingPair(g, sp, r, lift = 0) {
       g.beginPath(); g.moveTo(1, 0); g.quadraticCurveTo(tx * 0.4, ty * 0.2, tx, ty); g.stroke();
     }
     // scale texture: fine strokes + soft edge darkening
-    g.globalAlpha = 0.12; speckle(g, r, 900, -5, -45, 115, 120, '#000', 0.5); speckle(g, r, 600, -5, -45, 115, 120, '#fff', 0.5); g.globalAlpha = 1;
+    g.globalAlpha = 0.12; speckle(g, r, 900, -5, -45, 115, 155, '#000', 0.5); speckle(g, r, 600, -5, -45, 115, 155, '#fff', 0.5); g.globalAlpha = 1;
     g.restore();
     // fringe
     smooth(g, pts); g.strokeStyle = 'rgba(40,28,18,0.45)'; g.lineWidth = 0.6; g.stroke();
@@ -322,4 +511,19 @@ export function drawLabel(g, key, x, y, w, extra = 'Coll. Ord. P.W. 1887') {
   line(sp.common, px => `${px}px "Segoe Script", "Lucida Handwriting", Georgia, cursive`, h * 0.17, y + h * 0.58);
   line(extra, px => `${px}px Georgia, serif`, h * 0.13, y + h * 0.8);
   g.restore();
+}
+
+// Wing extents of a species in body units (for fitting a specimen into a box).
+export function mothBounds(key) {
+  const sp = SPECIES[key]; let maxX = 0, minY = -sp.antenna.len - 20, maxY = 4 + sp.body.abdomen[1];
+  for (const p of [...sp.fore, ...sp.hind]) { maxX = Math.max(maxX, p[0]); minY = Math.min(minY, p[1]); maxY = Math.max(maxY, p[1]); }
+  return { halfW: maxX + 4, minY: minY - 3, maxY: maxY + 4 };
+}
+
+// Draw a specimen scaled to fit the rectangle (x, y, w, h).
+export function drawSpecimenFit(g, key, x, y, w, h, opts = {}) {
+  const b = mothBounds(key), sp = SPECIES[key];
+  const k = Math.min(w / (2 * b.halfW), h / (b.maxY - b.minY));
+  const cy = y + (h - (b.maxY - b.minY) * k) / 2 - b.minY * k;
+  drawMoth(g, key, x + w / 2, cy, sp.span * 2 * k, opts);
 }

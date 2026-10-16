@@ -22,7 +22,7 @@ Settings also has **Graphics quality** (Low / Medium / High, default High). High
 
 The way in: climb the fence at the stone block left of the gate, then find the smashed ground-floor window with the crate under it, right of the front door.
 
-Inside the first room, light the oil lamp, study the moth mosaic above the fireplace, and search the specimen cabinet for the key to the east door. (Spoiler: the gilt tiles show skulls, so open the death's-head hawkmoth drawer.)
+Inside the first room the east door is stuck fast. Light the oil lamp and study the moth mosaic above the fireplace: in lamplight, five small moths show in the tiles of its lower border. Take boxed specimens from the cabinet drawers (E), one at a time, and set them on the five numbered stands (I to V) around the room in the mosaic's left-to-right order. Two specimens are decoys. A wrong order only rattles the frames, and you can pick specimens back up and rearrange them. The right order opens a hidden panel in the east wall onto the hallway, and the game saves there.
 
 Progress is saved automatically at save points (climbing the fence, entering the first room, unlocking the east door), and settings
 (mouse sensitivity, volume, brightness, field of view) are kept in `localStorage`. **Continue** on the home
@@ -55,7 +55,7 @@ Any static server works (`npx serve`, etc.). An internet connection is needed to
 - `src/player.js` - first-person controller and collision
 - `src/world/exterior.js` - mansion, iron fence, grounds, sky
 - `src/world/firstRoom.js` - the drawing room behind the broken window, its oil lamp and door
-- `src/world/drawerPuzzle.js` - mosaic clue, specimen cabinet and the hallway beyond the door
+- `src/world/drawerPuzzle.js` - specimen cabinet, numbered stands, sequence puzzle and the hallway
 - `src/moths.js` - species-accurate moth specimens (wing shapes, patterns, bodies, labels)
 - `src/textures.js` - canvas-generated textures, including the moth mosaics
 - `src/homeScreen.js` - animated home screen (the pinned moth)

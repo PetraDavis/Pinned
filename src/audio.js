@@ -54,3 +54,29 @@ export function playGlass() {
     o.connect(g).connect(master); o.start(t); o.stop(t + 0.3);
   }
 }
+
+export function playCreak() {
+  if (!ctx) return;
+  const o = ctx.createOscillator(), g = ctx.createGain(), f = ctx.createBiquadFilter(), t = ctx.currentTime;
+  o.type = 'sawtooth'; o.frequency.setValueAtTime(95, t); o.frequency.linearRampToValueAtTime(55, t + 1.2);
+  f.type = 'lowpass'; f.frequency.value = 600;
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.08, t + 0.15); g.gain.linearRampToValueAtTime(0, t + 1.3);
+  o.connect(f).connect(g).connect(master); o.start(t); o.stop(t + 1.4);
+  for (let i = 0; i < 10; i++) { // rattling frames
+    const c = ctx.createOscillator(), cg = ctx.createGain(), ct = t + i * 0.06;
+    c.type = 'square'; c.frequency.value = 180 + Math.random() * 120;
+    cg.gain.setValueAtTime(0.03, ct); cg.gain.exponentialRampToValueAtTime(0.001, ct + 0.05);
+    c.connect(cg).connect(master); c.start(ct); c.stop(ct + 0.06);
+  }
+}
+
+export function playGrind() {
+  if (!ctx) return;
+  const len = ctx.sampleRate * 3, buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (0.6 + 0.4 * Math.sin(i / 900));
+  const src = ctx.createBufferSource(); src.buffer = buf;
+  const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 260;
+  const g = ctx.createGain(), t = ctx.currentTime;
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.5, t + 0.3); g.gain.setValueAtTime(0.5, t + 2.4); g.gain.linearRampToValueAtTime(0, t + 3);
+  src.connect(f).connect(g).connect(master); src.start(t);
+}

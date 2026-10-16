@@ -39,3 +39,6 @@ select { grid-column: 1 / -1; font: inherit; color: var(--ink); background: #141
   pointer-events: none; z-index: 1; padding: 0 16px; white-space: nowrap; }
 @media (min-width: 801px) { #home .menu { margin-top: 14vh; } }
 @media (max-width: 800px) { .title { font-size: clamp(34px, 12vw, 60px); top: 2vh; } }
+#held { position: absolute; left: max(16px, env(safe-area-inset-left, 0px)); bottom: 16px; display: flex; align-items: center; gap: 10px; padding: 8px 12px 8px 8px; background: rgba(0,0,0,.55); border: 1px solid #3a3a36; max-width: calc(100vw - 32px); }
+#held img { width: 96px; height: auto; border: 1px solid #5a4a30; }
+#held span { font-style: italic; font-size: 14px; }

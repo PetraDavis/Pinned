@@ -1,6 +1,6 @@
 // Canvas-generated textures. No external assets.
 import * as THREE from 'three';
-import { drawMoth, drawLabel, SPECIES } from './moths.js';
+import { drawSpecimenFit, drawLabel } from './moths.js';
 
 function rng(seed) {
   let s = seed >>> 0;
@@ -302,10 +302,12 @@ export function buildTextures(quality = 'high') {
     }
   }, [1, 1]);
 
-  tex.mosaic = makeMothMosaic(13);
+  // keep in step with SOLUTION in world/drawerPuzzle.js
+  const CLUE = ['rubicunda', 'caja', 'mittrei', 'nerii', 'lubricipeda'];
+  tex.mosaic = makeMothMosaic(13, false, CLUE, 0.22);
+  tex.mosaicLit = makeMothMosaic(13, false, CLUE, 1);
   tex.mosaicFloor = makeMothMosaic(29, true);
-  tex.specimensA = makeSpecimenCase(['atropos', 'luna', 'rhipheus', 'atlas'], 31);
-  tex.specimensB = makeSpecimenCase(['betularia', 'mori', 'infusa', 'calyptra'], 57);
+  tex.specimensA = makeSpecimenCase(['polyphemus', 'cecropia', 'pavonia', 'vinula'], 31);
   tex.painting = canvasTex(256, 320, (g, w, h) => {
     const r = rng(14);
     const gr = g.createLinearGradient(0, 0, 0, h);
@@ -322,7 +324,7 @@ export function buildTextures(quality = 'high') {
 
 // Draws a moth silhouette to a small canvas in flat colours, then
 // re-renders it as a tiled, aged mosaic with grout and missing tesserae.
-export function makeMothMosaic(seed, round = false) {
+export function makeMothMosaic(seed, round = false, clue = null, contrast = 1) {
   const N = 72;
   const src = document.createElement('canvas'); src.width = src.height = N;
   const s = src.getContext('2d');
@@ -354,6 +356,20 @@ export function makeMothMosaic(seed, round = false) {
   s.beginPath(); s.ellipse(cx, cy - 1, 3.2, 13, 0, 0, 7); s.fill();
   s.beginPath(); s.arc(cx, cy - 14, 3, 0, 7); s.fill();
   const px = s.getImageData(0, 0, N, N).data;
+  // clue: small moths laid into the lower border as ordinary tesserae, in
+  // colours only a little off the ground unless contrast is high (lamplight)
+  if (clue) clue.forEach((key, i) => {
+    const M = 9, big = document.createElement('canvas'); big.width = big.height = 96;
+    const bg = big.getContext('2d'); bg.fillStyle = '#1e3036'; bg.fillRect(0, 0, 96, 96);
+    drawSpecimenFit(bg, key, 2, 2, 92, 92, { pin: false });
+    const tiny = document.createElement('canvas'); tiny.width = tiny.height = M;
+    const tg = tiny.getContext('2d'); tg.drawImage(big, 0, 0, M, M);
+    const mp = tg.getImageData(0, 0, M, M).data, ox = Math.round((0.2 + i * 0.15) * N - M / 2), oy = N - 13;
+    for (let y = 0; y < M; y++) for (let x = 0; x < M; x++) {
+      const a = (y * M + x) * 4, b = ((oy + y) * N + ox + x) * 4;
+      for (let ch = 0; ch < 3; ch++) px[b + ch] = px[b + ch] + (mp[a + ch] - px[b + ch]) * contrast;
+    }
+  });
 
   const T = 6 * Q, out = document.createElement('canvas');
   out.width = out.height = N * T;
@@ -393,9 +409,9 @@ function makeSpecimenCase(keys, seed) {
   g.save(); g.scale(k, k); stains(g, 512, 256, 20, r, '90,70,40', 0.18); g.restore();
   grain(g, w, h, 6);
   keys.forEach((key, i) => {
-    const cx = w * (0.125 + i * 0.25), span = w * (key === 'atlas' ? 0.23 : key === 'luna' ? 0.2 : 0.17) * (SPECIES[key].span / 105 * 0.5 + 0.5);
-    drawMoth(g, key, cx, h * 0.38, span, { seed: seed + i });
-    drawLabel(g, key, cx, h * 0.7, w * 0.21, `No. ${seed % 100 + i}`);
+    const cw = w / keys.length, x0 = i * cw;
+    drawSpecimenFit(g, key, x0 + cw * 0.06, h * 0.05, cw * 0.88, h * 0.58, { seed: seed + i });
+    drawLabel(g, key, x0 + cw / 2, h * 0.68, cw * 0.8, `No. ${seed % 100 + i}`);
   });
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = ANISO[Q] || 8;
   return t;

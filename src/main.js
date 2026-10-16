@@ -1,12 +1,17 @@
 // Pinned - entry point: renderer, game states, menus, interactions, save points.
 import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { buildTextures } from './textures.js';
 import { buildExterior, SUN_DIR, CLIMB_SPOT, BROKEN_WINDOW, FRONT_DOOR, GATE, FENCE } from './world/exterior.js';
-import { buildFirstRoom, ROOM_LAMP, ROOM_SPAWN, ROOM_WINDOW, ROOM_DOOR, ROOM_ORIGIN, ROOM_CABINET, ROOM_MOSAIC } from './world/firstRoom.js';
+import { buildFirstRoom, ROOM_LAMP, ROOM_SPAWN, ROOM_WINDOW, ROOM_DOOR, ROOM_ORIGIN, ROOM_CABINET, ROOM_MOSAIC, ROOM_STANDS, ROOM_PANEL } from './world/firstRoom.js';
 import { SPECIES } from './moths.js';
-import { KEY_DRAWER, FLAVOUR } from './world/drawerPuzzle.js';
+import { specimenCanvas } from './world/drawerPuzzle.js';
 import { Player } from './player.js';
-import { startAudio, setVolume, playThud, playGlass } from './audio.js';
+import { startAudio, setVolume, playThud, playGlass, playCreak, playGrind } from './audio.js';
 import { loadSettings, saveSettings, loadSave, writeSave, clearSave } from './storage.js';
 import { startHomeBackdrop } from './homeScreen.js';
 
@@ -15,11 +20,16 @@ const canvas = $('game');
 
 // ---------- renderer & scene ----------
 let settings = loadSettings();
+// Low: 0.75 pixel ratio, sun shadow only (512, hard), no normal/roughness maps, sparse grass, no dust.
+// Medium: 1.25 pixel ratio, 2048 soft shadows, full materials.
+// High: full DPR (cap 2), 4096 soft shadows, ambient occlusion, bloom, dense grass and dust.
+// Texture canvases are 512 / 1024 / 2048 px (see textures.js) and need a restart to change.
 const QUALITIES = {
-  low: { pr: 1, shadow: 1024, soft: false },
-  medium: { pr: 1.5, shadow: 2048, soft: true },
-  high: { pr: 2, shadow: 4096, soft: true },
+  low: { pr: 0.75, shadow: 512, soft: false, lampShadows: false, pbr: false, grass: 0.2, dust: 0, post: false },
+  medium: { pr: 1.25, shadow: 2048, soft: true, lampShadows: true, pbr: true, grass: 0.5, dust: 150, post: false },
+  high: { pr: 2, shadow: 4096, soft: true, lampShadows: true, pbr: true, grass: 1, dust: 450, post: true },
 };
+const texQuality = settings.quality; // the texture detail this page load was built with
 const QUALITY = QUALITIES[settings.quality] || QUALITIES.high;
 // logarithmic depth avoids z-fighting between close, nearly coplanar surfaces (cases, trims, glass)
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance', logarithmicDepthBuffer: settings.quality !== 'low' });
@@ -86,12 +96,38 @@ for (const [id, key] of Object.entries(sliders)) {
 }
 // Quality applies in place (no reload): pixel ratio, shadow resolution and shadow
 // filtering change immediately; texture resolution follows on the next load.
+let composer = null;
+function buildComposer() {
+  const c = new EffectComposer(renderer);
+  c.addPass(new RenderPass(scene, camera));
+  const ao = new GTAOPass(scene, camera, innerWidth, innerHeight);
+  ao.blendIntensity = 0.8; c.addPass(ao);
+  // high threshold: only the lamp flame, sconces and lit glass bloom
+  c.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.55, 0.5, 0.88));
+  c.addPass(new OutputPass());
+  return c;
+}
+let currentQ = QUALITY;
 function applyQuality(q) {
   const Q = QUALITIES[q] || QUALITIES.high;
+  currentQ = Q;
   renderer.setPixelRatio(Math.min(devicePixelRatio, Q.pr));
   renderer.setSize(innerWidth, innerHeight);
-  renderer.shadowMap.type = Q.soft ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
+  renderer.shadowMap.type = Q.soft ? THREE.PCFSoftShadowMap : THREE.BasicShadowMap;
+  if (Q.post && !composer) composer = buildComposer();
+  if (composer) { composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(innerWidth, innerHeight); }
   scene.traverse(o => {
+    if (o.userData.grass) o.count = Math.round(o.userData.max * Q.grass);
+    if (o.userData.dust) { o.geometry.setDrawRange(0, Q.dust); o.visible = Q.dust > 0; }
+    if (o.isLight && o.shadow && !o.isDirectionalLight) {
+      if (o.userData.shadowOn === undefined) o.userData.shadowOn = o.castShadow;
+      o.castShadow = o.userData.shadowOn && Q.lampShadows;
+    }
+    if (o.material) for (const m of [].concat(o.material)) {
+      if (!m.userData.pbrSaved) { m.userData.pbrSaved = true; m.userData.nm = m.normalMap; m.userData.rm = m.roughnessMap; }
+      m.normalMap = Q.pbr ? m.userData.nm : null;
+      m.roughnessMap = Q.pbr ? m.userData.rm : null;
+    }
     if (o.isLight && o.shadow && o.castShadow) {
       const size = o.isDirectionalLight ? Q.shadow : Math.min(Q.shadow, 2048) / (o.isPointLight ? 2 : 1);
       o.shadow.mapSize.set(size, size);
@@ -103,9 +139,14 @@ function applyQuality(q) {
 $('sQuality').addEventListener('change', e => {
   settings.quality = e.target.value; saveSettings(settings);
   applyQuality(settings.quality);
-  $('qualityNote').textContent = 'Applied. Texture detail updates the next time the game loads.';
+  const texDiff = settings.quality !== texQuality;
+  $('qualityNote').textContent = texDiff ? 'Applied. Texture detail changes after a restart.' : 'Applied.';
+  $('btnReloadTex').classList.toggle('hidden', !texDiff);
 });
+// reload keeping progress: the save point stays, and the game resumes from it straight away
+$('btnReloadTex').onclick = () => { try { sessionStorage.setItem('pinned.autoContinue', '1'); } catch {} location.reload(); };
 applySettings();
+applyQuality(settings.quality);
 
 // ---------- interactions ----------
 const msgEl = $('message'), promptEl = $('prompt');
@@ -155,21 +196,37 @@ const interactables = [
     },
   },
   {
-    zone: 'room', pos: ROOM_DOOR, r: 1.6, when: () => !room.doorOpen,
-    prompt: () => (hasKey ? 'E  unlock the door' : 'E  try the door'),
-    act: () => {
-      if (!hasKey) { say('Locked. There is a small brass keyhole under the handle.'); return; }
-      room.openDoor(); playThud();
-      say('The key turns with a gritty click. The door swings inward onto a dark hallway.');
-      save('hallway');
-    },
+    zone: 'room', pos: ROOM_DOOR, r: 1.6, prompt: 'E  try the door',
+    act: () => say('It will not budge. The lock has rusted solid, and the keyhole is packed with old wax.'),
+  },
+  {
+    zone: 'room', pos: ROOM_PANEL, r: 1.3, when: () => !room.panelOpen, prompt: 'E  examine the panelling',
+    act: () => say('A section of panelling. There is a hairline gap around it, and cold air seeps through.'),
   },
   {
     zone: 'room', pos: ROOM_MOSAIC, r: 1.9, prompt: 'E  examine the mosaic',
     act: () => say(room.lampOn
-      ? 'In the lamplight three tiles on the left wing glint gold. Each one bears a tiny skull.'
-      : 'The Order of the Pale Wing. It is too dim to make out the finer tiles. More light would help.', 6000),
+      ? 'In the lamplight, five small moths appear in the lower border of the mosaic, picked out in coloured tiles from left to right.'
+      : 'The Order of the Pale Wing. It is too dim to make out the finer tiles. More light would help.', 6500),
   },
+  // the five numbered specimen stands
+  ...ROOM_STANDS.map((pos, i) => ({
+    zone: 'room', pos, r: 1.4,
+    prompt: () => {
+      const st = room.puzzle.stands[i], n = ['I', 'II', 'III', 'IV', 'V'][i], held = room.puzzle.held;
+      if (room.puzzle.solved) return null;
+      if (st.item && held) return `E  swap for the ${SPECIES[held].common} (stand ${n})`;
+      if (st.item) return `E  take the ${SPECIES[st.item].common} from stand ${n}`;
+      if (held) return `E  place the ${SPECIES[held].common} on stand ${n}`;
+      return `Stand ${n}: an empty specimen frame`;
+    },
+    act: () => {
+      const P = room.puzzle, st = P.stands[i];
+      if (P.solved || (!st.item && !P.held)) return;
+      P.useStand(st); updateHeld();
+      if (P.filled()) checkSequence();
+    },
+  })),
   {
     zone: 'room', pos: () => room.hall.endDoor, r: 1.4,
     prompt: 'E  try the door', act: () => say('Locked. Something heavy has been pushed against it from the other side.'),
@@ -179,27 +236,41 @@ const interactables = [
     prompt: 'E  try the door', act: () => say('Locked. Through the keyhole, only darkness and the smell of camphor.'),
   },
 ];
-let current = null, hasKey = false;
+let current = null;
 const ray = new THREE.Raycaster(); ray.far = 2.6;
 const centre = new THREE.Vector2(0, 0);
-// The specimen cabinet: aim at a drawer to open, close or search it.
+const FLAVOUR_EMPTY = 'Empty, apart from moth-eaten tissue paper.';
+// The specimen cabinet: aim at a drawer to open, close, take or return a specimen.
 function cabinetInteraction() {
   if (zone !== 'room' || Math.hypot(player.pos.x - ROOM_CABINET.x, player.pos.z - ROOM_CABINET.z) > 2.3) return null;
   ray.setFromCamera(centre, camera);
   const hit = ray.intersectObjects(room.pickables, false)[0];
-  if (!hit) return { prompt: 'Aim at a drawer to open it', act: () => say('A specimen cabinet. Six drawers, each labelled in a careful hand.') };
-  const d = hit.object.userData.drawer, key = d.userData.key, name = SPECIES[key].common;
+  if (!hit) return { prompt: 'Aim at a drawer to open it', act: () => say('A specimen cabinet. Eight drawers, each labelled in a careful hand.') };
+  const P = room.puzzle, d = hit.object.userData.drawer, item = d.userData.item;
   const open = d.userData.target > 0;
-  if (open && key === KEY_DRAWER && !hasKey) return { prompt: 'E  take the brass key', act: () => {
-    hasKey = true; d.userData.keyMesh.visible = false;
-    say('A brass key, wrapped in a label: "For the east door." The death\'s-head was the clue.');
-  } };
-  if (open) return { prompt: `E  close the drawer (${name})`, act: () => { d.userData.target = 0; } };
-  return { prompt: `E  open the drawer: ${name}`, act: () => {
-    d.userData.target = 1;
-    if (key === KEY_DRAWER) say(hasKey ? 'Empty now, apart from a single death\'s-head hawkmoth, its skull marking bright.' : 'A death\'s-head hawkmoth, its skull marking bright. Beneath it lies a brass key.');
-    else say(FLAVOUR[key]);
-  } };
+  if (!open) return { prompt: 'E  open the drawer', act: () => { d.userData.target = 1; if (!item) say(FLAVOUR_EMPTY); } };
+  if (item && !P.held) return { prompt: `E  take the ${SPECIES[item].common}`, act: () => { P.takeFromDrawer(d); updateHeld(); } };
+  if (!item && P.held) return { prompt: `E  put the ${SPECIES[P.held].common} in the drawer`, act: () => { P.putIntoDrawer(d); updateHeld(); } };
+  return { prompt: 'E  close the drawer', act: () => { d.userData.target = 0; } };
+}
+// HUD: the specimen in hand
+function updateHeld() {
+  const k = room.puzzle.held, el = $('held');
+  el.classList.toggle('hidden', !k);
+  if (!k) return;
+  $('heldImg').src = specimenCanvas(k).toDataURL('image/png');
+  $('heldName').textContent = `${SPECIES[k].common} (${SPECIES[k].latin})`;
+}
+function checkSequence() {
+  const P = room.puzzle;
+  if (P.correct()) {
+    P.solved = true; room.openPanel(); playGrind();
+    say('The frames click, one after another. Stone grinds in the east wall, and a panel slides back onto a dark hallway.', 7000);
+    save('hallway');
+  } else {
+    P.rattle(); playCreak();
+    say('The specimens rattle in their frames. Something in the wall creaks, then settles. Nothing else happens.', 6000);
+  }
 }
 function findInteractable() {
   const cab = cabinetInteraction(); if (cab) return cab;
@@ -231,12 +302,11 @@ function transition(mid) {
   setTimeout(() => { mid(); $('fade').style.opacity = 0; setTimeout(() => { state = 'playing'; player.enabled = true; }, 400); }, 550);
 }
 
-function save(checkpoint) { writeSave({ checkpoint, lampLit: room.lampOn, hasKey, doorOpen: room.doorOpen }); }
+function save(checkpoint) { writeSave({ checkpoint, lampLit: room.lampOn, solved: room.puzzle.solved }); }
 function spawnAt(checkpoint, saved = {}) {
   room.resetPuzzle(); room.setLamp(!!saved.lampLit);
-  hasKey = !!saved.hasKey;
-  if (hasKey) for (const d of room.drawers) if (d.userData.keyMesh) d.userData.keyMesh.visible = false;
-  if (saved.doorOpen) room.openDoor(true);
+  if (saved.solved) { room.puzzle.solveInstantly(); room.openPanel(true); }
+  updateHeld();
   if (checkpoint === 'hallway') { setZone('room'); player.place(room.hall.spawn.x, room.hall.spawn.z, -Math.PI / 2); return; }
   if (checkpoint === 'room') { setZone('room'); player.place(ROOM_SPAWN.x, ROOM_SPAWN.z, 0); }
   else if (checkpoint === 'grounds') { setZone('exterior'); player.place(CLIMB_SPOT.x, FENCE.front - 1.4, 0); }
@@ -281,6 +351,7 @@ function quitHome() {
 function openSettings(from) { settingsReturn = from; show(from, false); show('settings', true); }
 
 $('btnContinue').onclick = () => { const s = loadSave(); if (s) startGame(s.checkpoint, s); };
+try { if (sessionStorage.getItem('pinned.autoContinue')) { sessionStorage.removeItem('pinned.autoContinue'); const s = loadSave(); if (s) startGame(s.checkpoint, s); } } catch {}
 $('btnRestart').onclick = () => { if (loadSave()) show('confirm', true); else startGame(null); };
 $('btnConfirmYes').onclick = () => { show('confirm', false); clearSave(); startGame(null); };
 $('btnConfirmNo').onclick = () => show('confirm', false);
@@ -306,6 +377,7 @@ addEventListener('keydown', e => {
 });
 addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight);
+  if (composer) composer.setSize(innerWidth, innerHeight);
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
 });
 
@@ -318,11 +390,11 @@ function loop() {
   if (anim) anim.update(dt);
   if (state === 'playing') {
     current = findInteractable();
-    promptEl.textContent = current ? (typeof current.prompt === 'function' ? current.prompt() : current.prompt) : '';
+    promptEl.textContent = current ? ((typeof current.prompt === 'function' ? current.prompt() : current.prompt) || '') : '';
   } else promptEl.textContent = '';
   if (zone === 'room') room.update(t, dt);
   else if (curtain) { curtain.rotation.x = -0.25 - Math.sin(t * 1.3) * 0.12 + Math.sin(t * 3.1) * 0.05; }
-  if (state !== 'home') renderer.render(scene, camera);
+  if (state !== 'home') { if (currentQ.post && composer) composer.render(dt); else renderer.render(scene, camera); }
   requestAnimationFrame(loop);
 }
 
@@ -334,6 +406,6 @@ loop();
 // Hook for automated tests / debugging.
 window.__pinned = {
   start: startGame, pause, resume, quitHome, player, setZone, interact: () => current && current.act(),
-  get state() { return state; }, get zone() { return zone; }, get hasKey() { return hasKey; }, get prompt() { return current && (typeof current.prompt === 'function' ? current.prompt() : current.prompt); }, room,
+  get state() { return state; }, get zone() { return zone; }, get prompt() { return current && (typeof current.prompt === 'function' ? current.prompt() : current.prompt); }, room,
   renderer, scene, camera, get colliders() { return colliders(); },
 };

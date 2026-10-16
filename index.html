@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&display=swap">
 <link rel="stylesheet" href="style.css">
 <script type="importmap">
-{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
 </script>
 </head>
 <body>
@@ -19,6 +19,7 @@
   <div id="crosshair"></div>
   <div id="prompt"></div>
   <div id="message"></div>
+  <div id="held" class="hidden"><img id="heldImg" alt=""><span id="heldName"></span></div>
   <button id="pauseBtn" title="Pause (Esc / P)">II</button>
 </div>
 <div id="fade"></div>
@@ -54,6 +55,7 @@
     <label>Field of view <output id="oFov"></output><input id="sFov" type="range" min="55" max="100" step="1"></label>
     <label for="sQuality">Graphics quality<select id="sQuality"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></label>
     <p id="qualityNote" class="note">Lower quality runs faster on older computers.</p>
+    <button id="btnReloadTex" class="hidden">Restart to apply texture detail</button>
     <button id="btnSettingsBack">Back</button>
   </div>
 </div>
