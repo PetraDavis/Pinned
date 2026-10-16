@@ -70,8 +70,11 @@ export function startHomeBackdrop(canvas) {
     s.fillStyle = brass; s.fillRect(lx, ly, lw, lh);
     s.strokeStyle = 'rgba(255,230,170,0.4)'; s.lineWidth = dpr; s.strokeRect(lx + dpr, ly + dpr, lw - 2 * dpr, lh - 2 * dpr);
     s.fillStyle = '#2a1c0a'; s.textAlign = 'center'; s.textBaseline = 'middle';
-    s.font = `${Math.round(lh * 0.42)}px Georgia, serif`;
-    s.fillText('THE ORDER OF THE PALE WING · MDCCCLXXXVII', P.cx, ly + lh / 2 + dpr);
+    const plateText = 'THE ORDER OF THE PALE WING · MDCCCLXXXVII';
+    let fpx = lh * 0.42; s.font = `${fpx}px Georgia, serif`;
+    const tw = s.measureText(plateText).width, maxw = lw - lh * 1.4; // keep clear of the screws
+    if (tw > maxw) { fpx *= maxw / tw; s.font = `${fpx}px Georgia, serif`; }
+    s.fillText(plateText, P.cx, ly + lh / 2 + dpr);
     for (const sx of [lx + lh * 0.3, lx + lw - lh * 0.3]) { s.fillStyle = '#3a2a10'; s.beginPath(); s.arc(sx, ly + lh / 2, lh * 0.12, 0, 7); s.fill(); }
     // ---- moth layers ----
     const size = P.iw * 0.78;
