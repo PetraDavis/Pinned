@@ -366,46 +366,122 @@ function tarnishTex(seed) {
 }
 
 // ---------- the player's reflection ----------
-// stage 1: a teenager in a hoodie, eyes a little too large and dark, dust in the hair.
-// stage 2: the eyes black and wide, a ruff of pale fuzz at the collar, feathered
-// antennae through the hair, and folded dusty wings showing over the shoulders.
-function makeAvatar(stage) {
+// Always a human teenager, and good-looking; the change is subtle, a little more of an
+// unknown moth in each mirror (M1..M8). Only M1 and M2 hang on the ground floor.
+//  1 tired, dusty            2 a touch taller and thinner, paler smoother skin
+//  3 eyes slightly too large and dark   4 pale soft fuzz-like hair, faint powdery sheen
+//  5 longer neck and fingers, very still   6 faint wing-pattern markings under the skin
+//  7 eyeshine                8 almost perfect; smiles before you do
+export function makeAvatar(stage) {
   const a = new THREE.Group();
-  const hoodie = new THREE.MeshStandardMaterial({ color: 0x2a3038, roughness: 0.9, emissive: 0x0c0e12 });
-  const skin = new THREE.MeshStandardMaterial({ color: stage > 1 ? 0xc8b8a8 : 0xd0a890, roughness: 0.7, emissive: 0x2a1c16 });
-  const hair = new THREE.MeshStandardMaterial({ color: 0x2a1e16, roughness: 0.9 });
-  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.2, 0.5, 6, 12), hoodie); torso.position.y = 1.15; torso.scale.set(1.15, 1, 0.75); a.add(torso);
-  for (const sx of [-1, 1]) { const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.06, 0.5, 4, 8), hoodie); arm.position.set(sx * 0.29, 1.12, 0); arm.rotation.z = sx * 0.12; a.add(arm); }
-  for (const sx of [-1, 1]) { const leg = new THREE.Mesh(new THREE.CapsuleGeometry(0.08, 0.7, 4, 8), new THREE.MeshStandardMaterial({ color: 0x1e2430, roughness: 0.9 })); leg.position.set(sx * 0.1, 0.45, 0); a.add(leg); }
-  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.1, 10), skin); neck.position.y = 1.5; a.add(neck);
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.11, 20, 16), skin); head.position.y = 1.64; head.scale.set(0.9, 1.1, 0.95); a.add(head);
-  const hairCap = new THREE.Mesh(new THREE.SphereGeometry(0.118, 20, 12, 0, Math.PI * 2, 0, Math.PI * 0.55), hair); hairCap.position.y = 1.66; hairCap.rotation.x = -0.25; a.add(hairCap);
-  const hood = new THREE.Mesh(new THREE.TorusGeometry(0.14, 0.05, 8, 16, Math.PI * 1.3), hoodie); hood.position.set(0, 1.5, -0.05); hood.rotation.set(Math.PI / 2, 0, Math.PI * 0.85); a.add(hood);
-  // eyes (the avatar faces +z)
-  const eyeR = stage > 1 ? 0.03 : 0.018;
+  const st = k => stage >= k;
+  const skinCol = new THREE.Color(0xd9b29a).lerp(new THREE.Color(0xeee4dc), st(2) ? Math.min(1, 0.35 + (stage - 2) * 0.1) : 0);
+  const skin = new THREE.MeshPhysicalMaterial({ color: skinCol, roughness: st(2) ? 0.5 : 0.62, emissive: 0x2a1c16, emissiveIntensity: 0.8,
+    sheen: st(4) ? 0.6 : 0.15, sheenColor: new THREE.Color(0xf4ece0), sheenRoughness: 0.5, map: skinTex(stage) });
+  const hairCol = st(4) ? 0xcfc6b8 : 0x3a2a20;
+  const hair = new THREE.MeshPhysicalMaterial({ color: hairCol, roughness: 0.75, sheen: st(4) ? 1 : 0.3, sheenColor: new THREE.Color(st(4) ? 0xffffff : 0x8a6a50), emissive: hairCol, emissiveIntensity: 0.06 });
+  const hoodie = new THREE.MeshStandardMaterial({ color: 0x2c333c, roughness: 0.95, emissive: 0x0c0e12 });
+  const tall = st(2) ? 1.03 : 1, thin = st(2) ? 0.94 : 1, neckL = st(5) ? 1.6 : 1;
+  const body = new THREE.Group(); body.scale.set(thin, tall, thin); a.add(body);
+  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.19, 0.48, 8, 16), hoodie); torso.position.y = 1.13; torso.scale.set(1.12, 1, 0.68); body.add(torso);
+  // hood bunched behind the neck, drawstrings
+  const hood = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.045, 10, 20, Math.PI * 1.25), hoodie); hood.position.set(0, 1.43, -0.03); hood.rotation.set(Math.PI / 2 + 0.25, 0, Math.PI * 0.875); body.add(hood);
+  for (const sx of [-1, 1]) { const ds = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.16, 5), new THREE.MeshStandardMaterial({ color: 0xd8d8d0 })); ds.position.set(sx * 0.04, 1.33, 0.13); body.add(ds); }
   for (const sx of [-1, 1]) {
-    const e = new THREE.Mesh(new THREE.SphereGeometry(eyeR, 12, 10), new THREE.MeshStandardMaterial({ color: 0x050405, roughness: 0.15, metalness: 0.3 }));
-    e.position.set(sx * 0.042, 1.66, 0.09); e.scale.z = 0.6; a.add(e);
+    const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.058, 0.5, 6, 10), hoodie); arm.position.set(sx * 0.27, 1.1, 0); arm.rotation.z = sx * 0.1; body.add(arm);
+    const hand = new THREE.Mesh(new THREE.CapsuleGeometry(0.03, st(5) ? 0.09 : 0.05, 4, 8), skin); hand.position.set(sx * 0.31, st(5) ? 0.77 : 0.79, 0.01); body.add(hand);
+    const leg = new THREE.Mesh(new THREE.CapsuleGeometry(0.075, 0.72, 6, 10), new THREE.MeshStandardMaterial({ color: 0x232a36, roughness: 0.9 })); leg.position.set(sx * 0.095, 0.45, 0); body.add(leg);
   }
-  // dust in the hair
-  const dust = new THREE.Points(new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(Array.from({ length: 240 }, (_, i) => { const k = i % 3, u = Math.random() * 6.28, v = Math.random() * 1.4; return k === 0 ? Math.cos(u) * Math.sin(v) * 0.125 : k === 1 ? 1.66 + Math.cos(v) * 0.13 : Math.sin(u) * Math.sin(v) * 0.125; }), 3)),
-    new THREE.PointsMaterial({ color: 0xd8d0c0, size: 0.006 }));
-  a.add(dust);
-  if (stage > 1) {
-    const fuzz = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.05, 10, 24), new THREE.MeshStandardMaterial({ color: 0xe8e2d4, roughness: 1 }));
-    fuzz.rotation.x = Math.PI / 2; fuzz.position.y = 1.47; a.add(fuzz);
-    for (const sx of [-1, 1]) {
-      const curve = new THREE.QuadraticBezierCurve3(new THREE.Vector3(sx * 0.03, 1.74, 0.06), new THREE.Vector3(sx * 0.08, 1.92, 0.1), new THREE.Vector3(sx * 0.2, 1.98, 0.02));
-      const ant = new THREE.Mesh(new THREE.TubeGeometry(curve, 16, 0.006, 5), new THREE.MeshStandardMaterial({ color: 0x6a5a48 })); a.add(ant);
-      for (let t = 0.2; t < 1; t += 0.08) { const p = curve.getPoint(t); const f = new THREE.Mesh(new THREE.BoxGeometry(0.035 * Math.sin(t * Math.PI), 0.003, 0.003), ant.material); f.position.copy(p); f.rotation.z = sx * 0.6; a.add(f); }
-      // folded wing over each shoulder, dusty brown-grey
-      const wc = document.createElement('canvas'); wc.width = 256; wc.height = 256;
-      drawSpecimenFit(wc.getContext('2d'), 'pavonia', 0, 0, 256, 256, { pin: false });
-      const wt = new THREE.CanvasTexture(wc); wt.colorSpace = THREE.SRGBColorSpace;
-      const wing = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.9), new THREE.MeshStandardMaterial({ map: wt, color: 0x9a9088, transparent: true, alphaTest: 0.3, side: THREE.DoubleSide, roughness: 1 }));
-      wing.position.set(sx * 0.18, 1.2, -0.17); wing.rotation.set(0.1, sx * 0.5, sx * 0.15); a.add(wing);
-    }
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.052, 0.1 * neckL, 14), skin); neck.position.y = 1.47 + 0.05 * (neckL - 1); body.add(neck);
+  // ---- head: a soft oval with a defined jaw, nose, lips, brows and ears ----
+  const head = new THREE.Group(); head.position.y = 1.62 + 0.1 * (neckL - 1); body.add(head);
+  const skull = new THREE.Mesh(sculptHead(), skin); head.add(skull);
+  const surf = (x, y) => headSurfaceZ(x, y);
+  const lipMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(0xc0847a).lerp(skinCol, st(2) ? 0.35 : 0.1), roughness: 0.45 });
+  const upper = new THREE.Mesh(new THREE.SphereGeometry(0.016, 16, 8), lipMat); upper.scale.set(1.25, 0.32, 0.4); upper.position.set(0, -0.052, surf(0, -0.052) - 0.002); head.add(upper);
+  const lower = new THREE.Mesh(new THREE.SphereGeometry(0.015, 16, 8), lipMat); lower.scale.set(1.1, 0.4, 0.45); lower.position.set(0, -0.061, surf(0, -0.061) - 0.002); head.add(lower);
+  if (st(8)) { upper.scale.x = 1.45; upper.rotation.z = 0; lower.position.y -= 0.001; }
+  for (const sx of [-1, 1]) { const ear = new THREE.Mesh(new THREE.SphereGeometry(0.018, 10, 8), skin); ear.scale.set(0.4, 1.15, 0.75); ear.position.set(sx * 0.081, 0.0, -0.005); head.add(ear); }
+  // eyes: sclera, iris, pupil; slightly larger and darker from M3, eyeshine from M7
+  const eyeScale = st(3) ? 1.15 + (stage - 3) * 0.03 : 1;
+  const sclera = new THREE.MeshStandardMaterial({ color: 0xece6de, roughness: 0.25 });
+  const irisMat = new THREE.MeshStandardMaterial({ color: st(3) ? 0x1e1610 : 0x6a4a32, roughness: 0.15, emissive: st(7) ? 0x6a5a2a : 0x000000, emissiveIntensity: st(7) ? 1.5 : 0 });
+  const pupil = new THREE.MeshStandardMaterial({ color: 0x050404, roughness: 0.05 });
+  const browMat = new THREE.MeshStandardMaterial({ color: hairCol, roughness: 0.9 });
+  for (const sx of [-1, 1]) {
+    const ex = sx * 0.03, ey = 0.016;
+    const eye = new THREE.Group(); eye.position.set(ex, ey, surf(ex, ey) - 0.0085); eye.scale.setScalar(eyeScale); head.add(eye);
+    eye.add(new THREE.Mesh(new THREE.SphereGeometry(0.0125, 16, 12), sclera)); eye.scale.x *= 1.15;
+    const iris = new THREE.Mesh(new THREE.CircleGeometry(st(3) ? 0.0078 : 0.0062, 20), irisMat); iris.position.z = 0.0124; eye.add(iris);
+    const pp = new THREE.Mesh(new THREE.CircleGeometry(st(3) ? 0.0045 : 0.0028, 16), pupil); pp.position.z = 0.0127; eye.add(pp);
+    const glint = new THREE.Mesh(new THREE.CircleGeometry(0.0012, 8), new THREE.MeshBasicMaterial({ color: 0xffffff })); glint.position.set(0.0022, 0.0024, 0.013); eye.add(glint);
+    // upper lid: a skin shell over the top of the eye
+    const lid = new THREE.Mesh(new THREE.SphereGeometry(0.0135, 16, 8, 0, Math.PI * 2, 0, Math.PI * (st(2) ? 0.26 : 0.3)), skin); lid.rotation.x = 0.25; eye.add(lid);
+    const brow = new THREE.Mesh(new THREE.CapsuleGeometry(0.0028, 0.026, 4, 8), browMat); brow.rotation.z = Math.PI / 2 - sx * 0.1; brow.position.set(sx * 0.032, 0.036, surf(sx * 0.032, 0.036) + 0.001); head.add(brow);
   }
+  // ---- hair: soft, shaggy, chin-length, with a fringe ----
+  const hr = rand(stage * 13 + 1);
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.1, 24, 16, 0, Math.PI * 2, 0, Math.PI * 0.42), hair); cap.scale.set(0.9, 1.15, 1.02); cap.position.set(0, 0.012, -0.006); head.add(cap);
+  const lock = (x, y, z, len, rx, rz, w = 0.016) => { const m = new THREE.Mesh(new THREE.CapsuleGeometry(w, len, 4, 8), hair); m.position.set(x, y, z); m.rotation.set(rx, 0, rz); m.scale.z = 0.45; head.add(m); };
+  // fringe across the forehead, slightly parted and uneven
+  for (let i = 0; i < 17; i++) { const t = (i / 16 - 0.5); lock(t * 0.14, 0.066 - Math.abs(t) * 0.012, 0.074 - Math.abs(t) * 0.035, 0.03 + hr() * 0.016, -0.45 - hr() * 0.15, t * 0.7 + (hr() - 0.5) * 0.3, 0.0075); }
+  // sides and back falling to the chin
+  for (let i = 0; i < 26; i++) {
+    const a2 = Math.PI * 0.3 + (i / 25) * Math.PI * 1.4, x = Math.sin(a2) * 0.088, z = Math.cos(a2) * 0.085 - 0.01;
+    lock(x, -0.005 - hr() * 0.02, z, 0.1 + hr() * 0.04, (z < 0 ? 0.12 : -0.08) + (hr() - 0.5) * 0.1, -Math.sign(x) * (0.12 + hr() * 0.15), 0.017);
+  }
+  if (!st(2)) { // dust caught in the hair
+    const pts = []; for (let i = 0; i < 120; i++) { const u = hr() * 6.28, v = hr() * 1.3; pts.push(Math.cos(u) * Math.sin(v) * 0.11, 0.02 + Math.cos(v) * 0.11, Math.sin(u) * Math.sin(v) * 0.11); }
+    head.add(new THREE.Points(new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(pts, 3)), new THREE.PointsMaterial({ color: 0xd8d0c0, size: 0.004 })));
+  }
+  a.userData.stage = stage;
   a.traverse(o => { if (o.isMesh) o.castShadow = false; });
   return a;
+}
+
+// head: a sphere pushed into a face - narrower, taller, a tapering jaw, a nose,
+// soft eye sockets, cheekbones and a chin
+function headShape(nx, ny, nz) {
+  let x = nx * 0.082, y = ny * 0.112, z = nz * 0.094;
+  if (ny < 0) { const k = 1 - 0.38 * Math.pow(-ny, 1.6); x *= k; z *= 1 - 0.18 * Math.pow(-ny, 2); }
+  if (nz > 0) {
+    z *= 1 - 0.1 * nz;
+    const g = (cx, cy, sx, sy) => Math.exp(-(((nx - cx) / sx) ** 2) - (((ny - cy) / sy) ** 2)) * nz;
+    z += 0.012 * g(0, -0.14, 0.08, 0.14) + 0.005 * g(0, -0.28, 0.11, 0.06);   // nose and its tip
+    z -= 0.007 * (g(0.34, 0.12, 0.17, 0.11) + g(-0.34, 0.12, 0.17, 0.11)); // eye sockets
+    z += 0.003 * g(0, 0.28, 0.5, 0.06);                                     // brow
+    z += 0.004 * (g(0.48, -0.1, 0.15, 0.15) + g(-0.48, -0.1, 0.15, 0.15)); // cheekbones
+    z += 0.006 * g(0, -0.8, 0.2, 0.12);                                     // chin
+  }
+  return [x, y, z];
+}
+function sculptHead() {
+  const g = new THREE.SphereGeometry(1, 64, 48), p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) { const v = headShape(p.getX(i), p.getY(i), p.getZ(i)); p.setXYZ(i, v[0], v[1], v[2]); }
+  g.computeVertexNormals(); return g;
+}
+// front surface depth of the head at (x, y), found by searching the sphere directions
+function headSurfaceZ(x, y) {
+  let best = 0, bd = 1e9;
+  for (let a = -1; a <= 1; a += 0.02) for (let b = -1; b <= 1; b += 0.02) {
+    const nz2 = 1 - a * a - b * b; if (nz2 <= 0) continue;
+    const v = headShape(a, b, Math.sqrt(nz2)), d = (v[0] - x) ** 2 + (v[1] - y) ** 2;
+    if (d < bd) { bd = d; best = v[2]; }
+  }
+  return best;
+}
+
+// skin: slight blush and, at M1, tired shadows under the eyes; from M6 faint
+// wing-pattern markings on the cheeks
+function skinTex(stage) {
+  const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d');
+  g.fillStyle = '#ffffff'; g.fillRect(0, 0, 256, 256);
+  const r = rand(stage + 40);
+  for (let i = 0; i < 2000; i++) { g.fillStyle = `rgba(160,120,100,${r() * (stage >= 2 ? 0.03 : 0.07)})`; g.fillRect(r() * 256, r() * 256, 1, 1); }
+  // sphere UV: u around (front at u=0.75 for three's sphere), v from top
+  const blot = (u, v, rad, col) => { const gr = g.createRadialGradient(u * 256, v * 256, 0, u * 256, v * 256, rad); gr.addColorStop(0, col); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, 256, 256); };
+  if (stage < 2) for (const du of [-0.06, 0.06]) blot(0.75 + du, 0.47, 10, 'rgba(110,80,90,0.25)');
+  for (const du of [-0.1, 0.1]) blot(0.75 + du, 0.56, 16, 'rgba(220,130,120,0.15)');
+  if (stage >= 6) for (const du of [-0.1, 0.1]) { g.strokeStyle = 'rgba(150,130,120,0.18)'; g.lineWidth = 1; for (let k = 0; k < 4; k++) { g.beginPath(); g.ellipse((0.75 + du) * 256, 0.55 * 256, 6 + k * 3, 4 + k * 2, 0, 0, 7); g.stroke(); } }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
 }

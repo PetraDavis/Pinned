@@ -265,8 +265,8 @@ const interactables = [
   ...ground.mirrors.map(m => ({
     zone: 'room', pos: m.pos.clone().add(ROOM_ORIGIN), r: 1.6, prompt: 'E  look in the mirror',
     act: () => say(m.stage === 1
-      ? 'Your face, but not quite. The eyes are too dark, and there is a pale dust in your hair that will not brush out.'
-      : 'Something with your face looks back: black, glossy eyes, a ruff of pale fuzz at the throat, and behind its shoulders, folded, something like wings.', 7000),
+      ? 'You look tired. Dust in your hair, a smudge on your cheek. Just you.'
+      : 'You, again. Paler than you remember, and somehow taller. The skin looks very smooth in this light.', 7000),
   })),
 ];
 let current = null;
