@@ -380,14 +380,14 @@ export function buildCatacombs(ctx) {
   }
   // stains seeping from under the needled drawers
   const stainMat = new THREE.MeshStandardMaterial({ map: stainTex(), transparent: true, depthWrite: false, roughness: 0.6, polygonOffset: true, polygonOffsetFactor: -2 });
-  for (const d of drawers) if (d.trap) addGeo(stainMat, new THREE.PlaneGeometry(0.24, 0.16), d.x + (r() - 0.5) * 0.04, d.y - dh / 2 - 0.075, DC.front - 0.004, Math.PI);
+  for (const d of drawers) if (d.trap) addGeo(stainMat, new THREE.PlaneGeometry(0.09, 0.3), d.x + 0.135, d.y - dh / 2 - 0.1, DC.front - 0.004, Math.PI); // dark weeping stains, hard to miss
   // the needle that springs out of a drawer
   const needle = new THREE.Mesh(new THREE.CylinderGeometry(0.0015, 0.004, 0.12, 5), new THREE.MeshStandardMaterial({ color: 0xc8c8c0, metalness: 0.9, roughness: 0.2 }));
   needle.rotation.x = Math.PI / 2; needle.visible = false; needle.position.set(DC.x, 1, DC.front); group.add(needle);
   // the dead rat on its back under the needled bottom drawer
-  { const rx = dX(2), rz = 156.1; const fur = new THREE.MeshStandardMaterial({ color: 0x4a423a, roughness: 1 });
-    addGeo(fur, new THREE.SphereGeometry(0.06, 10, 8).scale(1, 0.75, 2.0), rx, 0.045, rz, 0.5);
-    addGeo(fur, new THREE.SphereGeometry(0.035, 8, 6).scale(1, 0.9, 1.4), rx + Math.sin(0.5) * 0.14, 0.04, rz + Math.cos(0.5) * 0.14, 0.5);
+  { const rx = dX(2), rz = 155.95; const fur = new THREE.MeshStandardMaterial({ color: 0x7a6a5a, roughness: 1, emissive: 0x1a1410 });
+    addGeo(fur, new THREE.SphereGeometry(0.08, 12, 10).scale(1, 0.75, 2.0), rx, 0.06, rz, 0.5);
+    addGeo(fur, new THREE.SphereGeometry(0.035, 8, 6).scale(1, 0.9, 1.4), rx + Math.sin(0.5) * 0.19, 0.05, rz + Math.cos(0.5) * 0.19, 0.5);
     const tail = []; for (let i = 0; i <= 10; i++) tail.push(new THREE.Vector3(rx - Math.sin(0.5) * (0.11 + i * 0.02) + Math.sin(i * 0.8) * 0.02, 0.02, rz - Math.cos(0.5) * (0.11 + i * 0.02)));
     addGeo(new THREE.MeshStandardMaterial({ color: 0x8a6a62, roughness: 0.8 }), new THREE.TubeGeometry(new THREE.CatmullRomCurve3(tail), 16, 0.006, 4), 0, 0, 0);
     for (const s of [-1, 1]) addGeo(new THREE.MeshStandardMaterial({ color: 0xa87a72 }), new THREE.CylinderGeometry(0.004, 0.006, 0.05, 4), rx + s * 0.05, 0.08, rz + s * 0.02, 0, 0.6 * s, 0.3); }
@@ -410,6 +410,8 @@ export function buildCatacombs(ctx) {
   B(new THREE.MeshStandardMaterial({ color: 0x0a0908, roughness: 1 }), 1.2, 1.7, 0.02, IC.x, 0.95, IC.z - 0.235);
   light(45, H - 0.4, 152.5, 0x8a7a6a, 5, 11, false).userData.fill = true;
   wallCocoon(51.9, 149.8, -1, 0, 0.9, 1.0);
+  // once the cabinet opens: lamplight from the stair room shows the way
+  const stairBGlow = new THREE.PointLight(0xffb070, 0, 6, 1.4); stairBGlow.position.set(53.2, 1.6, 153.5); stairBGlow.userData.noLimit = true; group.add(stairBGlow);
   door('catStairB', 'z', 52, 153.5, { locked: true, swing: -1, msg: 'An iron-bound door with no handle on this side. Something inside the wall is holding it: you can hear a bolt rest in its keeper when you push.', openMsg: 'A narrow room beyond, and a stair going up into the dark.' });
 
   // ======================= BACK STAIR B: x 52..58, z 148..157 =======================
@@ -460,7 +462,7 @@ export function buildCatacombs(ctx) {
     spring(d) { d.sprung = true; needle.visible = true; needle.position.set(d.x, d.y + 0.02, DC.front - 0.06); needle.userData.t = 0; },
     takeKey(d) { d.keyTaken = true; },
     setInserted(list) { st.inserted = [...list]; insertedKeys.forEach((k, i) => { k.visible = i < st.inserted.length; }); },
-    openCabinet(instant) { st.cabinetOpen = true; ctx.doors.catStairB.locked = false; if (instant) cabAnim = 1; },
+    openCabinet(instant) { st.cabinetOpen = true; ctx.doors.catStairB.locked = false; if (instant) cabAnim = 1; else ctx.doors.catStairB.open(); },
     getState() { return { ossOpen: st.ossOpen, crossed: st.crossed, tombOpen: st.tombOpen, cabinetOpen: st.cabinetOpen, inserted: [...st.inserted], drawers: drawers.filter(d => d.target).map(d => d.id), keys: drawers.filter(d => d.keyTaken).map(d => d.moth), sprung: drawers.filter(d => d.sprung).map(d => d.id) }; },
     setState(s = {}) {
       api.reset();
@@ -534,6 +536,7 @@ export function buildCatacombs(ctx) {
       if (needle.visible) { needle.userData.t += dt; if (needle.userData.t > 2.5) needle.visible = false; }
       // the iron cabinet swings open
       if (st.cabinetOpen && cabAnim < 1) cabAnim = Math.min(1, cabAnim + dt * 0.6);
+      stairBGlow.intensity = st.cabinetOpen ? 2.6 * (0.92 + 0.08 * Math.sin(t * 5)) : 0;
       for (const d of icDoors) d.piv.rotation.y = d.s * 1.7 * (1 - Math.pow(1 - cabAnim, 3)) * -1;
     },
     bindColliders(rem, add) { removeLocal = rem; addLocal = add; },
@@ -636,8 +639,8 @@ function drawerTex() {
 }
 function stainTex() {
   const [c, g] = canvasOf(128, 96); const r = rand(9);
-  for (let i = 0; i < 6; i++) { const x = 30 + r() * 68, l = 30 + r() * 60, w = 3 + r() * 6; const gr = g.createLinearGradient(0, 0, 0, l); gr.addColorStop(0, 'rgba(40,22,10,0.85)'); gr.addColorStop(1, 'rgba(40,22,10,0)'); g.fillStyle = gr; g.beginPath(); g.ellipse(x, l / 2, w, l / 2, 0, 0, 7); g.fill(); }
-  g.fillStyle = 'rgba(50,28,12,0.7)'; g.fillRect(14, 0, 100, 6);
+  for (let i = 0; i < 11; i++) { const x = 20 + r() * 88, l = 40 + r() * 56, w = 3 + r() * 7; const gr = g.createLinearGradient(0, 0, 0, l); gr.addColorStop(0, 'rgba(30,10,4,0.97)'); gr.addColorStop(0.7, 'rgba(40,14,6,0.8)'); gr.addColorStop(1, 'rgba(40,14,6,0)'); g.fillStyle = gr; g.beginPath(); g.ellipse(x, l / 2, w, l / 2, 0, 0, 7); g.fill(); }
+  g.fillStyle = 'rgba(36,14,6,0.95)'; g.fillRect(10, 0, 108, 9);
   return toTex(c);
 }
 function poisonCardTex(key) {
