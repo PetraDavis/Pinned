@@ -394,16 +394,17 @@ export function buildAttic(ctx) {
   const waking = [];
   for (const [x, z, h, crack] of [[34.2, 174.6, 1.5, true], [36.0, 178.6, 1.7, false], [33.4, 181.8, 1.6, true], [37.2, 173.4, 1.3, false], [35.6, 182.6, 1.4, true], [32.0, 175.4, 1.2, false]]) waking.push(wakingCocoon(x, z, h, crack));
   light(35.0, 2.6, 178.4, 0x9a8a9a, 6, 12, false).userData.fill = true;
-  // the preserved: the Order's faithful, half wound in silk and strung through the chamber like flies in a web
+  // the preserved: the Order's faithful, hung on strings like marionettes (bodies.js)
+  let marionettes = null;
   {
     const R = z => roofY(z) - 0.12;
-    preservedBodies(group, [
+    marionettes = preservedBodies(group, [
       ['arch', 37.0, 2.55, 179.4, Math.PI, 0.8, 0, [['FL', 36.9, R(179.6), 179.6], ['FR', 37.3, R(179.0), 179.0], ['WL', 37.7, 0.01, 180.1], ['WR', 36.4, 0.01, 178.9], ['H', 37.5, 0.01, 179.0]]],
       ['loll', 38.3, 1.02, 177.4, 0, -Math.PI / 2, 0, [['SL', 38.3, R(177.0), 177.0], ['SR', 38.0, R(178.0), 178.0], ['WL', 38.95, 1.8, 176.8], ['N', 38.95, 2.2, 177.6], ['FL', 37.8, 0.01, 177.2]]],
       ['bridge', 34.4, 0.95, 183.8, -Math.PI / 2, 0, 0, [['P', 34.4, R(183.8), 183.8], ['C', 34.0, R(183.4), 183.4], ['WL', 35.4, 0.01, 183.2], ['WR', 33.2, 0.01, 183.6], ['FL', 34.6, 1.0, 185.35], ['H', 34.4, 0.01, 182.8]]],
       ['pinned', 30.32, 1.15, 181.6, 0, Math.PI / 2, 0, [['WL', 30.03, 2.3, 180.8], ['WR', 30.03, 1.2, 182.4], ['N', 30.03, 2.0, 181.6], ['FL', 30.6, 0.01, 181.0], ['FR', 30.6, 0.01, 182.2], ['P', 30.03, 1.0, 181.6]]],
       ['slump', 33.2, 0.14, 171.85, 0, 0, 0, [['N', 33.4, R(171.6), 171.6], ['WL', 33.8, 0.01, 172.4], ['SR', 32.6, 1.0, 171.42], ['H', 33.6, R(172.0), 172.0]]],
-    ], threadPts, silk);
+    ], threadPts, silk, 909, { roofY, nest: new THREE.Vector3(ATTIC.motherSpawn.x + 0.4, RH - 0.25, ATTIC.motherSpawn.z) });
     rect(local, 36.7, 37.3, 179.1, 179.7); rect(local, 38.0, 38.6, 177.1, 177.7); rect(local, 33.9, 34.9, 182.9, 184.8); rect(local, 30.0, 30.6, 181.0, 182.2); rect(local, 32.7, 33.8, 171.4, 172.8);
   }
 
@@ -505,6 +506,7 @@ export function buildAttic(ctx) {
     },
     bindColliders(rem, addB) { removeLocal = rem; addLocal = addB; },
     update(t, dt) {
+      if (marionettes) marionettes.update(t);
       // rack: a wrong arrangement rattles; the right one draws the shadows together into a door
       if (rackShake > 0) { rackShake -= dt; hooks.forEach((h, i) => { h.spec.rotation.z = Math.sin(t * 40 + i) * 0.15 * rackShake; }); } else hooks.forEach((h, i) => { h.spec.rotation.z = Math.sin(t * 0.7 + i * 1.3) * 0.04; });
       if (S.rackSolved && shadowAnim < 1.5) shadowAnim = Math.min(1.5, shadowAnim + dt * 0.45);
