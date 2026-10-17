@@ -36,6 +36,7 @@ import { createHallucinations, initAccessibilitySettings } from './hallucinate.j
 import { captionSound } from './captions.js';
 import { initMultiplayer } from './net/multiplayer.js';
 import { createEscape } from './escape.js';
+import { createTutorial } from './tutorial.js';
 import { createEnding } from './ending.js';
 import { createCredits } from './credits.js';
 let mp = null; // multiplayer session (src/net/), set up at the end of this file
@@ -212,6 +213,8 @@ function applyQuality(q) {
     if (o.material) for (const m of [].concat(o.material)) { m.dithering = true; m.needsUpdate = true; }
   });
 }
+$('sTutorial').checked = settings.tutorial !== false;
+$('sTutorial').addEventListener('change', e => { settings.tutorial = e.target.checked; saveSettings(settings); });
 $('sCrouchToggle').addEventListener('change', e => { settings.crouchToggle = e.target.checked; saveSettings(settings); applySettings(); });
 $('sQuality').addEventListener('change', e => {
   settings.quality = e.target.value; saveSettings(settings);
@@ -242,6 +245,7 @@ const catPlay = createCatacombsPlay({
   openLock: (id) => openPadlock(id),
   setModal: (on) => { if (on) { state = 'modal'; player.enabled = false; if (document.pointerLockElement) document.exitPointerLock(); } else { state = 'playing'; player.enabled = true; lock(); } },
   die: () => {
+    if (mp && mp.active) return wakeTogether({ spot: { ...CATA.spawn, yaw: Math.PI }, wings: false, line: 'Dark, and then the cold stone of the stair. The poison has burned itself out of you.', after: () => catPlay.load({ ...catPlay.state(), poisoned: false }) });
     state = 'cutscene'; player.enabled = false; $('fade').style.opacity = 1;
     setTimeout(() => { const s = loadSave(); spawnAt(s ? s.checkpoint : null, s || {}); $('fade').style.opacity = 0; state = 'playing'; player.enabled = true; say('Dark, and then nothing. You are back where you last saved.', 6000); }, 3200);
   },
@@ -262,6 +266,11 @@ const motherPlay = createMotherPlay({
   ground, origin: ROOM_ORIGIN, player, camera, flashlight, lantern, say, colliders: () => colliders(),
   sfx: { flutter: (l) => { captionSound('[wings fluttering]'); playFlutter(l); }, clicks: (l, n) => { captionSound('[clicking nearby]'); playClicksAt(l, n); } }, detectScale: () => catPlay.detectScale,
   active: () => state === 'playing' && zone === 'room', playerCount: () => playerCount(),
+  // together: the host runs her (like the escape); a caught player wakes at the top of the ladder
+  mpClient: () => !!(mp && mp.isClient), state: () => state, inGame: () => state !== 'home' && state !== 'ending',
+  net: { active: () => !!(mp && mp.active), players: () => mp.players, toAll: (m) => mp.escSend(m), toOne: (id, m) => mp.escSend(m, null, id), toHost: (m) => mp.escSend(m) },
+  localAlive: () => !escDead && zone === 'room' && ['playing', 'paused', 'modal', 'overlay'].includes(state),
+  caughtMP: () => wakeTogether({ line: 'The top of the ladder. Dark, and then nothing; somewhere behind you, a dry click.' }),
   caught: () => {
     state = 'cutscene'; player.enabled = false; playFlutter(1); playClicksAt(1, 6);
     say('Wings close over you, soft and enormous, and the light goes out.', 3000);
@@ -273,17 +282,20 @@ const motherPlay = createMotherPlay({
 function playerCount() { return mp && mp.active ? Math.max(1, Math.min(4, mp.count)) : 1; }
 // caught in the chase together: no reload (the house goes on for the others); you wake at the top of the ladder
 let escDead = false;
-function caughtTogether() {
+function caughtTogether() { wakeTogether({}); }
+// any death together (the chase, the attic Mother, the poison): no reload of your save; you wake at a checkpoint
+function wakeTogether({ spot = escape.spawn(), line = 'The top of the ladder. Behind you, in the dark, she is coming.', wings = true, after = null }) {
   if (escDead) return;
-  escDead = true; state = 'cutscene'; player.enabled = false; playFlutter(1); playClicksAt(1, 6);
-  if (motherPlay.hidden) motherPlay.reset();
-  say('Wings close over you, soft and enormous, and the light goes out.', 3000);
+  escDead = true; state = 'cutscene'; player.enabled = false;
+  if (wings) { playFlutter(1); playClicksAt(1, 6); say('Wings close over you, soft and enormous, and the light goes out.', 3000); }
+  motherPlay.unhide();
   setTimeout(() => { if (state === 'cutscene') $('fade').style.opacity = 1; }, 600);
   setTimeout(() => {
     escDead = false; $('fade').style.opacity = 0;
     if (state !== 'cutscene') return; // the ending began meanwhile
-    const sp = escape.spawn(); setZone('room'); player.place(ROOM_ORIGIN.x + sp.x, ROOM_ORIGIN.z + sp.z, sp.yaw);
-    state = 'playing'; player.enabled = true; say('The top of the ladder. Behind you, in the dark, she is coming.', 5000);
+    const sp = spot; setZone('room'); player.place(ROOM_ORIGIN.x + sp.x, ROOM_ORIGIN.z + sp.z, sp.yaw);
+    if (after) after();
+    state = 'playing'; player.enabled = true; say(line, 5000);
   }, 3400);
 }
 // ---------- the escape: the finale chase (escape.js) and the ending (ending.js) ----------
@@ -746,7 +758,7 @@ function transition(mid) {
 }
 
 let lastCheckpoint = null;
-function save(checkpoint) { if (mp && mp.isClient) return; catPlay.settle(); /* a guest's progress lives in the host's game */ writeSave({ checkpoint, lampLit: room.lampOn, solved: room.puzzle.solved, studySolved: ground.lifespan.solved, dinnerSolved: ground.dinner.solved, plates: ground.dinner.seats.filter(st => st.flipped).map(st => st.id), doorsOpen: Object.values(ground.doors).filter(d => d.isOpen).map(d => d.id), battery: +flashlight.battery.toFixed(3), batteries: [...batteriesTaken], lantern: lantern.have ? +lantern.fuel.toFixed(3) : null, lanternOn: !!lantern.on, torchOn: !!flashlight.on, lanterns: [...lanternsTaken], altarSolved: ground.lu.altarSolved, deskOpen: ground.lu.deskOpen, wardOpen: ground.lu.wardOpen, visited: { ...visited }, hintsUsed: { ...hintsUsed }, hintState: { ...hintState }, moths: [...mothsTaken], cat: catPlay.state(), attic: ground.attic.serialize() }); lastCheckpoint = checkpoint; }
+function save(checkpoint) { if (mp && mp.isClient) return; catPlay.settle(); /* a guest's progress lives in the host's game */ writeSave({ checkpoint, lampLit: room.lampOn, solved: room.puzzle.solved, studySolved: ground.lifespan.solved, dinnerSolved: ground.dinner.solved, plates: ground.dinner.seats.filter(st => st.flipped).map(st => st.id), doorsOpen: Object.values(ground.doors).filter(d => d.isOpen).map(d => d.id), battery: +flashlight.battery.toFixed(3), batteries: [...batteriesTaken], lantern: lantern.have ? +lantern.fuel.toFixed(3) : null, lanternOn: !!lantern.on, torchOn: !!flashlight.on, lanterns: [...lanternsTaken], altarSolved: ground.lu.altarSolved, deskOpen: ground.lu.deskOpen, wardOpen: ground.lu.wardOpen, visited: { ...visited }, hintsUsed: { ...hintsUsed }, hintState: { ...hintState }, moths: [...mothsTaken], tutorial: tutorial.state(), cat: catPlay.state(), attic: ground.attic.serialize() }); lastCheckpoint = checkpoint; }
 let grandHallSaved = false;
 function spawnAt(checkpoint, saved = {}) {
   room.resetPuzzle(); room.setLamp(!!saved.lampLit);
@@ -756,6 +768,7 @@ function spawnAt(checkpoint, saved = {}) {
   lantern.have = saved.lantern != null; lantern.fuel = saved.lantern || 0; lantern.lower();
   restoreHeld = { lantern: !!saved.lanternOn && lantern.have && lantern.fuel > 0, torch: !!saved.torchOn && flashlight.battery > 0 };
   hintState = { ...(saved.hintState || {}) }; hintsUsed = { ...(saved.hintsUsed || {}) }; stuckTime = 0; lastCheckpoint = checkpoint;
+  tutorial.merge(saved.tutorial);
   mothsTaken = [...(saved.moths || [])]; mothNotes.reset(new Set(mothsTaken));
   for (const b of BATTERIES) b.mesh.visible = !batteriesTaken.has(b.id);
   updateBatteryHud();
@@ -796,6 +809,7 @@ function spawnAt(checkpoint, saved = {}) {
 const mothNotes = buildMothNotes(room.group);
 const halluc = createHallucinations({ scene, camera, room, ground, settings, saveSettings, volume: () => settings.volume });
 let mothsTaken = [];
+const tutorial = createTutorial({ player, enabled: () => settings.tutorial !== false, zone: () => zone, state: () => state, lampOn: () => room.lampOn, torchOn: () => flashlight.on, hidden: () => motherPlay.hidden, moths: () => mothsTaken.length });
 const NOTE_BY_ID = Object.fromEntries(MOTH_NOTES.map(n => [n.id, n]));
 const imgCache = {}; const imgOf = (k) => imgCache[k] || (imgCache[k] = mothImage(k));
 function takeMoth(n) {
@@ -971,6 +985,7 @@ function loop() {
   setHiss(state === 'playing' && zone === 'room' ? ground.hiss : 0);
   updateAudio({ dt, realDt, state, frozen: frozen(), zone, player, camera, origin: ROOM_ORIGIN, mother: motherPlay });
   if (state === 'playing') hintTick(dt);
+  tutorial.tick(dt);
   catPlay.update(dt, t, state === 'playing');
   if (state === 'playing' && flashlight.on) updateBatteryHud();
   if (zone === 'room') {
@@ -993,7 +1008,7 @@ $('loading').classList.add('hidden');
 loop();
 
 // Hook for automated tests / debugging.
-window.__pinned = {
+window.__pinned = { tutorial,
   start: startGame, pause, resume, quitHome, player, setZone, interactables, interact: () => current && current.act(), refresh: () => { current = findInteractable(); },
   caps: CAPS, get state() { return state; }, get zone() { return zone; }, get prompt() { return current && (typeof current.prompt === 'function' ? current.prompt() : current.prompt); }, room,
   renderer, scene, camera, flashlight, lantern, catacombs: catPlay, ground, mother: motherPlay, escape, ending, credits, save: (cp) => save(cp), visited, get hints() { return { used: hintsUsed, state: hintState }; }, currentPuzzle: () => currentPuzzle(), openPadlock, tryPadlock, dials, get gameTime() { return gameTime; }, get colliders() { return colliders(); }, collection, photo, halluc,
@@ -1031,7 +1046,7 @@ function applyWorld(w) {
   return res;
 }
 mp = initMultiplayer({ chooseSlot: cb => slotsUI.open('host', n => { setActiveSlot(n); const s = loadSave(); cb(!!s && !s.completed); }),
-  onEsc: (from, m) => escape.onNet(from, m),
+  onEsc: (from, m) => (m.mo ? motherPlay.onNet(from, m) : escape.onNet(from, m)),
   extraState: () => ({ ln: lantern.on ? 1 : 0, hd: motherPlay.hidden ? 1 : 0, mv: player.moving ? 1 : 0, sp: player.moving && !player.crouching && player.keys && (player.keys.ShiftLeft || player.keys.ShiftRight) ? 1 : 0, dd: escDead ? 1 : 0 }), scene, camera, player, flashlight, say, lock, setZone, startGame, worldSnapshot, applyWorld,
   get zone() { return zone; }, get state() { return state; } });
 window.__pinned.mp = mp;

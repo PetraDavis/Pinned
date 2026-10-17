@@ -197,12 +197,12 @@ export function createEscape(G) {
     const out = [];
     // never the ground floor (the starter floor): whoever is down there is out of her reach
     if (!deadUntil.has('h') && floorOf(local().y) !== 'ground' && (!net() || !G.localAlive || G.localAlive()))
-      out.push({ id: 'h', pos: local(), lit: lit(), crouch: player.crouching, moving: player.moving, sprint: sprinting(), hidden: hiddenNow(), local: true });
+      out.push({ id: 'h', pos: local(), lit: lit(), crouch: player.crouching, moving: player.moving, sprint: sprinting(), hidden: hiddenNow(), under: !!(G.motherPlay && G.motherPlay.hidden), local: true });
     const n = net();
     if (n) for (const r of n.players()) {
       if (r.zone !== 'room' || floorOf(r.z - O.z) === 'ground' || r.dd || deadUntil.has(r.id) || r.x == null) continue;
       const rl = !!(r.f || r.ln), crouch = (r.crouch || 0) > 0.5;
-      out.push({ id: r.id, pos: new THREE.Vector2(r.x - O.x, r.z - O.z), lit: rl, crouch, moving: !!r.mv, sprint: !!r.sp, hidden: !!r.hd || (!rl && crouch), local: false });
+      out.push({ id: r.id, pos: new THREE.Vector2(r.x - O.x, r.z - O.z), lit: rl, crouch, moving: !!r.mv, sprint: !!r.sp, hidden: !!r.hd || (!rl && crouch), under: !!r.hd, local: false });
     }
     return out;
   }
@@ -506,15 +506,21 @@ export function createEscape(G) {
           appear(S.crumbs[i].clone(), 'hunt'); S.knows = tq.lit; S.maxCi = Infinity; S.prowl = !tq.lit;
         } return; }
       if (S.stun > 0) { S.stun -= dt; placeModel(); return; }
-      if (S.mode === 'glimpse') { S.glimpseT -= dt; S.yaw = Math.atan2(p.x - S.pos.x, p.y - S.pos.y); placeModel(); if (S.glimpseT <= 0) { S.mode = 'hunt'; S.knows = true; } if (dist < 0.85) return catchP(tq); return; }
+      if (S.mode === 'glimpse') { S.glimpseT -= dt; S.yaw = Math.atan2(p.x - S.pos.x, p.y - S.pos.y); placeModel(); if (S.glimpseT <= 0) { S.mode = 'hunt'; S.knows = true; } if (dist < 0.85 && !tq.under) return catchP(tq); return; }
 
       // ---- senses (wider and quicker the more of you there are) ----
       const sense = 1 + 0.3 * k, fast = 1 + 0.18 * k;
-      const hidden = tq.hidden;
-      const sightR = (hidden ? 1.4 : tq.lit ? 16 : tq.crouch ? 2.6 : 6.5) * sense;
-      const see = dist < sightR && los(S.pos, p);
+      // under furniture: unseen, unless she watched you crawl in (then she drags you out)
+      S.sawIn = S.sawIn || {}; S.wasUnder = S.wasUnder || {};
+      if (tq.under && !S.wasUnder[tq.id]) S.sawIn[tq.id] = !!(S.lastSee && dist < 5);
+      if (!tq.under) S.sawIn[tq.id] = false;
+      S.wasUnder[tq.id] = tq.under;
+      const under = tq.under && !S.sawIn[tq.id];
+      const hidden = tq.hidden && !(tq.under && S.sawIn[tq.id]);
+      const sightR = (under ? 0 : hidden ? 1.4 : tq.lit ? 16 : tq.crouch ? 2.6 : 6.5) * sense;
+      const see = dist < sightR && los(S.pos, p); S.lastSee = see;
       const noise = tq.moving && !tq.crouch && dist < (tq.sprint ? 9 : 4.5) * sense;
-      if (see || noise || (tq.lit && dist < 24 * sense)) { if (!S.knows && S.mode === 'search') { api.spread(); sfx.flutter(1); } S.knows = true; S.lost = 0; S.maxCi = Infinity; S.prowl = false; if (S.mode === 'search') S.mode = 'hunt'; }
+      if (see || noise || (tq.lit && !under && dist < 24 * sense)) { if (!S.knows && S.mode === 'search') { api.spread(); sfx.flutter(1); } S.knows = true; S.lost = 0; S.maxCi = Infinity; S.prowl = false; if (S.mode === 'search') S.mode = 'hunt'; }
       else if (S.knows) { S.lost += dt; if (S.lost > 1.6 * (1 - 0.4 * k)) { S.knows = false; S.maxCi = Math.max(S.ci, S.crumbs.length - 5); } }
 
       // ---- movement ----
@@ -556,12 +562,12 @@ export function createEscape(G) {
       if (floorOf(S.pos.y) === 'ground') { S.pos.y = 25.05; S.mode = 'gone'; S.goneT = (8 + Math.random() * 4) * (1 - 0.4 * k); show(false); return; }
       placeModel();
       dist = S.pos.distanceTo(p);
-      if (dist < 0.85 && !(hidden && S.mode === 'search' && dist > 0.6)) return catchP(tq);
+      if (dist < 0.85 && !under && !(hidden && S.mode === 'search' && dist > 0.6)) return catchP(tq);
       // together: anyone else on her floor she walks into
       if (together) for (const q of list) {
         if (q === tq || floorOf(q.pos.y) !== S.floor) continue;
         const dq = S.pos.distanceTo(q.pos);
-        if (dq < 0.85 && !(q.hidden && S.mode === 'search' && dq > 0.6)) return catchP(q);
+        if (dq < 0.85 && !(q.under && !(S.sawIn && S.sawIn[q.id])) && !(q.hidden && S.mode === 'search' && dq > 0.6)) return catchP(q);
       }
       // a pale moth on your hand: she is close and you have not seen her
       if (dist < 6 && !S.told.near) { S.told.near = true; tell('A pale moth lands on the back of your hand. She is close.', 3500); }
