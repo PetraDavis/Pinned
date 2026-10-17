@@ -111,3 +111,16 @@ Any static server works (`npx serve`, etc.). An internet connection is needed to
 - `src/audio.js` - Web Audio wind and creaks
 - `src/storage.js` - settings and save data
 - `src/net/` - multiplayer: `link.js` (PeerJS and copy-paste WebRTC links), `multiplayer.js` (host/guest session, world merge, chat, UI), `voice.js` (voice peer connections and playback), `remotes.js` (other players' avatars), `net.css`
+
+## Sound and music
+
+All sound is generated live with the Web Audio API (`src/audio/`); there are no sound files and no third-party recordings, so nothing needs crediting. Audio starts on the first click or key press (browsers require a user gesture) and works in Chrome, Firefox and Safari (`webkitAudioContext` and the older `PannerNode.setPosition` API are handled).
+
+- **Home screen:** a slow, slightly out-of-tune music-box theme whose spring sags and recovers (`music.js`). In game a faint low drone stays on the music bus.
+- **Ambience per floor** (`ambience.js`): wind at the windows (strongest outside and in the attic), house creaks, dripping water with stone echoes in the cellar and catacombs, rafters groaning in the attic, and distant fluttering, each placed around you in 3D.
+- **Footsteps** (`footsteps.js`): grass outside, wood floors, creaky attic boards, stone in the cellar and catacombs, splashing in the flooded crypt; quieter and softer crouched, heavier when sprinting, a thump on landing.
+- **Interactions** (`sfx.js`): doors, drawers, padlock dial clicks, a stinger on every puzzle solve, a chime when a moth is taken, the oil lamp, the lantern and the torch switch.
+- **The Mother** (`mother.js`): her clicks, wing flutters and a rasping breath come from her position through a `PannerNode` (HRTF); your heartbeat rises from about 60 to 150 bpm as she gets within 14 m, and harder in a chase.
+- **Settings:** Master, Music, Effects and Voice-chat volume sliders, saved with the other settings.
+
+All game audio stops with the game clock (pause menu, hidden tab) by suspending the audio context.

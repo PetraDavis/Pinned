@@ -3,6 +3,7 @@
 // add or drop tracks at any time. The host forwards each player's microphone track to the
 // other players, so every voice arrives as its own track and gets its own (proximity) volume.
 import { ICE } from './link.js';
+import { voiceVolume } from '../audio/core.js'; // Settings: Master x Voice chat volume
 
 export class VoicePeer {
   constructor(link, polite, onTrack) {
@@ -52,7 +53,7 @@ export class VoiceOut {
     document.body.appendChild(this.el);
     const p = this.el.play(); if (p && p.catch) p.catch(() => { /* retried on the next user gesture */ });
   }
-  set volume(v) { this.el.volume = Math.max(0, Math.min(1, v)); }
+  set volume(v) { this.el.volume = Math.max(0, Math.min(1, v * voiceVolume())); }
   retry() { if (this.el.paused) { const p = this.el.play(); if (p && p.catch) p.catch(() => {}); } }
   close() { this.el.srcObject = null; this.el.remove(); }
 }
