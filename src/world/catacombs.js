@@ -295,7 +295,7 @@ export function buildCatacombs(ctx) {
   addGeo(stone, new THREE.CylinderGeometry(0.28, 0.28, 2.5, 3).rotateZ(Math.PI / 2), 45, 2.74, 147.8, 0, 0, 0, 0.5);
   const insc = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.18), new THREE.MeshStandardMaterial({ map: textTex('DORMIUNT · NON · MORTUI', 30, 'rgba(26,20,14,0.85)', '', 512, 64), transparent: true, alphaTest: 0.2 }));
   insc.position.set(45, 2.47, 147.6); insc.rotation.y = Math.PI; group.add(insc);
-  rect(local, 43.9, 46.1, 147.6, 148);
+  rect(local, 43.9, 44.3, 147.6, 148); rect(local, 45.7, 46.1, 147.6, 148); // the two pilasters (the doorway between stays open once the slab goes)
   // the slab door, the wax seal, and the cocoon pressed into it
   const slab = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.3, 0.16), mat({ map: rep(tex.stone, 1, 1.6), color: 0x8a847a }));
   slab.position.set(45, 1.15, 148); slab.castShadow = true; group.add(slab);
