@@ -73,3 +73,6 @@ select { grid-column: 1 / -1; font: inherit; color: var(--ink); background: #141
 .jmoth { display: flex; gap: 10px; background: rgba(255,255,255,.04); padding: 8px; border-radius: 4px; text-align: left; }
 .jmoth img { width: 84px; height: 84px; flex: none; border-radius: 3px; }
 .jmoth h3 { margin: 0; font-size: 15px; } .jmoth em { font-size: 12px; opacity: .7; } .jmoth p { font-size: 13px; line-height: 1.45; margin: 4px 0 0; }
+/* short windows: keep every home-screen button reachable */
+#home .menu { max-height: calc(100vh - 24px); overflow-y: auto; }
+@media (max-height: 620px) { #home .menu { margin-top: 0 !important; gap: 6px; } #home .menu button { padding-top: 6px; padding-bottom: 6px; } #home .tag { display: none; } }
