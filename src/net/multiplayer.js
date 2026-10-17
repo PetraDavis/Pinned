@@ -6,6 +6,7 @@
 //  player -> host: hello{name} s{state} w{world, lamp?} chat{text} rtc{...}
 //  host -> player: welcome{id, players, world, at} join{id,name} leave{id} ps{l:[state]}
 //                  w{world} chat{from,text,sys?} rtc{...} vmap{s,id} bye
+//  both ways:      esc{...} the escape chase (host -> player: her state and events; player -> host: requests)
 import { hostPeer, joinPeer, manualOffer, manualAnswer, cleanCode } from './link.js';
 import { VoicePeer, VoiceOut, getMic } from './voice.js';
 import { createRemotes } from './remotes.js';
@@ -252,7 +253,7 @@ export function initMultiplayer(G) {
   // ================= positions =================
   function myState() {
     const p = G.player;
-    return { x: +p.pos.x.toFixed(3), y: +p.y.toFixed(3), z: +p.pos.z.toFixed(3), yaw: +p.yaw.toFixed(3), pitch: +p.pitch.toFixed(3), c: +p.crouchT.toFixed(2), f: G.flashlight.on ? 1 : 0, zn: G.zone, p: G.state === 'paused' ? 1 : 0 };
+    return { x: +p.pos.x.toFixed(3), y: +p.y.toFixed(3), z: +p.pos.z.toFixed(3), yaw: +p.yaw.toFixed(3), pitch: +p.pitch.toFixed(3), c: +p.crouchT.toFixed(2), f: G.flashlight.on ? 1 : 0, zn: G.zone, p: G.state === 'paused' ? 1 : 0, ...(G.extraState ? G.extraState() : {}) };
   }
   function stateTick() {
     if (!S.role || G.state === 'home') return;
@@ -285,6 +286,7 @@ export function initMultiplayer(G) {
       if (m.t === 's') { c.state = m; remotes.setState(c.id, m); }
       else if (m.t === 'w' && m.w) applyFromNet(m.w);
       else if (m.t === 'chat') broadcastChat(c.name, String(m.text || '').slice(0, 300));
+      else if (m.t === 'esc') { if (G.onEsc) G.onEsc(c.id, m); }
       else if (m.t === 'rtc') { if (!c.voice) c.voice = new VoicePeer(link, false, t => onHostTrack(c, t)); c.voice.signal(m); }
     };
     link.onclose = () => {
@@ -362,6 +364,7 @@ export function initMultiplayer(G) {
           break;
         }
         case 'chat': logLine(m.text, m.from, m.sys); break;
+        case 'esc': if (G.onEsc) G.onEsc('h', m); break;
         case 'rtc': hostVoice().signal(m); break;
         case 'vmap': {
           S.vmap.set(m.s, m.id);
@@ -375,7 +378,7 @@ export function initMultiplayer(G) {
     link.onclose = () => {
       if (S.hostLink !== link) return;
       logLine('The connection to the host is gone. The house is very quiet now.', null, true);
-      G.say('You have lost the others. The house is very quiet now.', 6000);
+      if (G.state !== 'ending' && G.state !== 'home') G.say('You have lost the others. The house is very quiet now.', 6000);
       teardown(true);
     };
     link.send({ t: 'hello', name: S.name });
@@ -446,8 +449,15 @@ export function initMultiplayer(G) {
   document.getElementById('btnQuit').addEventListener('click', () => { teardown(); S.blockSave = false; });
   addEventListener('pagehide', () => teardown());
 
+  // the escape chase: host -> everyone (except one) or one player; player -> host
+  function escSend(m, except = null, only = null) {
+    if (S.role === 'host') { for (const c of S.clients.values()) if (c.id !== except && (!only || c.id === only)) c.link.send({ ...m, t: 'esc' }); }
+    else if (S.hostLink) S.hostLink.send({ ...m, t: 'esc' });
+  }
+
   return {
-    openMenu, closeMenu, hostGame, joinCode, manualJoin, makeInvite, acceptInvite, sendChat, joinVoice, leaveVoice, leave: () => teardown(),
+    openMenu, escSend,
+    get count() { return S.role ? 1 + (S.role === 'host' ? S.clients.size : remotes.players.size) : 1; }, closeMenu, hostGame, joinCode, manualJoin, makeInvite, acceptInvite, sendChat, joinVoice, leaveVoice, leave: () => teardown(),
     remotes,
     get active() { return !!S.role; },
     get isClient() { return S.blockSave; },
@@ -455,6 +465,6 @@ export function initMultiplayer(G) {
     get role() { return S.role; }, get code() { return S.code; }, get myId() { return S.myId; },
     get log() { return S.log.slice(); },
     get voices() { return [...S.outs.keys()]; },
-    get players() { return [...remotes.players.values()].map(p => ({ id: p.id, name: p.name, x: p.target.x, z: p.target.z, zone: p.zone, flash: p.flash, crouch: p.crouch })); },
+    get players() { return [...remotes.players.values()].map(p => ({ id: p.id, name: p.name, x: p.target.x, z: p.target.z, zone: p.zone, flash: p.flash, crouch: p.crouch, f: p.flash ? 1 : 0, ...(p.extra || {}) })); },
   };
 }

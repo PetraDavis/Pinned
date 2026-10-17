@@ -28,6 +28,8 @@ export function createMotherPlay(G) {
   const S = { mode: 'asleep', path: [], target: null, lastSeen: null, lost: 0, still: 2, stun: 0, phase: 0, hidden: null, warnT: 0, yaw: 0, wake: 0 };
   const P = () => new THREE.Vector2(player.pos.x - O.x, player.pos.z - O.z);
   let dist = 99; const hear = () => Math.max(0, 1 - dist / 14);
+  // more players, a busier Mother: 0 alone (exactly as before) .. 1 with four
+  const crowd = () => { const n = Math.max(1, Math.min(4, (G.playerCount && G.playerCount()) || 1)); return (n - 1) / 3; };
 
   // moth on the hand: a small HUD moth that settles at the bottom of the screen
   const moth = document.createElement('div'); moth.id = 'motherMoth';
@@ -69,7 +71,7 @@ export function createMotherPlay(G) {
     if (flashlight.on) r = 10;
     if (lantern.on) r = 15;
     if (player.crouching && !flashlight.on && !lantern.on) r = 2.6;
-    return r * (G.detectScale ? G.detectScale() : 1);
+    return r * (G.detectScale ? G.detectScale() : 1) * (1 + 0.3 * crowd());
   }
   function chase(p) { if (S.mode !== 'chase') { api.spread(); sfx.flutter(hear()); api.twitch(); } S.mode = 'chase'; S.lastSeen = p.clone(); S.lost = 0; }
 
@@ -121,21 +123,21 @@ export function createMotherPlay(G) {
       // detection
       if (here && !(S.hidden && !(S.mode === 'chase' && dist < 3))) {
         const r = sightRange(), see = dist < r && los(pos, p);
-        const noise = player.moving && !player.crouching && dist < (player.keys && (player.keys.ShiftLeft || player.keys.ShiftRight) ? 8 : 4);
-        if (see || (noise && dist < 6)) chase(p);
+        const ear = 1 + 0.3 * crowd(), noise = player.moving && !player.crouching && dist < (player.keys && (player.keys.ShiftLeft || player.keys.ShiftRight) ? 8 : 4) * ear;
+        if (see || (noise && dist < 6 * ear)) chase(p);
         else if (lantern.on && S.mode !== 'chase') { if (!S.target || S.target.distanceTo(p) > 2) { S.target = p.clone(); S.path = route(p); S.mode = 'lured'; } }
       }
       if (S.mode === 'chase') {
         if (!here) { S.mode = 'wander'; S.path = []; api.fold(); }
         else if (!S.hidden && los(pos, p) && dist < sightRange() + 3) { S.lastSeen = p.clone(); S.path = [p.clone()]; S.lost = 0; }
-        else { S.lost += dt; if (!S.path.length || S.lost < dt * 1.5) S.path = route(S.lastSeen); if (S.lost > 5) { S.mode = 'search'; api.fold(); } }
-        step(dt, 3.1);
+        else { S.lost += dt; if (!S.path.length || S.lost < dt * 1.5) S.path = route(S.lastSeen); if (S.lost > 5 * (1 - 0.4 * crowd())) { S.mode = 'search'; api.fold(); } }
+        step(dt, 3.1 * (1 + 0.18 * crowd()));
         if (dist < 0.85 && !S.hidden) return G.caught();
       } else {
-        const done = step(dt, S.mode === 'lured' ? 2.2 : 1.1);
+        const done = step(dt, (S.mode === 'lured' ? 2.2 : 1.1) * (1 + 0.18 * crowd()));
         if (done) {
           S.still -= dt;
-          if (S.still <= 0) { S.still = 2 + Math.random() * 5; S.mode = 'wander'; S.target = null; S.path = route(new THREE.Vector2(...WP[Math.floor(Math.random() * WP.length)])); }
+          if (S.still <= 0) { S.still = (2 + Math.random() * 5) * (1 - 0.45 * crowd()); /* off on her rounds sooner with more of you */ S.mode = 'wander'; S.target = null; S.path = route(new THREE.Vector2(...WP[Math.floor(Math.random() * WP.length)])); }
         }
       }
       anchor.position.set(pos.x, 0, pos.y);

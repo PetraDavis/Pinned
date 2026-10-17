@@ -55,7 +55,13 @@ In her chamber, an old iron key lies in the silk of the Mother's nest. Taking it
 
 She only exists on the floor you are on, and follows you down a little after you, or is suddenly ahead of you. Light draws her: with the torch or lantern on she always knows where you are and moves faster. In the dark, crouched and out of her sight, she loses you, searches where she lost you, and withdraws for a while. A torch burst (B) stuns her. She has to fold herself small to get through the crawl hatch.
 
-After the tunnel there is a short ending with no controls (Esc skips it once you have seen it through), and then the home screen.
+After the tunnel there is a short ending with no controls (Esc skips it once you have seen it through), and then the home screen. The save is then marked finished: **Continue** (or Load) on it no longer replays the chase but asks whether to start again from the beginning in that slot.
+
+She never sets foot on the ground floor: whoever goes up there is out of her reach, and if no one is left on her floors she stops and withdraws.
+
+**Together:** in multiplayer the host runs her and everyone sees the same Mother, on their own floor only. Anyone can take the key or open the tunnel. She hunts one living player at a time (whoever is on her floor, nearest, a light making you nearer). A caught player wakes at the top of the ladder without a reload while the chase goes on, and she withdraws for a moment. When anyone walks out through the tunnel, the ending plays for everyone (the secret ending's name question is asked of each player on their own screen).
+
+**The more of you, the busier she is**, in the attic and in the chase: from one to four players she is up to 18% faster, sees and hears up to 30% further, loses you sooner, sets off on her rounds sooner, comes after you between floors sooner and can be ahead of you up to three times a floor. Alone she is exactly as before.
 
 ## Moths and the Moth Journal
 
