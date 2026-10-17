@@ -210,7 +210,9 @@ export function buildMother() {
   const S = 1.0, SH = 1.98 * S, NECK = 0.2, HEADY = SH + NECK + 0.11;
 
   // body: a thin torso under a long, ragged shift that falls to the floor
-  const body = new THREE.Group(); root.add(body);
+  // rig: everything that walks (bobs, leans, sways) sits under this, so callers can keep placing root
+  const rig = new THREE.Group(); root.add(rig);
+  const body = new THREE.Group(); rig.add(body);
   const prof = [[0.0, 0.0], [0.17, 0.0], [0.15, 0.3], [0.13, 0.7], [0.12, 1.05], [0.1, 1.3], [0.085, 1.45], [0.1, 1.62], [0.115, 1.8], [0.12, 1.9], [0.07, SH + 0.02], [0.035, SH + 0.05]].map(([x, y]) => new THREE.Vector2(x, y));
   const shiftGeo = new THREE.LatheGeometry(new THREE.SplineCurve(prof).getPoints(80), 96);
   { const p = shiftGeo.attributes.position; for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i), z = p.getZ(i), a = Math.atan2(z, x); const fold = y < 1.3 ? 1 + 0.06 * Math.sin(a * 9 + y * 2) * (1.3 - y) : 1; const hem = y < 0.05 ? (Math.sin(a * 13) * 0.5 + 0.5) * 0.06 : 0; p.setXYZ(i, x * fold * 1.05, y + hem, z * fold * 0.75); } shiftGeo.computeVertexNormals(); }
@@ -243,6 +245,16 @@ export function buildMother() {
     if (sx < 0) { sh.rotation.set(-0.35, 0, -0.12); el.rotation.set(-0.9, 0, 0.5); } // one hand comes out between the wings, at her waist
     arms.push({ sh, el, wr, fingers: fingerMesh, sx, rest: { sh: sh.rotation.clone(), el: el.rotation.clone(), wr: wr.rotation.clone() } });
   }
+
+  // feet: long, bare, grey; only the toes show under the hem. Each is planted on the floor while
+  // it carries her (moves back exactly as fast as she moves forward: no sliding) and then snaps forward.
+  const feet = [];
+  { const fg = []; fg.push(limbGeo([new THREE.Vector3(0, 0.05, -0.05), new THREE.Vector3(0, 0.025, 0.06), new THREE.Vector3(0, 0.012, 0.17), new THREE.Vector3(0, 0.008, 0.24)], 0.03, 0.014, 24, 10));
+    for (let t = 0; t < 4; t++) fg.push(limbGeo([new THREE.Vector3((t - 1.5) * 0.012, 0.01, 0.22), new THREE.Vector3((t - 1.5) * 0.015, 0.006, 0.27), new THREE.Vector3((t - 1.5) * 0.016, 0.003, 0.3 - t * 0.008)], 0.0062, 0.004, 12, 6));
+    const footGeo = merge(fg), shinGeo = limbGeo([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0.4, 0), new THREE.Vector3(0, 0.8, 0)], 0.021, 0.03, 16, 8);
+    for (const sx of [-1, 1]) { const f = new THREE.Mesh(footGeo, skin); f.castShadow = true; f.position.set(sx * 0.07, 0, 0); root.add(f);
+      // the shin leans from the ankle up toward her hip, so it always disappears under the shift
+      const shin = new THREE.Mesh(shinGeo, skin); shin.position.set(0, 0.05, -0.04); f.add(shin); f.userData.shin = shin; feet.push(f); } }
 
   // head: human, small, gaunt; eyes only dark hollows with a faint eyeshine
   const neckTop = new THREE.Group(); neckTop.position.set(0, SH + NECK, 0.02); body.add(neckTop);
@@ -312,7 +324,9 @@ export function buildMother() {
       open.set([ox, oy, oz], i * 3);
     }
     geo.userData = { folded, open };
-    const m = new THREE.Mesh(geo, wingMat); m.castShadow = m.receiveShadow = true; m.frustumCulled = false; root.add(m); wings.push(m);
+    // pivot at the shoulder blades so the cloak can sway from there
+    const piv = new THREE.Group(); piv.position.set(0, SH, -0.04); rig.add(piv);
+    const m = new THREE.Mesh(geo, wingMat); m.position.set(0, -SH, 0.04); m.castShadow = m.receiveShadow = true; m.frustumCulled = false; piv.add(m); wings.push(m); m.userData.piv = piv; m.userData.sx = sx;
   }
   const setOpen = (t) => {
     const e = t * t * (3 - 2 * t);
@@ -322,7 +336,7 @@ export function buildMother() {
 
   // ---- motion: perfectly still, then a burst of fast, jerky insect movement ----
   // Hooks: api.onFlutter(strength) when the wings move, api.onClick() on each twitch.
-  const api = { open: 0, onFlutter: null, onClick: null, setOpen, head, arms, eyeshine };
+  const api = { open: 0, onFlutter: null, onClick: null, setOpen, head, arms, eyeshine, feet, rig, get walking() { return amt; } };
   let still = 3, twitches = [], spreadT = null;
   const snap = (obj, prop, to, dur) => twitches.push({ obj, prop, from: obj.rotation[prop], to, t: 0, dur });
   api.twitch = () => {
@@ -333,10 +347,47 @@ export function buildMother() {
   };
   api.spread = () => { spreadT = 0; if (api.onFlutter) api.onFlutter(1); };
   api.fold = () => { spreadT = -1; };
+  // ---- the walk: glide, too-long stride, joints that snap ----
+  // Driven by how far root moves in the world each frame, so any caller (attic, chase, a guest's
+  // copy) gets it for free. A jump of more than a metre in one frame is a teleport, not a step.
+  const STRIDE = 1.12, wp = new THREE.Vector3(), lastWp = new THREE.Vector3(), fwdV = new THREE.Vector3(); let haveWp = false, phase = 0, amt = 0, spd = 0;
+  const footZ = [0.04, -0.03];
+  function gait(dt) {
+    root.getWorldPosition(wp); let moved = 0;
+    if (haveWp && dt > 0) { const d = wp.distanceTo(lastWp); if (d < 1) { fwdV.set(0, 0, 1).applyQuaternion(root.getWorldQuaternion(new THREE.Quaternion())); moved = Math.max(0, (wp.x - lastWp.x) * fwdV.x + (wp.z - lastWp.z) * fwdV.z); } }
+    lastWp.copy(wp); haveWp = true;
+    spd += ((dt > 0 ? moved / dt : 0) - spd) * Math.min(1, dt * 10);
+    amt += ((spd > 0.15 ? 1 : 0) - amt) * Math.min(1, dt * 6);
+    phase += moved / STRIDE; // one full cycle = two steps = one stride per foot
+    const ST = 0.62, Ls = ST * STRIDE; // stance length: the foot travels back exactly as far as she goes forward
+    for (let i = 0; i < 2; i++) {
+      const ph = (phase + i * 0.5) % 1;
+      // stance (ph < 0.62): planted, slides back under her at exactly her speed. Swing: a fast snap forward.
+      let z, lift;
+      if (ph < ST) { z = Ls / 2 - (ph / ST) * Ls; lift = 0; }
+      else { const k = (ph - ST) / (1 - ST), e = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2; z = -Ls / 2 + e * Ls; lift = Math.sin(k * Math.PI) * 0.07; }
+      const f = feet[i]; f.position.z = z * amt + (1 - amt) * footZ[i];
+      f.position.y = lift * amt; f.rotation.x = -lift * 2.2 * amt;
+      f.userData.shin.rotation.x = -Math.atan2(f.position.z, 0.85) - f.rotation.x; // knee snaps through with the foot
+    }
+    // the body glides: barely any bob, a forward lean, a sway from hip to hip, and a small hitch (the
+    // joint snap) right as each foot lands
+    const c = phase * Math.PI * 2, land = Math.max(0, Math.cos(c * 2)) ** 18;
+    rig.position.y = (0.012 * Math.cos(c * 2) - 0.035 * land) * amt;
+    rig.position.x = 0.03 * Math.sin(c) * amt;
+    rig.rotation.x = (0.1 + 0.03 * land) * amt;
+    rig.rotation.z = -0.035 * Math.sin(c) * amt;
+    body.rotation.y = 0.06 * Math.sin(c) * amt;
+    // the cloak: the wings lag behind the body, swinging from the shoulders
+    for (const w of wings) { const pv = w.userData.piv, sx = Math.sign(w.geometry.userData.open[3 * 40] || 1); pv.rotation.x = (-0.12 - 0.05 * Math.sin(c * 2 - 0.9)) * amt * (1 - api.open); pv.rotation.z = 0.05 * Math.sin(c - 0.8) * amt * (1 - api.open); pv.rotation.y = sx * 0.03 * Math.sin(c * 2 - 1.2) * amt; }
+    // arms barely move: one swings stiffly from the shoulder, out of time
+    const a = arms[1]; a.sh.rotation.x = a.rest.sh.x + 0.18 * Math.sin(c + Math.PI) * amt;
+  }
   api.update = (dt) => {
     for (const tw of twitches) { tw.t += dt; const k = Math.min(1, tw.t / tw.dur); tw.obj.rotation[tw.prop] = tw.from + (tw.to - tw.from) * (1 - Math.pow(1 - k, 4)); }
     twitches = twitches.filter(t => t.t < t.dur);
     if (spreadT !== null) { if (spreadT >= 0) { spreadT += dt; setOpen(Math.min(1, spreadT / 0.18)); if (spreadT > 0.18) spreadT = null; } else { setOpen(Math.max(0, api.open - dt / 1.2)); if (api.open <= 0) spreadT = null; } }
+    gait(dt);
     still -= dt;
     if (still <= 0) { api.twitch(); still = r() < 0.6 ? 0.08 + r() * 0.15 : 2 + r() * 4; }
   };
