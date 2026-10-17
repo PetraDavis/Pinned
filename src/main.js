@@ -242,6 +242,7 @@ const catPlay = createCatacombsPlay({
   openLock: (id) => openPadlock(id),
   setModal: (on) => { if (on) { state = 'modal'; player.enabled = false; if (document.pointerLockElement) document.exitPointerLock(); } else { state = 'playing'; player.enabled = true; lock(); } },
   die: () => {
+    if (mp && mp.active) return wakeTogether({ spot: { ...CATA.spawn, yaw: Math.PI }, wings: false, line: 'Dark, and then the cold stone of the stair. The poison has burned itself out of you.', after: () => catPlay.load({ ...catPlay.state(), poisoned: false }) });
     state = 'cutscene'; player.enabled = false; $('fade').style.opacity = 1;
     setTimeout(() => { const s = loadSave(); spawnAt(s ? s.checkpoint : null, s || {}); $('fade').style.opacity = 0; state = 'playing'; player.enabled = true; say('Dark, and then nothing. You are back where you last saved.', 6000); }, 3200);
   },
@@ -262,6 +263,11 @@ const motherPlay = createMotherPlay({
   ground, origin: ROOM_ORIGIN, player, camera, flashlight, lantern, say, colliders: () => colliders(),
   sfx: { flutter: (l) => { captionSound('[wings fluttering]'); playFlutter(l); }, clicks: (l, n) => { captionSound('[clicking nearby]'); playClicksAt(l, n); } }, detectScale: () => catPlay.detectScale,
   active: () => state === 'playing' && zone === 'room', playerCount: () => playerCount(),
+  // together: the host runs her (like the escape); a caught player wakes at the top of the ladder
+  mpClient: () => !!(mp && mp.isClient), state: () => state, inGame: () => state !== 'home' && state !== 'ending',
+  net: { active: () => !!(mp && mp.active), players: () => mp.players, toAll: (m) => mp.escSend(m), toOne: (id, m) => mp.escSend(m, null, id), toHost: (m) => mp.escSend(m) },
+  localAlive: () => !escDead && zone === 'room' && ['playing', 'paused', 'modal', 'overlay'].includes(state),
+  caughtMP: () => wakeTogether({ line: 'The top of the ladder. Dark, and then nothing; somewhere behind you, a dry click.' }),
   caught: () => {
     state = 'cutscene'; player.enabled = false; playFlutter(1); playClicksAt(1, 6);
     say('Wings close over you, soft and enormous, and the light goes out.', 3000);
@@ -273,17 +279,20 @@ const motherPlay = createMotherPlay({
 function playerCount() { return mp && mp.active ? Math.max(1, Math.min(4, mp.count)) : 1; }
 // caught in the chase together: no reload (the house goes on for the others); you wake at the top of the ladder
 let escDead = false;
-function caughtTogether() {
+function caughtTogether() { wakeTogether({}); }
+// any death together (the chase, the attic Mother, the poison): no reload of your save; you wake at a checkpoint
+function wakeTogether({ spot = escape.spawn(), line = 'The top of the ladder. Behind you, in the dark, she is coming.', wings = true, after = null }) {
   if (escDead) return;
-  escDead = true; state = 'cutscene'; player.enabled = false; playFlutter(1); playClicksAt(1, 6);
-  if (motherPlay.hidden) motherPlay.reset();
-  say('Wings close over you, soft and enormous, and the light goes out.', 3000);
+  escDead = true; state = 'cutscene'; player.enabled = false;
+  if (wings) { playFlutter(1); playClicksAt(1, 6); say('Wings close over you, soft and enormous, and the light goes out.', 3000); }
+  motherPlay.unhide();
   setTimeout(() => { if (state === 'cutscene') $('fade').style.opacity = 1; }, 600);
   setTimeout(() => {
     escDead = false; $('fade').style.opacity = 0;
     if (state !== 'cutscene') return; // the ending began meanwhile
-    const sp = escape.spawn(); setZone('room'); player.place(ROOM_ORIGIN.x + sp.x, ROOM_ORIGIN.z + sp.z, sp.yaw);
-    state = 'playing'; player.enabled = true; say('The top of the ladder. Behind you, in the dark, she is coming.', 5000);
+    const sp = spot; setZone('room'); player.place(ROOM_ORIGIN.x + sp.x, ROOM_ORIGIN.z + sp.z, sp.yaw);
+    if (after) after();
+    state = 'playing'; player.enabled = true; say(line, 5000);
   }, 3400);
 }
 // ---------- the escape: the finale chase (escape.js) and the ending (ending.js) ----------
@@ -1031,7 +1040,7 @@ function applyWorld(w) {
   return res;
 }
 mp = initMultiplayer({ chooseSlot: cb => slotsUI.open('host', n => { setActiveSlot(n); const s = loadSave(); cb(!!s && !s.completed); }),
-  onEsc: (from, m) => escape.onNet(from, m),
+  onEsc: (from, m) => (m.mo ? motherPlay.onNet(from, m) : escape.onNet(from, m)),
   extraState: () => ({ ln: lantern.on ? 1 : 0, hd: motherPlay.hidden ? 1 : 0, mv: player.moving ? 1 : 0, sp: player.moving && !player.crouching && player.keys && (player.keys.ShiftLeft || player.keys.ShiftRight) ? 1 : 0, dd: escDead ? 1 : 0 }), scene, camera, player, flashlight, say, lock, setZone, startGame, worldSnapshot, applyWorld,
   get zone() { return zone; }, get state() { return state; } });
 window.__pinned.mp = mp;
