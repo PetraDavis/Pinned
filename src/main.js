@@ -30,6 +30,7 @@ import { createCollection } from './collection.js';
 import { createPhotoMode } from './photoMode.js';
 import { startHomeBackdrop } from './homeScreen.js';
 import { createAtticPlay } from './atticPlay.js';
+import { SPAN_MM, rackPlateCanvas } from './world/attic.js';
 import { createMotherPlay } from './motherPlay.js';
 import { createHallucinations, initAccessibilitySettings } from './hallucinate.js';
 import { captionSound } from './captions.js';
@@ -670,7 +671,7 @@ function updateHeld() {
   const k = room.puzzle.held, el = $('held');
   el.classList.toggle('hidden', !k);
   if (!k) return;
-  $('heldImg').src = specimenCanvas(k).toDataURL('image/png');
+  $('heldImg').src = (SPAN_MM[k] ? rackPlateCanvas(k) : specimenCanvas(k)).toDataURL('image/png');
   $('heldName').textContent = `${SPECIES[k].common} (${SPECIES[k].latin})`;
 }
 function checkSequence() {

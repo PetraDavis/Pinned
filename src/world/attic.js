@@ -218,14 +218,15 @@ export function buildAttic(ctx) {
   const plate = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.08), paper(plateTex())); plate.position.set(RX + 0.04, 1.96, 182.0); plate.rotation.y = Math.PI / 2; group.add(plate);
   rect(local, RX - 0.25, RX + 0.25, 180.8, 183.2);
   const threadGeo = [], hooks = [], pickables = [];
-  const rackTex = {}; const mothCut = key => rackTex[key] || (rackTex[key] = cutoutTex(key, false));
-  const shadowTex = {}; const mothShadow = key => shadowTex[key] || (shadowTex[key] = cutoutTex(key, true));
+  // each hook carries an engraved brass name plate, not the specimen itself: Latin and common name only
+  const rackTex = {}; const mothCut = key => rackTex[key] || (rackTex[key] = canvasTexture(rackPlateCanvas(key)));
+  let plateShadowT = null; const mothShadow = () => plateShadowT || (plateShadowT = plateShadowTex());
   for (let i = 0; i < 5; i++) {
     const z = hookZ(i);
     threadGeo.push(RX, 2.02, z, RX, HY + 0.05, z);
     const hk = new THREE.Mesh(new THREE.TorusGeometry(0.018, 0.004, 6, 12, Math.PI * 1.4), brass); hk.position.set(RX, HY + 0.05, z); hk.rotation.y = Math.PI / 2; group.add(hk);
-    const spec = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshStandardMaterial({ transparent: true, alphaTest: 0.35, side: THREE.DoubleSide, roughness: 0.8 }));
-    spec.rotation.y = Math.PI / 2; spec.position.set(RX, HY, z); group.add(spec);
+    const spec = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.15), new THREE.MeshStandardMaterial({ side: THREE.DoubleSide, roughness: 0.45, metalness: 0.35 }));
+    spec.rotation.y = Math.PI / 2; spec.position.set(RX, HY - 0.07, z); group.add(spec);
     const sh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.8, depthWrite: false }));
     sh.rotation.y = Math.PI / 2; sh.renderOrder = 2; group.add(sh);
     const pick = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.5, 0.33), new THREE.MeshBasicMaterial({ visible: false })); pick.position.set(RX, HY, z); pick.userData.hook = i; group.add(pick); pickables.push(pick);
@@ -431,9 +432,10 @@ export function buildAttic(ctx) {
   let removeLocal = () => {}, addLocal = () => {};
   const projShadow = (h, key) => {
     // the lamp throws the specimen's shadow onto the partition, enlarged
-    const k = (LAMP.x - WALLX) / (LAMP.x - RX), span = SPAN_MM[key] / 1000;
-    h.sh.position.set(WALLX + 0.003 + h.i * 0.0004, LAMP.y + (HY - LAMP.y) * k, LAMP.z + (h.z - LAMP.z) * k);
-    h.sh.scale.set(span * k * 1.15, span * k * 1.15, 1);
+    // every plate is the same size, so the shadows give nothing away
+    const k = (LAMP.x - WALLX) / (LAMP.x - RX);
+    h.sh.position.set(WALLX + 0.003 + h.i * 0.0004, LAMP.y + (HY - 0.07 - LAMP.y) * k, LAMP.z + (h.z - LAMP.z) * k);
+    h.sh.scale.set(0.3 * k, 0.15 * k, 1);
   };
   function placeRack() {
     hooks.forEach((h, i) => {
@@ -442,7 +444,6 @@ export function buildAttic(ctx) {
       if (!key) return;
       if (h.spec.material.map !== mothCut(key)) { h.spec.material.map = mothCut(key); h.spec.material.needsUpdate = true; }
       if (h.sh.material.map !== mothShadow(key)) { h.sh.material.map = mothShadow(key); h.sh.material.alphaMap = null; h.sh.material.needsUpdate = true; }
-      const s = SPAN_MM[key] / 1000 * 1.15; h.spec.scale.set(s, s, 1);
       projShadow(h, key);
     });
   }
@@ -577,6 +578,32 @@ function cutoutTex(key, shadow) {
   const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d');
   drawMoth(g, key, 128, 122, 240, { pin: !shadow, seed: key.length * 7 });
   if (shadow) { g.globalCompositeOperation = 'source-in'; g.filter = 'blur(2px)'; g.fillStyle = '#000'; g.fillRect(0, 0, 256, 256); }
+  return canvasTexture(c);
+}
+// an engraved brass name plate for a rack hook: the Latin name and the common name, nothing else
+export function rackPlateCanvas(key) {
+  const W = 512, H = 256, c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d');
+  const gr = g.createLinearGradient(0, 0, W, H); gr.addColorStop(0, '#c9a456'); gr.addColorStop(0.45, '#a8823c'); gr.addColorStop(1, '#7d5e28');
+  g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  const r = rand(key.length * 31); g.strokeStyle = 'rgba(255,240,200,0.07)'; g.lineWidth = 1;
+  for (let i = 0; i < 90; i++) { const y = r() * H; g.beginPath(); g.moveTo(0, y); g.lineTo(W, y + (r() - 0.5) * 6); g.stroke(); } // brushed
+  g.strokeStyle = '#3a2a10'; g.lineWidth = 6; g.strokeRect(10, 10, W - 20, H - 20);
+  g.lineWidth = 1.5; g.strokeRect(22, 22, W - 44, H - 44);
+  for (const [x, y] of [[30, 30], [W - 30, 30], [30, H - 30], [W - 30, H - 30]]) { // screw heads
+    g.fillStyle = '#5a4218'; g.beginPath(); g.arc(x, y, 7, 0, 7); g.fill(); g.strokeStyle = '#2a1c08'; g.lineWidth = 2; g.beginPath(); g.moveTo(x - 5, y + 2); g.lineTo(x + 5, y - 2); g.stroke();
+  }
+  const engrave = (txt, y, font) => { g.font = font; g.fillStyle = 'rgba(255,236,190,0.45)'; g.fillText(txt, W / 2 + 1, y + 1.5); g.fillStyle = '#24180a'; g.fillText(txt, W / 2, y); };
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  const fit = (txt, size, style) => { let s = size; do { g.font = `${style} ${s}px Georgia, 'Times New Roman', serif`; s -= 2; } while (g.measureText(txt).width > W - 90 && s > 16); return g.font; };
+  engrave(SPECIES[key].latin, 98, fit(SPECIES[key].latin, 46, 'italic'));
+  g.strokeStyle = '#3a2a10'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(W / 2 - 90, 140); g.lineTo(W / 2 + 90, 140); g.stroke();
+  g.fillStyle = '#3a2a10'; g.beginPath(); g.moveTo(W / 2, 134); g.lineTo(W / 2 + 7, 140); g.lineTo(W / 2, 146); g.lineTo(W / 2 - 7, 140); g.closePath(); g.fill();
+  engrave(SPECIES[key].common.toUpperCase(), 182, fit(SPECIES[key].common.toUpperCase(), 34, ''));
+  return c;
+}
+function plateShadowTex() {
+  const c = document.createElement('canvas'); c.width = 128; c.height = 64; const g = c.getContext('2d');
+  g.filter = 'blur(2px)'; g.fillStyle = '#000'; g.fillRect(6, 6, 116, 52);
   return canvasTexture(c);
 }
 function veilAlpha() {
