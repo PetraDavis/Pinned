@@ -94,6 +94,8 @@ export function createMotherPlay(G) {
   return {
     model, api,
     get mode() { return S.mode; }, get hidden() { return !!S.hidden; },
+    debugPlace(x, z, yaw = 0) { pos.set(x, z); S.yaw = yaw; anchor.position.set(x, 0, z); anchor.rotation.y = yaw; },
+    get debug() { return { ...S, x: pos.x, z: pos.y, dist }; },
     reset() { pos.set(...WP[0]); S.mode = 'asleep'; S.path = []; S.stun = 0; S.hidden = null; S.wake = 0; veil.style.opacity = 0; moth.style.opacity = 0; api.setOpen(0); anchor.position.set(pos.x, 0, pos.y); },
     interactables: COTS.map(([x, z]) => ({
       zone: 'room', pos: new THREE.Vector3(O.x + x, 0, O.z + z + 1.3), r: 1.1,
