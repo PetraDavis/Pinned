@@ -6,7 +6,7 @@ import { A, onReady, setVolumes, setFrozen, placeListener, unlock, voiceVolume }
 import { initMusic, updateMusic } from './music.js';
 import { initAmbience, updateAmbience, floorAt } from './ambience.js';
 import { initFootsteps, updateFootsteps, surfaceAt } from './footsteps.js';
-import { initMother, updateMother, motherClicks, motherFlutter } from './mother.js';
+import { initMother, updateMother, motherClicks, motherFlutter, motherShriek } from './mother.js';
 
 export * from './sfx.js';
 export { voiceVolume, floorAt, surfaceAt };
@@ -40,6 +40,7 @@ export function initAudioSettings(settings, save) {
 export function setVolume(v) { if (S) S.volume = v; apply(); }
 export function startAudio(v) { if (S && v != null) S.volume = v; unlock(); apply(); }
 export function playFlutter(level = 1) { if (A.ctx && level > 0.02) motherFlutter(level); }
+export function playShriek(level = 1) { if (A.ctx && level > 0.02) motherShriek(level); }
 export function playClicksAt(level = 1, n = 2) { if (A.ctx && level > 0.02) motherClicks(level, n); }
 
 // ---- per frame ----

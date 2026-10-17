@@ -10,6 +10,16 @@ import { SPECIES, drawMoth } from './moths.js';
 
 const DRAIN = 1 / 300;          // a full battery lasts five minutes of light
 const LOW = 0.15;               // below this the beam flickers
+export const BURST_COST = 0.12, BURST_RANGE = 8, BURST_COOLDOWN = 1.5, STUN_TIME = 3.5;
+// does a torch burst catch a target? Forgiving: roughly in front of you (about 40 degrees either
+// side, in plan, so looking up or down at her does not matter), within BURST_RANGE (+ a little for
+// her size), and with nothing solid between. `at` is her world position, losFn() the wall test.
+export function burstHits(d, at, losFn) {
+  const dx = at.x - d.origin.x, dz = at.z - d.origin.z, L = Math.hypot(dx, dz);
+  if (L > (d.range || BURST_RANGE) + 0.6) return false;
+  if (L > 0.9) { const h = Math.hypot(d.dir.x, d.dir.z) || 1; if ((dx * d.dir.x + dz * d.dir.z) / (L * h) < 0.76) return false; }
+  return !losFn || losFn();
+}
 
 function rubberTex() {
   const c = document.createElement('canvas'); c.width = 64; c.height = 256;
@@ -99,7 +109,7 @@ export function createFlashlight(camera, scene, { playClick } = {}) {
     return { s, i, home: new THREE.Vector3(), vel: new THREE.Vector3(), phase: Math.random() * 10, arrive: 2 + i * 1.6 };
   });
 
-  const f = { on: false, battery: 1, flicker: 0, burstT: -1, onTime: 0, model, light, moths,
+  const f = { on: false, battery: 1, flicker: 0, burstT: -1, weakT: -1, cool: 0, onTime: 0, model, light, moths,
     toggle() {
       if (!f.on && f.battery <= 0) { playClick && playClick(); return false; }
       f.on = !f.on; f.onTime = 0; playClick && playClick();
@@ -107,13 +117,16 @@ export function createFlashlight(camera, scene, { playClick } = {}) {
       return f.on;
     },
     addBattery(x) { f.battery = Math.min(1, f.battery + x); },
-    // hook for later: a focused, blinding pulse
+    // a focused, blinding pulse. Returns the burst, or null with f.failWhy set ('off' | 'battery' | 'cooldown').
+    // With too little battery the bulb only gives a weak flicker.
     burst() {
-      if (!f.on || f.battery < 0.12) return null;
-      f.battery -= 0.12; f.burstT = 0;
+      if (f.cool > 0) { f.failWhy = 'cooldown'; return null; }
+      if (!f.on) { f.failWhy = 'off'; playClick && playClick(); return null; }
+      if (f.battery < BURST_COST) { f.failWhy = 'battery'; f.weakT = 0; f.cool = 0.6; playClick && playClick(); return null; }
+      f.battery -= BURST_COST; f.burstT = 0; f.cool = BURST_COOLDOWN; f.failWhy = null;
       const origin = new THREE.Vector3(), dir = new THREE.Vector3();
       light.getWorldPosition(origin); camera.getWorldDirection(dir);
-      const detail = { origin, dir, range: 12 };
+      const detail = { origin, dir, range: BURST_RANGE, hit: false };
       dispatchEvent(new CustomEvent('flashburst', { detail }));
       return detail;
     },
@@ -124,6 +137,8 @@ export function createFlashlight(camera, scene, { playClick } = {}) {
       if (f.on) { f.battery = Math.max(0, f.battery - DRAIN * dt); f.onTime += dt; if (f.battery <= 0) { f.on = false; playClick && playClick(); } }
       let I = f.on ? 30 : 0, angle = 0.36;
       if (f.on && f.battery < LOW) { f.flicker -= dt; if (f.flicker < 0) f.flicker = Math.random() * 0.4; I *= f.flicker < 0.06 ? 0.15 : 0.6 + f.battery * 2; }
+      if (f.cool > 0) f.cool -= dt;
+      if (f.weakT >= 0) { f.weakT += dt; const k = f.weakT; I = (k < 0.08 || (k > 0.16 && k < 0.22)) ? I + 14 : I * 0.2; if (k > 0.4) f.weakT = -1; }
       if (f.burstT >= 0) { f.burstT += dt; const b = Math.max(0, 1 - f.burstT / 0.45); I += 260 * b; angle = 0.36 - 0.2 * b; if (f.burstT > 0.45) f.burstT = -1; }
       light.intensity = I; light.angle = angle;
       lensMat.emissiveIntensity = I > 0 ? 0.55 : 0;

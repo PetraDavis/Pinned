@@ -8,6 +8,7 @@
 //    to the last save.
 import * as THREE from 'three';
 import { buildMother } from './characters/mother.js';
+import { burstHits, STUN_TIME } from './flashlight.js';
 import { ATTIC } from './world/attic.js';
 
 // her paths through the attic (room-zone local x, z): chamber > hatch > clock room > egg store >
@@ -66,10 +67,12 @@ export function createMotherPlay(G) {
   }, true);
 
   // line of sight in the floor plan: blocked by any wall rect (not low headers)
-  function los(a, b) {
+  // skip: ignore any rect she is standing in or pressed against (torch bursts)
+  function los(a, b, skip = null) {
     for (const c of G.colliders()) {
       if (c.minY) continue;
       const x0 = c.minX - O.x, x1 = c.maxX - O.x, z0 = c.minZ - O.z, z1 = c.maxZ - O.z;
+      if (skip && skip.x > x0 - 0.5 && skip.x < x1 + 0.5 && skip.y > z0 - 0.5 && skip.y < z1 + 0.5) continue;
       if (z1 < 170 || z0 > 187) continue;
       if (segRect(a.x, a.y, b.x, b.y, x0, x1, z0, z1)) return false;
     }
@@ -132,9 +135,11 @@ export function createMotherPlay(G) {
   }
   function stunBy(origin, dir, range, from) {
     if (S.mode === 'asleep' || S.stun > 0) return false;
-    const m = new THREE.Vector3(anchor.position.x + O.x, 1.8, anchor.position.z + O.z), v = m.clone().sub(origin);
-    if (v.length() > range || v.normalize().dot(dir) < 0.94 || !los(from, pos)) return false;
-    S.stun = 3.5; S.mode = 'search'; S.path = []; anim('fold'); anim('twitch'); sfx.flutter(1);
+    const at = new THREE.Vector3(anchor.position.x + O.x, 1.6, anchor.position.z + O.z);
+    if (!burstHits({ origin, dir, range }, at, () => los(from, pos, pos))) return false;
+    S.stun = STUN_TIME; S.mode = 'search'; S.path = []; anim('fold'); anim('twitch'); sfx.flutter(1); if (sfx.shriek) sfx.shriek(1);
+    // she recoils a step away from the light
+    const back = pos.clone().sub(from); if (back.lengthSq() > 1e-4) { back.setLength(1.0).add(pos); if (los(pos, back)) { pos.copy(back); anchor.position.set(pos.x, 0, pos.y); } }
     return true;
   }
   const STUN_MSG = 'She rears back from the light, wings snapping shut over her face. Go. Now.';
@@ -143,7 +148,7 @@ export function createMotherPlay(G) {
     if (G.escapeOwns && G.escapeOwns()) return;
     const d = e.detail;
     if (isClient()) { if (R.m !== 'asleep' && !R.s) net().toHost({ mo: 1, req: 'flash', o: [d.origin.x, d.origin.y, d.origin.z], d: [d.dir.x, d.dir.y, d.dir.z], r: d.range }); return; }
-    if (stunBy(d.origin, d.dir, d.range, P())) say(STUN_MSG, 4000);
+    if (stunBy(d.origin, d.dir, d.range, P())) { d.hit = true; say(STUN_MSG, 4000); }
   });
 
   // a guest: draw her where the host says she is

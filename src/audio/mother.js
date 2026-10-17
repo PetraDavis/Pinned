@@ -54,3 +54,12 @@ export function motherClicks(level = 1, n = 2) {
 export function motherFlutter(level = 1) {
   flutter(active ? pan : A.sfx, A.ctx.currentTime, 0.4 * (active ? Math.max(0.5, Math.min(1, level)) : Math.min(1, level)), 0.6);
 }
+// stunned by a torch burst: a thin, rising shriek that breaks into a hiss
+export function motherShriek(level = 1) {
+  const t = A.ctx.currentTime, v = Math.min(1, level), g = gain(0), bp = filt('bandpass', 1800, 4);
+  g.connect(active ? pan : A.sfx); env(g, t, 0.32 * v, 0.02, 0.7);
+  for (const [f0, f1] of [[900, 2600], [1350, 3700]]) { const o = tone(bp, t, 'sawtooth', f0, 0.75); o.frequency.exponentialRampToValueAtTime(f1, t + 0.18); o.frequency.exponentialRampToValueAtTime(f0 * 0.8, t + 0.75); }
+  bp.connect(g);
+  const h = gain(0), hf = filt('highpass', 2500); h.connect(active ? pan : A.sfx); env(h, t + 0.25, 0.18 * v, 0.03, 0.6);
+  const s = noiseSrc(); s.connect(hf).connect(h); s.start(t + 0.25, Math.random(), 0.7);
+}

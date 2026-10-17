@@ -20,7 +20,7 @@ import { createRoomsPlay } from './roomsPlay.js';
 import { MOTH_NOTES, STORY, buildMothNotes, mothImage } from './mothNotes.js';
 import { specimenCanvas } from './world/drawerPuzzle.js';
 import { Player } from './player.js';
-import { startAudio, setVolume, playThud, playGlass, playCreak, playGrind, playClick, setHiss, playSoftClicks, playFlutter, playClicksAt } from './audio.js';
+import { startAudio, setVolume, playThud, playGlass, playCreak, playGrind, playClick, setHiss, playSoftClicks, playFlutter, playClicksAt, playShriek } from './audio.js';
 import { updateAudio, initAudioSettings, playDoor, playDrawer, playDial, playLamp, playLantern, playChime } from './audio/index.js';
 import { createFlashlight, batteryMesh } from './flashlight.js';
 import { createLantern, lanternMesh } from './lantern.js';
@@ -132,6 +132,18 @@ function raiseLantern() {
   if (on && lantern.fuel <= 0) { lantern.lower(); say('The lantern is dry. Another one might still have paraffin in it.'); }
 }
 const batteryEl = $('battery'), batteryFill = $('batteryFill');
+// B: the torch burst. A white flash fills the view; motherPlay / escape decide if it caught her.
+const burstFlash = document.createElement('div');
+burstFlash.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:7;opacity:0;background:radial-gradient(ellipse at 55% 55%,rgba(255,250,235,.95) 0 18%,rgba(255,244,220,.55) 45%,rgba(255,240,210,.15) 80%)';
+document.body.appendChild(burstFlash);
+function flashScreen(peak) { burstFlash.style.transition = 'none'; burstFlash.style.opacity = peak; void burstFlash.offsetWidth; burstFlash.style.transition = 'opacity .55s ease-out'; burstFlash.style.opacity = 0; }
+function torchBurst() {
+  const d = flashlight.burst();
+  if (d) { flashScreen(0.85); updateBatteryHud(); return; }
+  const why = flashlight.failWhy;
+  if (why === 'battery') { flashScreen(0.12); say('The bulb only flickers. Not enough battery for a burst.', 2500); }
+  else if (why === 'off') say('Switch the torch on first (F), then B for a burst.', 2500);
+}
 function updateBatteryHud() {
   batteryFill.style.width = Math.round(flashlight.battery * 100) + '%';
   batteryEl.classList.toggle('low', flashlight.battery < 0.15);
@@ -265,8 +277,8 @@ const atticPlay = createAtticPlay({
 const roomsPlay = createRoomsPlay({ origin: ROOM_ORIGIN, player, say, transition, sfx: { thud: playThud, creak: playCreak } });
 // ---------- The Mother (motherPlay.js) ----------
 const motherPlay = createMotherPlay({
-  ground, origin: ROOM_ORIGIN, player, camera, flashlight, lantern, say, colliders: () => colliders(),
-  sfx: { flutter: (l) => { captionSound('[wings fluttering]'); playFlutter(l); }, clicks: (l, n) => { captionSound('[clicking nearby]'); playClicksAt(l, n); } }, detectScale: () => catPlay.detectScale,
+  ground, origin: ROOM_ORIGIN, player, camera, flashlight, lantern, say, colliders: () => colliders(), escapeOwns: () => escape.ownsMother,
+  sfx: { flutter: (l) => { captionSound('[wings fluttering]'); playFlutter(l); }, clicks: (l, n) => { captionSound('[clicking nearby]'); playClicksAt(l, n); }, shriek: (l) => { captionSound('[a thin, rising shriek]'); playShriek(l); } }, detectScale: () => catPlay.detectScale,
   active: () => state === 'playing' && zone === 'room', playerCount: () => playerCount(),
   // together: the host runs her (like the escape); a caught player wakes at the top of the ladder
   mpClient: () => !!(mp && mp.isClient), state: () => state, inGame: () => state !== 'home' && state !== 'ending',
@@ -303,7 +315,7 @@ function wakeTogether({ spot = escape.spawn(), line = 'The top of the ladder. Be
 // ---------- the escape: the finale chase (escape.js) and the ending (ending.js) ----------
 const escape = createEscape({
   room, ground, origin: ROOM_ORIGIN, player, camera, flashlight, lantern, say, motherPlay,
-  sfx: { flutter: playFlutter, clicks: playClicksAt, thud: playThud, creak: playCreak, grind: playGrind, glass: playGlass, softClicks: playSoftClicks },
+  sfx: { flutter: playFlutter, clicks: playClicksAt, shriek: (l) => { captionSound('[a thin, rising shriek]'); playShriek(l); }, thud: playThud, creak: playCreak, grind: playGrind, glass: playGlass, softClicks: playSoftClicks },
   colliders: () => colliders(), active: () => state === 'playing' && zone === 'room', visited: () => visited, save: (cp) => save(cp),
   mpClient: () => !!(mp && mp.isClient),
   net: { active: () => !!(mp && mp.active), players: () => mp.players, toAll: (m, except) => mp.escSend(m, except), toOne: (id, m) => mp.escSend(m, null, id), toHost: (m) => mp.escSend(m) },
@@ -939,7 +951,7 @@ addEventListener('keydown', e => {
   if (e.code === 'KeyQ' && current && current.alt) current.alt();
   if (e.code === 'KeyL' && state === 'playing') raiseLantern();
   if (e.code === 'KeyH' && state === 'playing') showHint();
-  if (e.code === 'KeyB' && state === 'playing') { if (!flashlight.burst()) say(flashlight.on ? 'Not enough battery for a burst.' : 'Switch the torch on first (F).', 2500); else updateBatteryHud(); }
+  if (e.code === 'KeyB' && state === 'playing' && !e.repeat) torchBurst();
   if (e.code === 'KeyF' && state === 'playing') { if (lantern.on) lantern.lower(); const on = flashlight.toggle(); if (!on && flashlight.battery <= 0) say('The torch is dead. It needs new batteries.'); updateBatteryHud(); }
 });
 addEventListener('resize', () => {

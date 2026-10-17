@@ -22,6 +22,7 @@
 // and she withdraws for a moment. The more players, the faster and sharper she is (crowd()).
 import * as THREE from 'three';
 import { buildMother } from './characters/mother.js';
+import { burstHits, STUN_TIME } from './flashlight.js';
 import { ATTIC } from './world/attic.js';
 import { CATA } from './world/catacombs.js';
 import { FIRST } from './world/lowerUpper.js';
@@ -156,7 +157,9 @@ export function createEscape(G) {
     }
     return t0 <= t1 && t1 > 0.02 && t0 < 0.98;
   }
-  const los = (a, b) => { for (const w of walls()) if (segRect(a.x, a.y, b.x, b.y, w[0], w[1], w[2], w[3])) return false; return true; };
+  // skip: ignore any rect (furniture) she is standing in or pressed against, e.g. the nest she drops onto (torch bursts)
+  const inRect = (r, q) => q && q.x > r[0] - 0.5 && q.x < r[1] + 0.5 && q.y > r[2] - 0.5 && q.y < r[3] + 0.5;
+  const los = (a, b, skip = null) => { for (const w of walls()) if (!inRect(w, skip) && segRect(a.x, a.y, b.x, b.y, w[0], w[1], w[2], w[3])) return false; return true; };
   const freeAt = (p, r = 0.45) => { for (const w of walls()) if (p.x > w[0] - r && p.x < w[1] + r && p.y > w[2] - r && p.y < w[3] + r) return false; return true; };
   const lowAt = (p) => { for (const c of G.colliders()) if (c.minY !== undefined && c.minY < 2.3 && p.x + O.x > c.minX - 0.4 && p.x + O.x < c.maxX + 0.4 && p.y + O.z > c.minZ - 0.4 && p.y + O.z < c.maxZ + 0.4) return true; return false; };
   // keep her out of walls when she goes straight at you
@@ -394,13 +397,16 @@ export function createEscape(G) {
 
   // torch burst from a point (room-local): she rears back and folds her wings over her face
   function flashAt(d, from) {
-    if (!S.on || !model || !model.visible || S.mode === 'away' || S.mode === 'gone' || S.mode === 'wake') return;
-    const m = new THREE.Vector3(S.pos.x + O.x, 1.8, S.pos.y + O.z), v = m.clone().sub(d.origin);
-    if (floorOf(from.y) !== S.floor || v.length() > d.range || v.normalize().dot(d.dir) < 0.93 || !los(from, S.pos)) return;
-    S.stun = 3.5; S.mode = 'hunt'; api.fold(); api.twitch(); sfx.flutter(1);
+    if (!S.on || !model || !model.visible || S.mode === 'away' || S.mode === 'gone' || S.stun > 0) return false;
+    const at = new THREE.Vector3(S.pos.x + O.x, 1.6, S.pos.y + O.z);
+    if (floorOf(from.y) !== S.floor || !burstHits(d, at, () => los(from, S.pos, S.pos))) return false;
+    if (S.mode === 'wake') { S.y = 0; S.stiff = 7; S.knows = true; }
+    S.stun = STUN_TIME; S.mode = 'hunt'; api.fold(); api.twitch(); sfx.flutter(1); if (sfx.shriek) sfx.shriek(1);
     // she recoils a step
     const back = S.pos.clone().sub(from).setLength(1.2).add(S.pos); if (freeAt(back, 0.35)) S.pos.copy(back);
+    placeModel();
     if (!S.told.stun) { S.told.stun = true; tell('She rears back from the light, wings snapping shut over her face. Go.', 3500); }
+    return true;
   }
 
   const self = {
@@ -574,7 +580,7 @@ export function createEscape(G) {
     // torch burst: yours on the host; a guest's goes to the host
     flash(e) {
       if (R) { const d = e.detail; if (G.net) G.net.toHost({ req: 'flash', o: [d.origin.x, d.origin.y, d.origin.z], d: [d.dir.x, d.dir.y, d.dir.z], r: d.range }); return; }
-      flashAt(e.detail, local());
+      if (flashAt(e.detail, local())) e.detail.hit = true;
     },
   };
   addEventListener('flashburst', e => self.flash(e));
