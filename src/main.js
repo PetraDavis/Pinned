@@ -298,7 +298,8 @@ const ending = createEnding({ renderer, quality: settings.quality, sfx: { click:
 const interactables = [
   ...escape.interactables,
   ...motherPlay.interactables,
-  ...catPlay.interactables,
+  // during the escape her key's prompt at the tunnel must win over the old 'examine' one
+  ...catPlay.interactables.map(it => it.prompt === 'E  examine the tunnel' ? { ...it, when: () => !escape.chasing } : it),
   ...LANTERNS.map(l => ({
     zone: l.zone, pos: l.pos, r: 1.1, when: () => !lanternsTaken.has(l.id), prompt: 'E  take the lantern',
     act: () => {

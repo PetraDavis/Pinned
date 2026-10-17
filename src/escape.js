@@ -272,6 +272,7 @@ export function createEscape(G) {
     interactables,
     get running() { return S.on; },
     get ownsMother() { return S.on || !!G.visited().escape; },
+    get chasing() { return S.on; },
     get debug() { return { mode: S.mode, floor: S.floor, x: S.pos.x, z: S.pos.y, dist, knows: S.knows, crumbs: S.crumbs.length, ci: S.ci, beats: { ...S.beats }, tunnel: tunnelAnim, stun: S.stun }; },
     begin, openTunnel,
     // tests / debugging: straight to the ending
