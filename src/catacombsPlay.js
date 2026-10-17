@@ -6,15 +6,15 @@ import { SPECIES } from './moths.js';
 import { CATA, OSSUARY_CODE, POISON_ORDER } from './world/catacombs.js';
 
 const LEDGER = [
-  'A pharmacist’s ledger, half burnt, the pages fused at the edges:',
+  'A pharmacist’s ledger, its edges burnt but the list still clear:',
   '“Poisons, kept as Father kept them, the mildest drawer first.',
-  'The white woolly one from the Gran Sabana, which looks like a child’s toy and harms nobody.',
-  'The Scarlet tiger: bitter; a bird spits it out and remembers.',
-  'The little wasp-waisted one, blue-black with white spots, reared on oleander, carrying its heart-poison in its bo… [burnt]',
-  '…own-tail: the hairs blister the skin and close the throat.',
-  '[burnt] …soft as a cat, and its sting puts a grown man on the floor for a day.',
-  'And last, Lonomia, whose touch makes the blood forget how to clot.',
-  'Mind the needles. Father set one in every drawer that weeps. The rats have learned it the hard way.”',
+  'I. The Venezuelan poodle moth, white and woolly, which looks like a child’s toy and harms nobody.',
+  'II. The Scarlet tiger: bitter; a bird spits it out and remembers.',
+  'III. The Polka-dot wasp moth, blue-black with white spots, reared on oleander, its heart-poison carried in its body.',
+  'IV. The Brown-tail: the hairs blister the skin and close the throat.',
+  'V. The Southern flannel moth, soft as a cat, whose sting puts a grown man on the floor for a day.',
+  'VI. And last, the Lonomia, whose touch makes the blood forget how to clot.',
+  'Mind the needles. Father set one in every drawer that weeps: look for the dark stain running down under it. The rats have learned it the hard way.”',
 ].join(' ');
 const TUNNEL = 'A low tunnel, bricked up behind an iron door and chained twice across. Cold air breathes through the cracks, and it smells of rain and open ground. The chains are newer than anything else down here. Someone wanted this shut more than they wanted anything.';
 const NICHES = 'Four bays of niches, nine to a bay, each niche numbered in the stone and each with its skull. The bays are marked I to IV underneath. Some of the skulls are not quite alone.';
@@ -53,7 +53,7 @@ export function createCatacombsPlay(ctx) {
     const n = cat.inserted.filter((k, i) => k === POISON_ORDER[i]).length;
     if (n === 6) {
       closeCabinetUI(); cat.openCabinet(); sfx.playSoftClicks(6); sfx.playGrind();
-      say('One after another the keys turn, the mildest first. The cabinet doors swing open on a lever, and as it drops, a bolt draws back somewhere in the east wall.', 8000);
+      say('One after another the keys turn, the mildest first. The cabinet swings open on a lever; as it drops, a bolt slams back and the iron-bound door in the east wall, beside the counter, grinds open. Light spills through from a stair going up.', 9000); setTimeout(() => { sfx.playThud(); sfx.playCreak(); }, 700);
       ctx.save('catacombs'); return;
     }
     sfx.playSoftClicks(n); sfx.playCreak();
@@ -169,7 +169,7 @@ export function createCatacombsPlay(ctx) {
     const inCat = ctx.zone() === 'room' && player.pos.z - ROOM_ORIGIN.z > 112 && player.pos.z - ROOM_ORIGIN.z < 165;
     if (poisoned) {
       // the worst passes in a few minutes; the flag stays (she can still smell it on you)
-      poisonK = Math.max(0, poisonK - dt / 360);
+      poisonK = Math.max(0, poisonK - dt / 50); // the blur and heartbeat fade in under a minute
       applyPoison(t);
       if (playing && poisonK > 0.05) { heartT -= dt; if (heartT <= 0) { heartT = 60 / (66 + 54 * poisonK); heartbeat(); } }
     }
@@ -207,6 +207,8 @@ export function createCatacombsPlay(ctx) {
     get poisoned() { return poisoned; },
     // for The Mother, later: how much more easily she notices you (poisoned: heartbeat, stumbling)
     get detectScale() { return poisoned ? 1.75 : 1; },
+    // at a save point the poison is finally out of you (once the blur has worn off)
+    settle() { if (poisoned && poisonK <= 0.01) poisoned = false; },
     onPoison(f) { hooks.poison.push(f); },
     state() { return { ...cat.getState(), poisoned, poisonK: +poisonK.toFixed(3) }; },
     load(s) { cat.setState(s || {}); poisoned = !!(s && s.poisoned); poisonK = poisoned ? (s.poisonK ?? 0.5) : 0; sinkT = 0; told = {}; applyPoison(0); },
