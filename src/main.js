@@ -554,7 +554,7 @@ function showHint() {
   }
   hintsUsed[grp] = (hintsUsed[grp] || 0) + 1;
   const n = Math.min(HINTS[p].length, (hintState[p] || 0) + 1); hintState[p] = n; stuckTime = 0;
-  say(`Hint ${n}/${HINTS[p].length}: ${HINTS[p][n - 1]}`, 11000);
+  say(`Hint ${n}: ${HINTS[p][n - 1]}`, 11000);
   save(lastCheckpoint || 'room');
 }
 // a gentle nudge if the player has been in a puzzle room for a few minutes without a hint
@@ -762,6 +762,7 @@ const slotsUI = createSlotScreen();
 let playSecs = 0, lastPlayNow = 0; setPlaytimeSource(() => playSecs);
 function refreshHome() {
   const n = latestSlot(), s = n && readSlot(n);
+  if (n) setActiveSlot(n); // the home-screen journal shows the save Continue would load
   $('btnContinue').disabled = !s; $('btnLoad').disabled = !s;
   $('homeNote').textContent = s ? `Continue: ${s.name || `Save ${n}`}, ${placeOf(s.checkpoint)}` : '';
 }
@@ -898,7 +899,7 @@ loop();
 
 // Hook for automated tests / debugging.
 window.__pinned = {
-  start: startGame, pause, resume, quitHome, player, setZone, interact: () => current && current.act(), refresh: () => { current = findInteractable(); },
+  start: startGame, pause, resume, quitHome, player, setZone, interactables, interact: () => current && current.act(), refresh: () => { current = findInteractable(); },
   caps: CAPS, get state() { return state; }, get zone() { return zone; }, get prompt() { return current && (typeof current.prompt === 'function' ? current.prompt() : current.prompt); }, room,
   renderer, scene, camera, flashlight, lantern, catacombs: catPlay, ground, mother: motherPlay, get hints() { return { used: hintsUsed, state: hintState }; }, currentPuzzle: () => currentPuzzle(), openPadlock, tryPadlock, dials, get gameTime() { return gameTime; }, get colliders() { return colliders(); },
 };
