@@ -13,15 +13,16 @@ const LINES = `
   <div class="cr-title">PINNED</div>
   <div class="cr-rule">❦</div>
   <div class="cr-role">A game by</div><div class="cr-name">Petra Davis</div>
-  <div class="cr-role">Built with</div><div class="cr-name">Claude</div>
-  <div class="cr-role">Engine</div><div class="cr-name">three.js</div>
-  <div class="cr-role">Sound</div><div class="cr-name">Generated with the Web Audio API</div>
-  <div class="cr-small">Every footstep, flutter and creak is synthesised as you play; no recorded samples are used.</div>
-  <div class="cr-role">Typeface</div><div class="cr-name">Cinzel Decorative</div>
-  <div class="cr-small">by Natanael Gama, via Google Fonts (SIL Open Font License)</div>
   <div class="cr-rule">❦</div>
   <div class="cr-thanks">Thanks to my beta tester and inspiration, Frida!</div>
-  <div class="cr-rule">❦</div>`;
+  <div class="cr-rule">❦</div>
+  <div class="cr-tools">
+    <div class="cr-role">Tools</div>
+    <div class="cr-small">Built with Claude</div>
+    <div class="cr-small">Engine: three.js</div>
+    <div class="cr-small">Sound: generated with the Web Audio API; every footstep, flutter and creak is synthesised as you play, with no recorded samples</div>
+    <div class="cr-small">Typeface: Cinzel Decorative by Natanael Gama, via Google Fonts (SIL Open Font License)</div>
+  </div>`;
 
 export function createCredits() {
   const el = document.createElement('div'); el.id = 'credits'; el.className = 'hidden';

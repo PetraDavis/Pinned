@@ -109,3 +109,4 @@ select { grid-column: 1 / -1; font: inherit; color: var(--ink); background: #141
   color: #e8dcc0; background: rgba(20,14,10,.85); border: 1px solid #8a6a40; cursor: pointer; transition: opacity .6s, background .2s; }
 #credits .cr-skip:hover:not(:disabled) { background: #3a2214; }
 #credits .cr-skip:disabled { opacity: .35; cursor: default; }
+#credits .cr-tools .cr-small { margin-top: 6px; }
