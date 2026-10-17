@@ -195,3 +195,52 @@ export const CATACOMB_STORY = [
   'There is a tunnel out of the catacombs that the Order bricked up and chained. Someone on the other side once tried very hard to get through it. The scratches go both ways.',
 ];
 STORY.splice(19, 0, ...CATACOMB_STORY); // the route reaches the catacombs before the attic
+
+// ---------- decoy labels for the apothecary's other twenty-four drawers ----------
+// Real species, drawn simply, used nowhere else in the house: every drawer front carries a
+// painted moth and its names, so the right drawers have to be found from the clues.
+const SHAPES = {
+  noctuid: { fore: [[2, -3], [12, -7], [24, -10], [30, -9], [29, -3], [22, 3], [10, 5], [2, 2]], hind: [[2, 2], [10, 3], [19, 6], [22, 11], [17, 15], [8, 14], [2, 9]], foreAngle: 0.1, hindAngle: 0.2 },
+  geometrid: { fore: [[2, -3], [14, -9], [26, -14], [32, -13], [30, -6], [20, 1], [8, 4], [2, 2]], hind: [[2, 2], [12, 3], [24, 6], [30, 12], [24, 19], [12, 18], [3, 11]], foreAngle: -0.05, hindAngle: 0.05 },
+  hawk: { fore: [[2, -3], [16, -7], [32, -11], [40, -11], [36, -6], [24, 1], [8, 3], [2, 2]], hind: [[2, 2], [10, 3], [18, 5], [20, 9], [14, 11], [6, 10], [2, 7]], foreAngle: 0.18, hindAngle: 0.3 },
+};
+const decoy = (key, latin, common, span, shape, ground, line, spot, hind) => ({ key, sp: {
+  latin, common, span, ...SHAPES[shape],
+  paintFore(g, r) {
+    g.fillStyle = ground; g.fillRect(-5, -18, 50, 30);
+    speckle(g, r, 120, 0, -14, 40, 6, 'rgba(0,0,0,0.12)', 0.8);
+    band(g, [[9, 4], [11, -4], [9, -12]], 1.2, line); band(g, [[21, 3], [24, -5], [22, -13]], 1.2, line);
+    if (spot) blob(g, 15, -4, 1.8, 1.3, 0, spot);
+  },
+  paintHind(g) { g.fillStyle = hind; g.fillRect(-5, -5, 45, 30); },
+  body: { thorax: [3.6, 5], abdomen: [3, 13], fur: ground, furHi: '#e8e0d0', head: 2.8, paint() {} },
+  antenna: { type: shape === 'geometrid' ? 'feather' : 'thin', len: 11, color: '#3a3028' },
+} });
+const DECOYS = [
+  decoy('meticulosa', 'Phlogophora meticulosa', 'Angle shades', 45, 'noctuid', '#9a8a6a', '#4a3a2a', '#c09080', '#b0a088'),
+  decoy('chrysitis', 'Diachrysia chrysitis', 'Burnished brass', 36, 'noctuid', '#b89a50', '#5a4a30', null, '#8a7a60'),
+  decoy('tiliae', 'Mimas tiliae', 'Lime hawk-moth', 70, 'hawk', '#9aa078', '#3e5236', '#3e5236', '#c09a60'),
+  decoy('sambucaria', 'Ourapteryx sambucaria', 'Swallow-tailed moth', 50, 'geometrid', '#ece2a8', '#b0a070', '#c06030', '#ece2a8'),
+  decoy('batis', 'Thyatira batis', 'Peach blossom', 36, 'noctuid', '#5a4a3e', '#e8b0a8', '#e8b0a8', '#8a7a6a'),
+  decoy('prasinana', 'Pseudoips prasinana', 'Green silver-lines', 34, 'noctuid', '#7aa860', '#e8ece0', null, '#e8e8d8'),
+  decoy('alniaria', 'Ennomos alniaria', 'Canary-shouldered thorn', 38, 'geometrid', '#d8a040', '#8a5a20', '#8a5a20', '#e0b860'),
+  decoy('pudibunda', 'Calliteara pudibunda', 'Pale tussock', 50, 'noctuid', '#c0bab0', '#6a645c', null, '#d8d2c8'),
+  decoy('tripartita', 'Abrostola tripartita', 'Spectacle', 32, 'noctuid', '#8a847a', '#2a2622', '#e8e0d0', '#9a9488'),
+  decoy('comae', 'Timandra comae', 'Blood-vein', 32, 'geometrid', '#e8dcc0', '#b04a40', null, '#e8dcc0'),
+  decoy('marginata', 'Lomaspilis marginata', 'Clouded border', 26, 'geometrid', '#f0ece0', '#3a3430', '#3a3430', '#f0ece0'),
+  decoy('ziczac', 'Notodonta ziczac', 'Pebble prominent', 44, 'noctuid', '#c8a878', '#5a4030', '#e8dcc0', '#d8c8a8'),
+  decoy('glaucata', 'Cilix glaucata', 'Chinese character', 22, 'geometrid', '#f2f0ea', '#9a8a7a', '#8a7a6a', '#f2f0ea'),
+  decoy('flavago', 'Gortyna flavago', 'Frosted orange', 36, 'noctuid', '#d89838', '#7a4a20', '#7a4a20', '#e8d8b0'),
+  decoy('nigrum', 'Xestia c-nigrum', 'Setaceous Hebrew character', 38, 'noctuid', '#7a5a4a', '#1a1412', '#e8c8a0', '#b8a898'),
+  decoy('bilineata', 'Camptogramma bilineata', 'Yellow shell', 28, 'geometrid', '#d8b040', '#6a4a20', null, '#d8b040'),
+  decoy('parthenias', 'Archiearis parthenias', 'Orange underwing', 38, 'noctuid', '#5a4a40', '#e8e0d0', null, '#e08030'),
+  decoy('tetralunaria', 'Selenia tetralunaria', 'Purple thorn', 42, 'geometrid', '#8a6a5a', '#4a3028', '#e8d8c8', '#b89880'),
+  decoy('pennaria', 'Colotois pennaria', 'Feathered thorn', 44, 'geometrid', '#b0703a', '#5a3018', '#f0e0c0', '#c8905a'),
+  decoy('populi', 'Poecilocampa populi', 'December moth', 40, 'noctuid', '#3a302a', '#d8c8a0', null, '#4a403a'),
+  decoy('hirtaria', 'Lycia hirtaria', 'Brindled beauty', 48, 'geometrid', '#8a8070', '#2a2420', null, '#a09888'),
+  decoy('flammea', 'Panolis flammea', 'Pine beauty', 34, 'noctuid', '#b05a30', '#e8d8b8', '#e8d8b8', '#8a6a5a'),
+  decoy('furcula', 'Furcula furcula', 'Sallow kitten', 34, 'noctuid', '#e8e4dc', '#4a4a50', '#2a2a30', '#e8e4dc'),
+  decoy('capucina', 'Ptilodon capucina', 'Coxcomb prominent', 40, 'noctuid', '#b07a40', '#5a3a1a', null, '#d0b080'),
+];
+for (const d of DECOYS) SPECIES[d.key] = d.sp;
+export const DECOY_KEYS = DECOYS.map(d => d.key);

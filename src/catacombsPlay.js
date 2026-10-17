@@ -99,10 +99,11 @@ export function createCatacombsPlay(ctx) {
     const hit = ray.intersectObject(cat.drawerMesh, false)[0];
     if (!hit || hit.instanceId === undefined) return null;
     const d = cat.drawers[hit.instanceId];
-    if (!d.target) return { prompt: 'E  open the drawer', act: () => openDrawer(d) };
+    const lsp = SPECIES[d.label];
+    if (!d.target) return { prompt: `${lsp.common} (${lsp.latin})  ·  E  open the drawer`, act: () => openDrawer(d) };
     if (d.moth && !d.keyTaken) { const sp = SPECIES[d.moth]; return { prompt: `E  take the key  ·  ${sp.common} (${sp.latin})`, act: () => { cat.takeKey(d); sfx.playClick(); say(`A small iron key on a card tag, the drawing of the ${sp.common} on it. You take it.`, 4000); } }; }
     if (d.moth) { const sp = SPECIES[d.moth]; return { prompt: `${sp.common} (${sp.latin})  ·  E  close the drawer`, act: () => cat.setDrawer(d, false) }; }
-    return { prompt: 'E  close the drawer', act: () => cat.setDrawer(d, false) };
+    return { prompt: `${lsp.common} (${lsp.latin})  ·  E  close the drawer`, act: () => cat.setDrawer(d, false) };
   }
   function openDrawer(d) {
     cat.setDrawer(d, true); sfx.playClick();

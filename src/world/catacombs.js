@@ -19,7 +19,7 @@ import { mat, rep, rect, rand } from './build.js';
 import { cocoonBody, spunCocoon, mergeSilk } from './cocoon.js';
 import { silkTex } from './lowerUpper.js';
 import { drawMoth, SPECIES } from '../moths.js';
-import { POISON_ORDER } from '../catacombMoths.js';
+import { POISON_ORDER, DECOY_KEYS } from '../catacombMoths.js';
 
 const V = (x, z) => new THREE.Vector3(x, 0, z);
 const H = 2.8; // vault height
@@ -357,10 +357,16 @@ export function buildCatacombs(ctx) {
   const drawers = [];
   for (let row = 0; row < DC.rows; row++) for (let c = 0; c < DC.cols; c++) {
     const id = `${c},${row}`, i = drawers.length;
-    const d = { i, id, c, row, x: dX(c), y: dY(row), moth: DC.moths[id] || null, trap: DC.traps.includes(id), open: 0, target: 0, keyTaken: false, sprung: false };
+    const d = { i, id, c, row, x: dX(c), y: dY(row), moth: DC.moths[id] || null, label: null, trap: DC.traps.includes(id), open: 0, target: 0, keyTaken: false, sprung: false };
     drawers.push(d);
   }
-  const setDrawer = d => { m4.makeTranslation(d.x, d.y, DC.front + ddp / 2 + 0.002 - d.open * 0.24); drawerMesh.setMatrixAt(d.i, m4); };
+  // every drawer front: a paper label with a painted moth and its names (the six poisons, or a decoy)
+  { let k = 0; for (const d of drawers) d.label = d.moth || DECOY_KEYS[k++ % DECOY_KEYS.length]; }
+  for (const d of drawers) {
+    const lm = new THREE.Mesh(new THREE.PlaneGeometry(0.255, 0.17), new THREE.MeshStandardMaterial({ map: drawerLabelTex(d.label), emissive: 0xffffff, emissiveMap: drawerLabelTex(d.label), emissiveIntensity: 0.14, roughness: 0.85 }));
+    lm.rotation.y = Math.PI; group.add(lm); d.labelMesh = lm;
+  }
+  const setDrawer = d => { m4.makeTranslation(d.x, d.y, DC.front + ddp / 2 + 0.002 - d.open * 0.24); drawerMesh.setMatrixAt(d.i, m4); if (d.labelMesh) d.labelMesh.position.set(d.x, d.y, DC.front - 0.0015 - d.open * 0.24); };
   drawers.forEach(setDrawer); drawerMesh.computeBoundingSphere(); group.add(drawerMesh);
   // inside the six moth drawers: a card with the moth, its Latin and common names, and a key
   const keyGeo = makeKeyGeo();
@@ -673,4 +679,21 @@ function ledgerTex() {
   g.strokeStyle = 'rgba(20,10,4,0.9)'; g.lineWidth = 18; g.beginPath(); g.moveTo(420, 40); for (let y = 40; y <= 300; y += 10) g.lineTo(300 - Math.sin(y * 0.11) * 30 - (y - 40) * 0.25 + 4, y); g.stroke();
   g.globalCompositeOperation = 'source-over';
   return toTex(c);
+}
+
+// a drawer-front label: the moth painted on the left, its common and Latin names beside it
+const labelCache = {};
+function drawerLabelTex(key) {
+  if (labelCache[key]) return labelCache[key];
+  const c = document.createElement('canvas'); c.width = 512; c.height = 340; const g = c.getContext('2d');
+  g.fillStyle = '#e6dcc2'; g.fillRect(0, 0, 512, 340);
+  g.strokeStyle = '#5a4630'; g.lineWidth = 6; g.strokeRect(8, 8, 496, 324); g.lineWidth = 2; g.strokeRect(18, 18, 476, 304);
+  drawMoth(g, key, 256, 105, 230, { pin: false, seed: key.length * 5 });
+  const sp = SPECIES[key];
+  g.fillStyle = '#1e160e'; g.textAlign = 'center';
+  let fs = 58; g.font = `bold ${fs}px Georgia, serif`; while (g.measureText(sp.common).width > 470 && fs > 26) { fs -= 2; g.font = `bold ${fs}px Georgia, serif`; }
+  g.fillText(sp.common, 256, 250);
+  fs = 42; g.font = `italic ${fs}px Georgia, serif`; while (g.measureText(sp.latin).width > 470 && fs > 22) { fs -= 2; g.font = `italic ${fs}px Georgia, serif`; }
+  g.fillText(sp.latin, 256, 306);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; labelCache[key] = t; return t;
 }
