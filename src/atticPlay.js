@@ -25,7 +25,7 @@ export const ATTIC_HINTS = {
   ],
   clock: [
     'The paper pinned beside the clock is a collector’s record of when each moth came to the lamp.',
-    'Slide each moth on the rim to the hour of the night it was taken: the Common swift at dusk, the last of them in the small hours.',
+    'The clock needs its hands first: they are in the brass box in the clock room. Then lift each moth off the rim and set it at the hour of the night it was taken: the Common swift at dusk, the last of them in the small hours.',
     'Common swift at IX, Convolvulus hawk-moth at XI, Large yellow underwing at XII, Merveille du Jour at III.',
   ],
 };
@@ -54,6 +54,30 @@ export function createAtticPlay(deps) {
   // ---------- the Wingspan Rack (aim at a hook) ----------
   const ray = new THREE.Raycaster(); ray.far = 2.4; const centre = new THREE.Vector2();
   function aim() { return aimRack() || aimJars(); }
+  // ---------- the Night Clock (aim at an hour on the rim) ----------
+  function aimClock() {
+    const a = A(); if (!a || a.clockSolved) return null;
+    const cp = W(ATTIC.clock); if (Math.hypot(player.pos.x - cp.x, player.pos.z - cp.z) > 2.0) return null;
+    ray.setFromCamera(centre, camera);
+    const hit = ray.intersectObjects(a.clockPicks, false)[0], name = i => SPECIES[CLOCK_MOTHS[i].key].common, held = a.clockHeld;
+    const hands = a.boxOpen ? '' : '   ·   the hands are missing';
+    if (!hit) return held >= 0 ? { prompt: `Carrying the ${name(held)}   ·   aim at an hour on the dial`, act: () => {} }
+      : { prompt: `Aim at a moth on the dial to lift it${hands}   ·   E  look at the clock`, act: () => say(a.boxOpen ? 'The Night Clock, its iron hands fitted on the boss. Four moths on the rim. Lift one off and set it at another hour; the paper pinned beside the clock says when each came to the lamp.' : 'A big plain clock face with NOX painted under its centre. Four moths are pinned round the rim; you can lift each off and set it at another hour. But the hands are gone, only the brass boss left: without them it cannot strike. Perhaps they are locked away somewhere in this room.', 9000) };
+    const h = hit.object.userData.hour, at = a.mothAtHour(h), n = ROMAN[h];
+    const prompt = at >= 0 && held >= 0 ? `E  set the ${name(held)} at ${n}, lift the ${name(at)}` : at >= 0 ? `E  lift the ${name(at)} off ${n}` : held >= 0 ? `E  set the ${name(held)} at ${n}` : `${n}: empty`;
+    return { prompt, act: () => {
+      if (at < 0 && held < 0) return;
+      if (room.puzzle.held || a.jarHeld) { say('Your hands are full.', 3000); return; }
+      a.useHour(h); sfx.clicks(1);
+      if (a.clockHeld < 0) checkClock();
+    } };
+  }
+  function checkClock() {
+    const a = A(), n = CLOCK_MOTHS.filter((c, i) => a.clock[i] === c.hour).length;
+    if (n === 4 && a.boxOpen) { tryClock(); return; }
+    if (n === 4) { sfx.creak(); say('The four moths sit snug on their pins, all of them. But the clock has no hands to turn, and nothing happens. The hands must be somewhere in this room, locked away.', 8000); return; }
+    say(`${n === 1 ? 'One moth sits' : `${n} moths sit`} snug on ${n === 1 ? 'its' : 'their'} pin.`, 3500);
+  }
   // ---------- the Egg Store jars (aim at a numbered place on the table) ----------
   function aimJars() {
     const a = A(); if (!a || a.jarsSolved) return null;
@@ -180,9 +204,9 @@ export function createAtticPlay(deps) {
       <div data-p="wheel"><h2>The cipher wheel</h2><p class="note">Turn the inner ring with the arrows or the buttons. Esc to step back.</p>
         <canvas width="320" height="320" style="width:min(230px,36vh);height:min(230px,36vh);margin:2px auto;display:block"></canvas>
         <div style="display:flex;gap:10px;justify-content:center"><button class="wl">◀ Turn</button><button class="wr">Turn ▶</button></div>
-        <p class="note wmsg"></p><canvas class="strip" width="360" height="132" style="width:100%;max-width:300px;margin:2px auto;display:block"></canvas></div>
+        <p class="note wmsg"></p><canvas class="strip" width="360" height="186" style="width:100%;max-width:300px;margin:2px auto;display:block"></canvas></div>
       <div data-p="rafters"><h2>Marks on the rafters</h2><p class="note">Chalked across a brace board nailed to the rafters, in three runs:</p>
-        <canvas class="strip" width="360" height="132" style="width:100%;max-width:360px;margin:4px auto;display:block"></canvas></div>
+        <canvas class="strip" width="360" height="186" style="width:100%;max-width:360px;margin:4px auto;display:block"></canvas></div>
       <button class="vclose">Step back (Esc)</button></div>`;
     document.body.appendChild(el);
     const panels = {}; el.querySelectorAll('[data-p]').forEach(p => { panels[p.dataset.p] = p; });
@@ -247,9 +271,9 @@ export function createAtticPlay(deps) {
       act: () => say('The four jars stand in their order, fewest eggs to most. Scratched into the lids: 5, 4, 1, 2.', 7000) },
     { zone: 'room', pos: W(ATTIC.eggLock), r: 1.1, when: () => !A().eggsOpen, prompt: 'E  try the padlock', act: () => openPadlock('eggs') },
     { zone: 'room', pos: W(ATTIC.clock), r: 1.3, when: () => !A().clockSolved,
-      prompt: () => A().boxOpen ? 'E  set the moths on the clock' : 'E  look at the clock',
+      prompt: () => A().boxOpen ? 'E  move the moths round the clock' : 'E  look at the clock (its hands are missing)',
       act: () => {
-        if (!A().boxOpen) { say('A big plain clock face with NOX painted under its centre. The hands are gone; only the brass boss is left. Four moths are pinned round the rim on little brass slides, and each will move to any hour.', 9000); return; }
+        if (!A().boxOpen) { say('A big plain clock face with NOX painted under its centre. The hands are gone; only the brass boss is left, so the moths on the rim cannot be set yet. The hands must be locked away somewhere in this room.', 9000); return; }
         clockSel = 0; show('clock');
       } },
     { zone: 'room', pos: W(ATTIC.clockLog), r: 1.0, prompt: 'E  read the paper by the clock', act: () => say(CLOCK_LOG, 20000) },

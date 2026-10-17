@@ -23,7 +23,8 @@ import { tex } from '../textures.js';
 import { mat, box, rect, rep, rand } from './build.js';
 import { gasLampFixture } from './fixtures.js';
 import { silkTexture } from './lowerUpper.js';
-import { spunCocoon } from './cocoon.js';
+import { spunCocoon, mergeSilk, animSilk } from './cocoon.js';
+import { preservedBodies } from './bodies.js';
 const spinCocoon = (silkGeos, threadPts, x, z, h, hanging, top) => spunCocoon(x, z, h, hanging, top, silkGeos, threadPts);
 import { drawMoth, SPECIES } from '../moths.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -331,7 +332,9 @@ export function buildAttic(ctx) {
     const t = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.16), new THREE.MeshStandardMaterial({ map: cutoutTex(c.key, false), transparent: true, alphaTest: 0.3, side: THREE.DoubleSide }));
     t.position.z = 0.075; clockG.add(t); return t;
   });
-  const placeToken = (i, h) => { const a = Math.PI / 2 - (h % 12) / 12 * Math.PI * 2, rr = CR * 0.62 + (i % 2) * 0.08; clockTokens[i].position.set(Math.cos(a) * rr, Math.sin(a) * rr, 0.075 + i * 0.002); };
+  // twelve hour places round the rim to aim at: lift a moth off one, set it on another
+  const clockPicks = []; for (let h = 1; h <= 12; h++) { const a = Math.PI / 2 - (h % 12) / 12 * Math.PI * 2, pk = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.12), new THREE.MeshBasicMaterial({ visible: false })); pk.position.set(Math.cos(a) * CR * 0.68, Math.sin(a) * CR * 0.68, 0.08); pk.userData.hour = h; clockG.add(pk); clockPicks.push(pk); }
+  const placeToken = (i, h) => { clockTokens[i].visible = S.clockHeld !== i; const a = Math.PI / 2 - (h % 12) / 12 * Math.PI * 2, rr = CR * 0.62 + (i % 2) * 0.08; clockTokens[i].position.set(Math.cos(a) * rr, Math.sin(a) * rr, 0.075 + i * 0.002); };
   // the collector's record pinned beside it (the clue)
   const log = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.4), paper(noteTex(r))); log.position.set(47.885, 1.55, 173.4); log.rotation.y = -Math.PI / 2; group.add(log);
   light(47.75, 2.35, 176.4, 0xffa860, 2.6, 6, '-x').userData.creepy = true;
@@ -391,11 +394,23 @@ export function buildAttic(ctx) {
   const waking = [];
   for (const [x, z, h, crack] of [[34.2, 174.6, 1.5, true], [36.0, 178.6, 1.7, false], [33.4, 181.8, 1.6, true], [37.2, 173.4, 1.3, false], [35.6, 182.6, 1.4, true], [32.0, 175.4, 1.2, false]]) waking.push(wakingCocoon(x, z, h, crack));
   light(35.0, 2.6, 178.4, 0x9a8a9a, 6, 12, false).userData.fill = true;
+  // the preserved: the Order's faithful, half wound in silk and strung through the chamber like flies in a web
+  {
+    const R = z => roofY(z) - 0.12;
+    preservedBodies(group, [
+      ['arch', 37.0, 2.55, 179.4, Math.PI, 0.8, 0, [['FL', 36.9, R(179.6), 179.6], ['FR', 37.3, R(179.0), 179.0], ['WL', 37.7, 0.01, 180.1], ['WR', 36.4, 0.01, 178.9], ['H', 37.5, 0.01, 179.0]]],
+      ['loll', 38.3, 1.02, 177.4, 0, -Math.PI / 2, 0, [['SL', 38.3, R(177.0), 177.0], ['SR', 38.0, R(178.0), 178.0], ['WL', 38.95, 1.8, 176.8], ['N', 38.95, 2.2, 177.6], ['FL', 37.8, 0.01, 177.2]]],
+      ['bridge', 34.4, 0.95, 183.8, -Math.PI / 2, 0, 0, [['P', 34.4, R(183.8), 183.8], ['C', 34.0, R(183.4), 183.4], ['WL', 35.4, 0.01, 183.2], ['WR', 33.2, 0.01, 183.6], ['FL', 34.6, 1.0, 185.35], ['H', 34.4, 0.01, 182.8]]],
+      ['pinned', 30.32, 1.15, 181.6, 0, Math.PI / 2, 0, [['WL', 30.03, 2.3, 180.8], ['WR', 30.03, 1.2, 182.4], ['N', 30.03, 2.0, 181.6], ['FL', 30.6, 0.01, 181.0], ['FR', 30.6, 0.01, 182.2], ['P', 30.03, 1.0, 181.6]]],
+      ['slump', 33.2, 0.14, 171.85, 0, 0, 0, [['N', 33.4, R(171.6), 171.6], ['WL', 33.8, 0.01, 172.4], ['SR', 32.6, 1.0, 171.42], ['H', 33.6, R(172.0), 172.0]]],
+    ], threadPts, silk);
+    rect(local, 36.7, 37.3, 179.1, 179.7); rect(local, 38.0, 38.6, 177.1, 177.7); rect(local, 33.9, 34.9, 182.9, 184.8); rect(local, 30.0, 30.6, 181.0, 182.2); rect(local, 32.7, 33.8, 171.4, 172.8);
+  }
 
   // ---------- merge silk ----------
   {
-    const merged = mergeGeometries(silkGeos.map(g => { const n = g.index ? g.toNonIndexed() : g; for (const k of Object.keys(n.attributes)) if (!['position', 'normal', 'uv'].includes(k)) n.deleteAttribute(k); return n; }), false);
-    const silkMesh = new THREE.Mesh(merged, silk); silkMesh.castShadow = true; silkMesh.receiveShadow = true; group.add(silkMesh);
+    const merged = mergeSilk(mergeGeometries, silkGeos);
+    const silkMesh = new THREE.Mesh(merged, animSilk(silk)); silkMesh.castShadow = true; silkMesh.receiveShadow = true; group.add(silkMesh);
     const tg = new THREE.BufferGeometry(); tg.setAttribute('position', new THREE.Float32BufferAttribute(threadPts, 3));
     group.add(new THREE.LineSegments(tg, new THREE.LineBasicMaterial({ color: 0xd8d0c0, transparent: true, opacity: 0.35 })));
   }
@@ -455,9 +470,18 @@ export function buildAttic(ctx) {
     openBox() { S.boxOpen = true; },
     setWheel(k) { S.wheel = ((k % 26) + 26) % 26; inner.rotation.z = -S.wheel / 26 * Math.PI * 2; },
     seeRafters() { S.sawRafters = true; },
+    clockPicks, get clockHeld() { return S.clockHeld; },
+    mothAtHour(h) { const i = S.clock.findIndex((x, k) => x === h && k !== S.clockHeld); return i; },
+    // lift the moth at hour h, or set the carried one there (lifting whatever sat there)
+    useHour(h) {
+      const at = api.mothAtHour(h), held = S.clockHeld;
+      if (held < 0) { if (at < 0) return; S.clockHeld = at; placeToken(at, S.clock[at]); return; }
+      if (at >= 0) { S.clock[at] = S.clock[held]; S.clockHeld = at; } else S.clockHeld = -1;
+      S.clock[held] = h; CLOCK_MOTHS.forEach((c, i) => placeToken(i, S.clock[i]));
+    },
     setHour(i, h) { S.clock[i] = ((h - 1) % 12 + 12) % 12 + 1; placeToken(i, S.clock[i]); },
     clockCorrect() { return CLOCK_MOTHS.every((c, i) => S.clock[i] === c.hour); },
-    solveClock() { S.clockSolved = true; CLOCK_MOTHS.forEach((c, i) => api.setHour(i, c.hour)); removeLocal(hatchCol); },
+    solveClock() { S.clockSolved = true; S.clockHeld = -1; CLOCK_MOTHS.forEach((c, i) => api.setHour(i, c.hour)); removeLocal(hatchCol); },
     serialize() { return { jars: S.jars.map(k => k || S.jarHeld), jarsSolved: S.jarsSolved, rack: [...S.rack], rackSolved: S.rackSolved, eggsOpen: S.eggsOpen, boxOpen: S.boxOpen, clock: [...S.clock], clockSolved: S.clockSolved, wheel: S.wheel, sawRafters: S.sawRafters }; },
     restore(s) {
       if (!s) return;
@@ -467,13 +491,13 @@ export function buildAttic(ctx) {
       if (s.jarsSolved) api.solveJars();
       if (s.eggsOpen) api.openEggs(true);
       if (s.boxOpen) { api.openBox(); lidAnim = 1; handsAnim = 1; }
-      if (Array.isArray(s.clock)) s.clock.forEach((h, i) => api.setHour(i, h));
+      S.clockHeld = -1; if (Array.isArray(s.clock)) s.clock.forEach((h, i) => api.setHour(i, h));
       api.setWheel(s.wheel || 0); S.sawRafters = !!s.sawRafters;
       if (s.clockSolved) { api.solveClock(); hatchAnim = 1; }
     },
     reset() {
       S.jars = [...JAR_START]; S.jarHeld = null; S.jarsSolved = false; placeJars();
-      S.rack = [...RACK_START]; S.rackSolved = false; S.eggsOpen = false; S.boxOpen = false; S.clock = [...CLOCK_START]; S.clockSolved = false; S.wheel = 0; S.sawRafters = false;
+      S.rack = [...RACK_START]; S.rackSolved = false; S.eggsOpen = false; S.boxOpen = false; S.clock = [...CLOCK_START]; S.clockHeld = -1; S.clockSolved = false; S.wheel = 0; S.sawRafters = false;
       shadowAnim = 0; hatchAnim = 0; lidAnim = 0; handsAnim = 0; doorShadow.material.opacity = 0;
       doors.aEggClock.locked = true; eggLock.visible = true;
       addLocal(sdCol); addLocal(hatchCol);
@@ -503,7 +527,8 @@ export function buildAttic(ctx) {
       // the waking cocoons: long stillness, then a jerk; the splitting ones breathe at the seam
       for (const w of waking) {
         if (w.jerk > 0) { w.jerk -= dt; w.g.rotation.z = Math.sin(t * 38 + w.ph) * 0.06 * w.jerk; w.g.rotation.x = Math.cos(t * 31 + w.ph) * 0.04 * w.jerk; }
-        else { w.g.rotation.z = Math.sin(t * 0.6 + w.ph) * 0.012; w.g.rotation.x = 0; if (Math.random() < dt * 0.12) w.jerk = 0.4 + Math.random() * 0.6; }
+        else { w.g.rotation.z = Math.sin(t * 0.6 + w.ph) * 0.012; w.g.rotation.x = 0; if (Math.random() < dt * 0.6) w.jerk = Math.random() < 0.15 ? 1.4 : 0.3 + Math.random() * 0.4; }
+        const br = 1 + 0.035 * Math.sin(t * 0.9 + w.ph); w.g.scale.set(br, 1, br);
         if (w.slit) { const o = 0.75 + 0.35 * Math.max(0, Math.sin(t * 0.9 + w.ph)) + (w.jerk > 0 ? 0.3 : 0); w.slit.scale.x = o; }
       }
       veils.forEach((v, i) => { v.rotation.z = Math.sin(t * 0.5 + i * 1.7) * 0.03; });

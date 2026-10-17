@@ -9,6 +9,7 @@ import { buildTextures } from './textures.js';
 import { buildExterior, SUN_DIR, CLIMB_SPOT, BROKEN_WINDOW, FRONT_DOOR, GATE, FENCE } from './world/exterior.js';
 import { createLampMoths } from './lampMoths.js';
 import { buildFirstRoom, ROOM_LAMP, ROOM_SPAWN, ROOM_WINDOW, ROOM_DOOR, ROOM_ORIGIN, ROOM_CABINET, ROOM_MOSAIC, ROOM_STANDS, ROOM_PANEL } from './world/firstRoom.js';
+import { tickSilk } from './world/cocoon.js';
 import { JOURNAL, LIFESPAN_ORDER, SEATING_NOTE, DINNER_SOLUTION } from './world/groundFloor.js';
 import { SPECIES } from './moths.js';
 import { CELLAR, FIRST, WARDROBE_VERSE, DESK_CODE } from './world/lowerUpper.js';
@@ -860,6 +861,7 @@ function loop() {
     if (state === 'playing' && !grandHallSaved && player.pos.x > ROOM_ORIGIN.x + 20.6 && player.pos.z < ROOM_ORIGIN.z + 12) { grandHallSaved = true; save('grandhall'); say('The Grand Hall. Somewhere above, wings stir in the dark.', 5000); }
   }
   else if (curtain) { curtain.rotation.x = -0.25 - Math.sin(t * 1.3) * 0.12 + Math.sin(t * 3.1) * 0.05; }
+  tickSilk(t);
   lightLimiter.fade(realDt);
   if (state !== 'home') { if (currentQ.post && composer) composer.render(dt); else renderer.render(scene, camera); }
   requestAnimationFrame(loop);
