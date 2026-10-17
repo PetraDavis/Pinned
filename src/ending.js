@@ -91,8 +91,8 @@ function buildHand() {
   { let p = tg; [[0.028, 0.35], [0.022, 0.35]].forEach(([len, c]) => { const m = new THREE.Mesh(seg(len, 0.011), glove); p.add(m); const j = new THREE.Group(); j.position.y = -len; j.rotation.x = -c; p.add(j); p = j; }); }
   // the pin: long, fine, black-headed
   const pin = new THREE.Group();
-  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.00045, 0.00045, 0.038, 6), new THREE.MeshStandardMaterial({ color: 0x9a9a9a, metalness: 0.9, roughness: 0.25 })); shaft.position.y = -0.019; pin.add(shaft);
-  const bead = new THREE.Mesh(new THREE.SphereGeometry(0.0016, 8, 6), new THREE.MeshStandardMaterial({ color: 0x080808, roughness: 0.3 })); pin.add(bead);
+  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.0007, 0.0007, 0.038, 6), new THREE.MeshStandardMaterial({ color: 0x9a9a9a, metalness: 0.9, roughness: 0.25 })); shaft.position.y = -0.019; pin.add(shaft);
+  const bead = new THREE.Mesh(new THREE.SphereGeometry(0.0024, 8, 6), new THREE.MeshStandardMaterial({ color: 0x080808, roughness: 0.3 })); pin.add(bead);
   h.userData.pin = pin;
   return h;
 }
