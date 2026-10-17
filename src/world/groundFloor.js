@@ -366,7 +366,7 @@ export function buildGroundFloor(group, local, { quality: q0 = 'high' } = {}) {
   const avatars = [];
   const mirrors = [];
   function addMirror(m) {
-    const i = mirrors.length, av = makeAvatar(m.stage); av.visible = false; group.add(av); avatars.push(av);
+    const i = mirrors.length, av = makeAvatar(m.stage); av.visible = false; av.userData.anyFloor = true; group.add(av); avatars.push(av);
     const mg = new THREE.Group(); mg.position.copy(m.pos); mg.rotation.y = m.ry; group.add(mg);
     const frame = new THREE.Mesh(new THREE.BoxGeometry(m.w + 0.16, m.h + 0.16, 0.05), new THREE.MeshStandardMaterial({ color: 0x8a6a30, metalness: 0.8, roughness: 0.35 }));
     frame.position.z = -0.02; mg.add(frame);

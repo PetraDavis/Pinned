@@ -24,8 +24,8 @@ export function detectCaps() {
 // Keep at most `max` non-shadow point lights visible: the nearest to the camera. The visible
 // count stays constant, so material programs are never rebuilt as the player walks.
 export function createLightLimiter(scene, max) {
-  let pool = [], tick = 0;
-  const refresh = () => { pool.forEach(l => { l.visible = true; }); pool = []; scene.traverse(o => { if (o.isPointLight && !o.castShadow && !o.userData.noLimit) pool.push(o); }); };
+  let pool = [], tick = 0, want = null;
+  const refresh = () => { pool.forEach(l => { l.visible = true; }); pool = []; scene.traverse(o => { if (o.isPointLight && !o.castShadow && !o.userData.noLimit) { pool.push(o); if (o.distance > 0 && !o.userData.longer) { o.distance *= 1.7; o.userData.longer = true; } } }); };
   const p = { x: 0, y: 0, z: 0 };
   return {
     refresh,
@@ -41,7 +41,23 @@ export function createLightLimiter(scene, max) {
         live.push([p.v.distanceToSquared(camera.position) * (l.userData.fill ? 0.3 : 1), l]); // room fills win ties
       }
       live.sort((a, b) => a[0] - b[0]);
-      live.forEach(([, l], i) => { l.visible = i < max; });
+      want = new Set(live.slice(0, max).map(e => e[1]));
+      for (const l of pool) if (!want.has(l) && l.visible && !live.some(e => e[1] === l)) { l.visible = false; } // its floor is hidden
+      // swap: an unwanted light that has faded out gives its slot to a wanted one
+      const out = live.filter(([, l]) => l.visible && !want.has(l)).map(e => e[1]), inn = live.filter(([, l]) => !l.visible && want.has(l)).map(e => e[1]);
+      let vis = live.filter(([, l]) => l.visible).length;
+      for (const l of inn) { const o = out.find(o => (o.userData.fade ?? 1) <= 0.01); if (o) { o.visible = false; out.splice(out.indexOf(o), 1); } else if (vis >= max) continue; else vis++; l.userData.fade = 0; l.visible = true; }
+    },
+    // fade lights toward wanted/unwanted every frame, so lights never pop
+    fade(dt) {
+      if (!want) return;
+      for (const l of pool) {
+        if (!l.visible) continue;
+        const u = l.userData, target = want.has(l) ? 1 : 0;
+        u.fade = (u.fade ?? 1) + Math.sign(target - (u.fade ?? 1)) * Math.min(Math.abs(target - (u.fade ?? 1)), dt * 2.5);
+        if (u.faded === undefined || l.intensity !== u.faded) u.raw = l.intensity; // someone else set it this frame
+        l.intensity = u.faded = u.raw * u.fade;
+      }
     },
   };
 }

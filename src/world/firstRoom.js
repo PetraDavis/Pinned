@@ -276,6 +276,7 @@ export function buildFirstRoom(scene, shadowSize = 2048, quality = 'high') {
     const box3 = new THREE.Box3(), c = new THREE.Vector3();
     group.updateMatrixWorld(true);
     for (const ch of [...group.children]) {
+      if (ch.userData.anyFloor) continue; // mirror reflections follow the player to every floor
       let z;
       if (ch.isLight) z = ch.position.z;
       else { box3.setFromObject(ch, false); if (box3.isEmpty()) z = ch.position.z; else { box3.getCenter(c); z = c.z - ROOM_ORIGIN.z; } }

@@ -126,7 +126,7 @@ export function createFlashlight(camera, scene, { playClick } = {}) {
       if (f.on && f.battery < LOW) { f.flicker -= dt; if (f.flicker < 0) f.flicker = Math.random() * 0.4; I *= f.flicker < 0.06 ? 0.15 : 0.6 + f.battery * 2; }
       if (f.burstT >= 0) { f.burstT += dt; const b = Math.max(0, 1 - f.burstT / 0.45); I += 260 * b; angle = 0.36 - 0.2 * b; if (f.burstT > 0.45) f.burstT = -1; }
       light.intensity = I; light.angle = angle;
-      lensMat.emissiveIntensity = I > 0 ? 1.5 : 0;
+      lensMat.emissiveIntensity = I > 0 ? 0.55 : 0;
       beam.material.uniforms.strength.value = I / 30; beam.visible = I > 0;
       dust.visible = I > 0 && quality.dust > 0;
       dust.material.opacity = Math.min(0.35, I / 80);

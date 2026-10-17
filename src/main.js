@@ -156,7 +156,7 @@ function buildComposer() {
   { const r0 = ao.render.bind(ao); const hidden = []; ao.render = (...a) => { hidden.length = 0; scene.traverseVisible(o => { if (o.userData.noAO) hidden.push(o); }); hidden.forEach(o => (o.visible = false)); r0(...a); hidden.forEach(o => (o.visible = true)); }; }
   ao.blendIntensity = 0.8; c.addPass(ao);
   // high threshold: only the lamp flame, sconces and lit glass bloom
-  c.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.55, 0.5, 0.88));
+  c.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.32, 0.65, 0.92));
   c.addPass(new OutputPass());
   return c;
 }
@@ -188,7 +188,7 @@ function applyQuality(q) {
       o.shadow.mapSize.set(size, size);
       if (o.shadow.map) { o.shadow.map.dispose(); o.shadow.map = null; }
     }
-    if (o.material) for (const m of [].concat(o.material)) m.needsUpdate = true;
+    if (o.material) for (const m of [].concat(o.material)) { m.dithering = true; m.needsUpdate = true; }
   });
 }
 $('sCrouchToggle').addEventListener('change', e => { settings.crouchToggle = e.target.checked; saveSettings(settings); applySettings(); });
@@ -789,7 +789,7 @@ function loop() {
   for (const l of shadowLights) {
     l.shadow.autoUpdate = false;
     let o = l, vis = true; while (o) { if (!o.visible) { vis = false; break; } o = o.parent; }
-    if (vis && l.castShadow && l.intensity > 0 && (frameNo & 1) === 0 && l.getWorldPosition(tmpShadowV).distanceTo(camera.position) < 14) l.shadow.needsUpdate = true;
+    if (vis && l.castShadow && l.intensity > 0 && (settings.quality === 'low' ? (frameNo & 1) === 0 : true) && l.getWorldPosition(tmpShadowV).distanceTo(camera.position) < 14) l.shadow.needsUpdate = true;
   }
   flashlight.update(dt, t, player.moving, currentQ, lantern.on ? { on: true, onTime: lantern.onTime, pos: lantern.worldPos(lurePos) } : null);
   setHiss(state === 'playing' && zone === 'room' ? ground.hiss : 0);
@@ -800,6 +800,7 @@ function loop() {
     if (state === 'playing' && !grandHallSaved && player.pos.x > ROOM_ORIGIN.x + 20.6 && player.pos.z < ROOM_ORIGIN.z + 12) { grandHallSaved = true; save('grandhall'); say('The Grand Hall. Somewhere above, wings stir in the dark.', 5000); }
   }
   else if (curtain) { curtain.rotation.x = -0.25 - Math.sin(t * 1.3) * 0.12 + Math.sin(t * 3.1) * 0.05; }
+  lightLimiter.fade(realDt);
   if (state !== 'home') { if (currentQ.post && composer) composer.render(dt); else renderer.render(scene, camera); }
   requestAnimationFrame(loop);
 }
