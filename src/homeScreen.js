@@ -15,8 +15,22 @@ export function startHomeBackdrop(canvas) {
   function layout() {
     const narrow = W < 800 * dpr;
     // leave the top band clear and dark for the PINNED title
-    const cw = Math.min(narrow ? W * 0.92 : W * 0.5, H * (narrow ? 0.5 : 0.74) * 4 / 3), ch = cw * 0.75;
-    const cx = narrow ? W / 2 : W * 0.66, cy = narrow ? H * 0.36 : H * 0.58;
+    let cw = Math.min(narrow ? W * 0.92 : W * 0.5, H * (narrow ? 0.5 : 0.74) * 4 / 3); let ch = cw * 0.75;
+    let cx = narrow ? W / 2 : W * 0.66, cy = narrow ? H * 0.36 : H * 0.58;
+    if (!narrow) {
+      // fit the case into the space right of the menu and below the title, so a short or
+      // narrow window shrinks the case instead of letting the menu run over its label
+      const home = canvas.parentElement, menu = home && home.querySelector('.menu'), title = home && home.querySelector('.title');
+      const mr = menu && menu.getBoundingClientRect(), tr = title && title.getBoundingClientRect();
+      if (mr && mr.width) {
+        const pad = 24 * dpr, left = mr.right * dpr + pad, right = W - pad;
+        const top = Math.max(tr && tr.height ? (tr.bottom + 12) * dpr : 0, H * 0.18), bottom = H - pad;
+        const k = Math.min(1, (right - left) / cw, (bottom - top) / ch);
+        cw *= k; ch *= k;
+        cx = Math.min(Math.max(cx, left + cw / 2), right - cw / 2);
+        cy = Math.min(Math.max(cy, top + ch / 2), bottom - ch / 2);
+      }
+    }
     const b = cw * 0.065;
     return { cw, ch, cx, cy, x0: cx - cw / 2, y0: cy - ch / 2, b, ix: cx - cw / 2 + b, iy: cy - ch / 2 + b, iw: cw - 2 * b, ih: ch - 2 * b };
   }
@@ -125,6 +139,8 @@ export function startHomeBackdrop(canvas) {
   }
   build();
   addEventListener('resize', () => { build(); });
+  // the case is fitted around the menu and title, so refit once web fonts settle their size
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (running) build(); });
   raf = requestAnimationFrame(frame);
   return {
     stop() { running = false; cancelAnimationFrame(raf); },

@@ -75,4 +75,19 @@ select { grid-column: 1 / -1; font: inherit; color: var(--ink); background: #141
 .jmoth h3 { margin: 0; font-size: 15px; } .jmoth em { font-size: 12px; opacity: .7; } .jmoth p { font-size: 13px; line-height: 1.45; margin: 4px 0 0; }
 /* short windows: keep every home-screen button reachable */
 #home .menu { max-height: calc(100vh - 24px); overflow-y: auto; }
+@media (min-width: 801px) { #home .menu { max-height: calc(86vh - 24px); } } /* 14vh top margin + centring: bottom always stays on screen */
 @media (max-height: 620px) { #home .menu { margin-top: 0 !important; gap: 6px; } #home .menu button { padding-top: 6px; padding-bottom: 6px; } #home .tag { display: none; } }
+
+/* Settings gear: brass cog in the top-right corner of the home screen and pause menu */
+.gear { position: absolute; top: max(14px, env(safe-area-inset-top, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); z-index: 2;
+  width: 48px; height: 48px; padding: 0; display: grid; place-items: center; border-radius: 50%;
+  color: #c8a458; background: radial-gradient(circle at 35% 30%, rgba(60, 44, 22, .9), rgba(14, 10, 6, .9));
+  border: 1px solid #6a5030; box-shadow: inset 0 0 0 2px rgba(0, 0, 0, .45), 0 2px 10px rgba(0, 0, 0, .6);
+  transition: color .2s, border-color .2s, box-shadow .2s; }
+.gear svg { filter: drop-shadow(0 1px 0 rgba(0, 0, 0, .7)); transition: transform .5s ease; }
+.gear:hover:not(:disabled), .gear:focus-visible { color: #f0d890; border-color: #d8b870; background: radial-gradient(circle at 35% 30%, rgba(84, 62, 30, .95), rgba(20, 14, 8, .95));
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, .45), 0 0 14px rgba(216, 184, 112, .35); }
+.gear:hover svg { transform: rotate(45deg); }
+.gear:focus-visible { outline: 2px solid #d8b870; outline-offset: 3px; }
+.gear:active svg { transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) { .gear svg { transition: none; } .gear:hover svg, .gear:active svg { transform: none; } }
