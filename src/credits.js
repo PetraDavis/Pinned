@@ -27,7 +27,7 @@ export function createCredits() {
   const el = document.createElement('div'); el.id = 'credits'; el.className = 'hidden';
   el.innerHTML = `<canvas class="cr-moths"></canvas><div class="cr-roll">${LINES}</div>
     <div class="cr-card"><canvas class="cr-pinned"></canvas><div class="cr-fin">Finis</div></div>
-    <div class="cr-skip">Esc or click to skip</div>`;
+    <button class="cr-skip" type="button" disabled title="Esc or click to skip">Skip</button>`;
   document.body.appendChild(el);
   const cv = el.querySelector('.cr-moths'), g = cv.getContext('2d');
   const roll = el.querySelector('.cr-roll'), card = el.querySelector('.cr-card'), pinned = el.querySelector('.cr-pinned'), skipEl = el.querySelector('.cr-skip');
@@ -64,7 +64,7 @@ export function createCredits() {
     if (y + rollH < innerHeight * 0.45 && cardAt === Infinity) cardAt = t;
     const ck = Math.max(0, Math.min(1, (t - cardAt) / 2));
     card.style.opacity = ck; roll.style.opacity = Math.max(0, 1 - ck * 2);
-    skipEl.style.opacity = t > SKIP_AFTER ? 0.7 : 0;
+    skipEl.disabled = t < SKIP_AFTER;
     g.clearRect(0, 0, cv.width, cv.height);
     for (const m of moths) {
       m.x += m.vx * dt; m.y += Math.sin(t * 0.7 + m.ph) * 8 * dpr * dt;

@@ -105,4 +105,7 @@ select { grid-column: 1 / -1; font: inherit; color: var(--ink); background: #141
 #credits .cr-thanks { font: italic clamp(24px, 5vw, 34px) Georgia, serif; color: #f2d79a; line-height: 1.4; margin: 70px 0; text-shadow: 0 0 22px rgba(240,200,120,.25); }
 #credits .cr-card { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; opacity: 0; pointer-events: none; }
 #credits .cr-fin { font: 700 22px 'Cinzel Decorative', Georgia, serif; letter-spacing: .3em; color: #a8987a; }
-#credits .cr-skip { position: absolute; right: 16px; bottom: 12px; font: 13px Georgia, serif; color: #6a6458; opacity: 0; transition: opacity .6s; }
+#credits .cr-skip { position: absolute; right: 16px; bottom: 16px; padding: 8px 22px; font: 15px Georgia, serif; letter-spacing: .12em;
+  color: #e8dcc0; background: rgba(20,14,10,.85); border: 1px solid #8a6a40; cursor: pointer; transition: opacity .6s, background .2s; }
+#credits .cr-skip:hover:not(:disabled) { background: #3a2214; }
+#credits .cr-skip:disabled { opacity: .35; cursor: default; }
