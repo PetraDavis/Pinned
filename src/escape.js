@@ -13,6 +13,13 @@
 //    of the ladder.
 // Tension beats: cocoons burst, moths swarm, doors slam.
 // main.js wires this in with a few small hooks (createEscape, interactables, update, reset).
+//
+// Together (multiplayer) the host runs her and sends her state to everyone ({t:'esc'} messages,
+// see onNet): her position, mode, floor, the tunnel and the ending. Any player can take the key or
+// open the tunnel (a guest asks the host). She hunts one living player at a time, preferring
+// whoever is on her floor, nearest, with a light on; each player sees her only on their own floor.
+// A caught player wakes at the top of the ladder (no reload: the house goes on for the others),
+// and she withdraws for a moment. The more players, the faster and sharper she is (crowd()).
 import * as THREE from 'three';
 import { buildMother } from './characters/mother.js';
 import { ATTIC } from './world/attic.js';
@@ -130,7 +137,7 @@ export function createEscape(G) {
   const swarms = createSwarms(group);
   const S = { on: false, mode: 'off', floor: null, pos: new THREE.Vector2(), yaw: 0, y: 0, crumbs: [], ci: 0, maxCi: Infinity, knows: true, lost: 0, stun: 0, t: 0,
     search: null, searchT: 0, goneT: 0, arrive: null, arriveT: 0, beats: {}, slowT: 0, told: {} };
-  let dist = 99; const hear = () => Math.max(0, 1 - dist / 16);
+  let dist = 99, hearD = null; const hear = () => Math.max(0, 1 - (hearD ?? dist) / 16); // hearD: the host's own ear, when she is hunting someone else
 
   // ---------- line of sight in the floor plan (walls only, not low headers) ----------
   let wallCache = null, wallCacheT = 0, wallFloor = null;
@@ -160,24 +167,82 @@ export function createEscape(G) {
     }
   }
 
+
+  // ---------- multiplayer: the host runs her; guests follow the host's state ----------
+  const net = () => (G.net && G.net.active() ? G.net : null);
+  const isClient = () => !!(G.mpClient && G.mpClient());
+  const send = (m, except) => { const n = net(); if (n && !isClient()) n.toAll(m, except); };
+  // how many are playing, as 0 (alone) .. 1 (four): she is busier the more of you there are
+  const crowd = () => { const n = Math.max(1, Math.min(4, (G.playerCount && G.playerCount()) || 1)); return (n - 1) / 3; };
+  const myFloor = () => floorOf(local().y);
+  // a line for whoever is on her floor (floor null: for everyone)
+  function tell(msg, ms, floor = S.floor) {
+    if (!msg) return;
+    if (!net()) return say(msg, ms);
+    if (floor == null || floor === myFloor()) say(msg, ms);
+    send({ ev: 'say', msg, ms, floor });
+  }
+  const fx = (m) => send({ ev: 'fx', floor: S.floor, ...m });
+
   const lit = () => flashlight.on || lantern.on;
   const sprinting = () => player.moving && !player.crouching && player.keys && (player.keys.ShiftLeft || player.keys.ShiftRight);
   const hiddenNow = () => (G.motherPlay && G.motherPlay.hidden) || (!lit() && player.crouching);
 
+  // ---------- who she can hunt: you, and on the host every other living player in the house ----------
+  // q: { id, pos (room-local Vector2), lit, crouch, moving, sprint, hidden, local }
+  const trails = new Map(), deadUntil = new Map();
+  let T = null; // her target
+  const TP = new THREE.Vector2();
+  function hunters() {
+    const out = [];
+    // never the ground floor (the starter floor): whoever is down there is out of her reach
+    if (!deadUntil.has('h') && floorOf(local().y) !== 'ground' && (!net() || !G.localAlive || G.localAlive()))
+      out.push({ id: 'h', pos: local(), lit: lit(), crouch: player.crouching, moving: player.moving, sprint: sprinting(), hidden: hiddenNow(), local: true });
+    const n = net();
+    if (n) for (const r of n.players()) {
+      if (r.zone !== 'room' || floorOf(r.z - O.z) === 'ground' || r.dd || deadUntil.has(r.id) || r.x == null) continue;
+      const rl = !!(r.f || r.ln), crouch = (r.crouch || 0) > 0.5;
+      out.push({ id: r.id, pos: new THREE.Vector2(r.x - O.x, r.z - O.z), lit: rl, crouch, moving: !!r.mv, sprint: !!r.sp, hidden: !!r.hd || (!rl && crouch), local: false });
+    }
+    return out;
+  }
+  function trackTrail(q) {
+    const f = floorOf(q.pos.y); let tr = trails.get(q.id);
+    if (!tr) { tr = { floor: f, crumbs: [] }; trails.set(q.id, tr); }
+    if (tr.floor !== f) { tr.floor = f; tr.crumbs = [q.pos.clone()]; if (q.id === S.tid) S.ci = 0; return tr; }
+    const last = tr.crumbs[tr.crumbs.length - 1]; if (!last || last.distanceTo(q.pos) > 0.4) tr.crumbs.push(q.pos.clone());
+    if (tr.crumbs.length > 1500) { tr.crumbs.splice(0, 500); if (q.id === S.tid) { S.ci = Math.max(0, S.ci - 500); if (S.maxCi !== Infinity) S.maxCi = Math.max(0, S.maxCi - 500); } }
+    return tr;
+  }
+  let pickT = 0;
+  function pickTarget(list, dt) {
+    if (list.length <= 1) return list[0] || null; // alone: always you
+    pickT -= dt;
+    const cur = list.find(q => q.id === S.tid), onHer = list.filter(q => floorOf(q.pos.y) === S.floor);
+    if (cur && pickT > 0 && (S.mode === 'wake' || onHer.includes(cur) || !onHer.length)) return cur;
+    pickT = 1.5;
+    // whoever is on her floor, the nearest, and a light makes you nearer still
+    const pool = onHer.length ? onHer : list;
+    let best = null, bs = Infinity;
+    for (const q of pool) { const s = (onHer.length ? q.pos.distanceTo(S.pos) : 0) - (q.lit ? 8 : 0) - (q.id === S.tid ? 2 : 0); if (s < bs) { bs = s; best = q; } }
+    return best;
+  }
+
   function show(on) { ensureModel(); model.visible = on; }
   function placeModel() { model.position.set(S.pos.x, S.y, S.pos.y); model.rotation.y += (((S.yaw - model.rotation.y + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI) * 0.25; }
   function appear(at, mode = 'hunt', msg = null) {
+    if (floorOf(at.y) === 'ground') return; // never on the ground floor
     ensureModel(); S.pos.copy(at); S.y = 0; S.mode = mode; S.knows = true; S.lost = 0; S.maxCi = Infinity; S.stun = 0;
     let bi = 0, bd = 1e9; S.crumbs.forEach((c, i) => { const d = c.distanceToSquared(at); if (d < bd) { bd = d; bi = i; } }); S.ci = bi;
-    const p = local(); S.yaw = Math.atan2(p.x - at.x, p.y - at.y); model.rotation.y = S.yaw;
-    show(true); api.spread(); api.twitch(); sfx.flutter(1); sfx.clicks(1, 5); if (msg) say(msg, 4500);
+    const p = T ? TP : local(); S.yaw = Math.atan2(p.x - at.x, p.y - at.y); model.rotation.y = S.yaw;
+    show(true); api.spread(); api.twitch(); sfx.flutter(1); sfx.clicks(1, 5); if (msg) tell(msg, 4500);
   }
-  function slam(msg) { sfx.thud(); setTimeout(() => sfx.thud(), 90); sfx.creak(); shake = 0.5; if (msg) say(msg, 4000); }
+  function slam(msg) { sfx.thud(); setTimeout(() => sfx.thud(), 90); sfx.creak(); shake = 0.5; if (msg) tell(msg, 4000); fx({ k: 'slam' }); }
   let shake = 0;
 
   // a point off to one side, ahead of you on the way to `goal`, that she can be standing on
   function aheadPoint(goal, minD = 4, maxD = 7) {
-    const p = local();
+    const p = TP;
     for (let k = 0; k < 160; k++) {
       const a = Math.random() * Math.PI * 2, d = minD + Math.random() * (maxD - minD), c = new THREE.Vector2(p.x + Math.cos(a) * d, p.y + Math.sin(a) * d);
       if (floorOf(c.y) !== S.floor || !freeAt(c, 0.55) || !los(c, p)) continue;
@@ -191,29 +256,39 @@ export function createEscape(G) {
   }
 
   // ---------- beats ----------
+  function swarm(at, n, toward) { swarms.burst(at, n, toward); fx({ k: 'burst', at: [at.x, at.y, at.z], n, to: toward ? [toward.x, toward.y, toward.z] : null }); }
   function burstCocoon(x, z, toward = true) {
-    const at = new THREE.Vector3(x, 1.2, z); swarms.burst(at, 26, toward ? new THREE.Vector3(player.pos.x - O.x, 1.4, player.pos.z - O.z) : null);
-    sfx.softClicks(6); sfx.flutter(0.8); sfx.glass && sfx.glass();
+    const at = new THREE.Vector3(x, 1.2, z); swarm(at, 26, toward ? new THREE.Vector3(TP.x, 1.4, TP.y) : null);
+    sfx.softClicks(6); sfx.flutter(0.8); sfx.glass && sfx.glass(); fx({ k: 'cocoon' });
   }
+  // appear-ahead beats: once per floor alone, up to three times with four players (12 s apart)
+  const aheadMax = () => 1 + Math.round(crowd() * 2);
+  const aheadOk = (k) => (S.beats[k] | 0) < aheadMax() && !(S.t - (S.beats[k + 'T'] ?? -1e9) < 12);
+  const aheadDone = (k) => { S.beats[k] = (S.beats[k] | 0) + 1; S.beats[k + 'T'] = S.t; };
   function floorBeats(p) {
     const f = S.floor;
     if (f === 'attic' && !S.beats.atticCocoons && S.t > 1.2) { S.beats.atticCocoons = true; burstCocoon(34.2, 174.6); burstCocoon(33.4, 181.8, false); }
-    if (f === 'attic' && !S.beats.atticSlam && p.x > 43 && p.y > 179) { S.beats.atticSlam = true; slam(); swarms.burst(new THREE.Vector3(47, 2.4, 181), 20, new THREE.Vector3(p.x, 1.4, p.y)); }
-    if (f === 'first' && !S.beats.firstSlam && S.floorT > 1.0) { S.beats.firstSlam = true; slam('Somewhere on this floor a door slams, and keeps on rattling in its frame.'); swarms.burst(new THREE.Vector3(p.x - 1.5, 2.6, p.y), 30, new THREE.Vector3(p.x, 1.4, p.y)); }
-    if (f === 'first' && !S.beats.firstAhead && S.mode === 'hunt' && dist > 7 && p.distanceTo(new THREE.Vector2(FIRST.stairB.x, FIRST.stairB.z)) < 13) {
+    if (f === 'attic' && !S.beats.atticSlam && p.x > 43 && p.y > 179) { S.beats.atticSlam = true; slam(); swarm(new THREE.Vector3(47, 2.4, 181), 20, new THREE.Vector3(p.x, 1.4, p.y)); }
+    if (f === 'first' && !S.beats.firstSlam && S.floorT > 1.0) { S.beats.firstSlam = true; slam('Somewhere on this floor a door slams, and keeps on rattling in its frame.'); swarm(new THREE.Vector3(p.x - 1.5, 2.6, p.y), 30, new THREE.Vector3(p.x, 1.4, p.y)); }
+    if (f === 'first' && aheadOk('firstAhead') && S.mode === 'hunt' && dist > 7 && p.distanceTo(new THREE.Vector2(FIRST.stairB.x, FIRST.stairB.z)) < 13) {
       const c = aheadPoint(new THREE.Vector2(FIRST.stairB.x, FIRST.stairB.z));
-      if (c) { S.beats.firstAhead = true; appear(c, 'glimpse', 'She is ahead of you. How is she ahead of you?'); S.glimpseT = 1.6; }
+      if (c) { const first = !S.beats.firstAhead; aheadDone('firstAhead'); appear(c, 'glimpse', first ? 'She is ahead of you. How is she ahead of you?' : null); S.glimpseT = 1.6; }
     }
     if (f === 'first' && !S.beats.firstCocoon && S.beats.firstAhead && S.mode === 'hunt') { S.beats.firstCocoon = true; burstCocoon(p.x + 1.2, p.y + 0.6); }
-    if (f === 'catacombs' && !S.beats.cataSwarm && S.floorT > 0.8) { S.beats.cataSwarm = true; slam(); swarms.burst(new THREE.Vector3(CATA.stairB.x, 2.3, CATA.stairB.z - 0.6), 40, new THREE.Vector3(p.x, 1.4, p.y)); }
-    if (f === 'catacombs' && !S.beats.cataAhead && S.mode === 'hunt' && dist > 7 && p.y < 133 && p.x < 47) {
+    if (f === 'catacombs' && !S.beats.cataSwarm && S.floorT > 0.8) { S.beats.cataSwarm = true; slam(); swarm(new THREE.Vector3(CATA.stairB.x, 2.3, CATA.stairB.z - 0.6), 40, new THREE.Vector3(p.x, 1.4, p.y)); }
+    if (f === 'catacombs' && aheadOk('cataAhead') && S.mode === 'hunt' && dist > 7 && p.y < 133 && p.x < 47) {
       const c = aheadPoint(new THREE.Vector2(TUNNEL_DOOR.x, TUNNEL_DOOR.z), 4.5, 8);
-      if (c) { S.beats.cataAhead = true; appear(c, 'glimpse', null); S.glimpseT = 1.4; burstCocoon(36.4, 120.3); }
+      if (c) { const first = !S.beats.cataAhead; aheadDone('cataAhead'); appear(c, 'glimpse', null); S.glimpseT = 1.4; if (first) burstCocoon(36.4, 120.3); }
     }
   }
 
   // ---------- the tunnel door ----------
   function openTunnel() {
+    if (tunnelAnim >= 0) return;
+    if (isClient()) { if (G.net) G.net.toHost({ req: 'tunnel' }); return; } // the host opens it for everyone
+    openTunnelHere(); send({ ev: 'tunnel' });
+  }
+  function openTunnelHere() {
     if (tunnelAnim >= 0) return;
     tunnelAnim = 0; sfx.creak(); sfx.thud();
     say('Her key turns. The chain slithers off and the door falls in, and the bricks behind it go with it, rotten, into the dark. Cold air. Night air.', 7000);
@@ -242,64 +317,169 @@ export function createEscape(G) {
   }
 
   // ---------- start / stop ----------
-  let ended = false;
-  function begin(fromSave) {
-    ensureModel(); swarms.clear();
+  let ended = false, R = null; // R: a guest following the host's chase
+  function begin(fromSave, toward = null) {
+    ensureModel(); swarms.clear(); trails.clear(); deadUntil.clear(); T = null; S.tid = null; pickT = 0; R = null;
     S.on = true; S.t = 0; S.beats = {}; S.told = {}; S.crumbs = []; S.ci = 0; S.stun = 0; S.floor = floorOf(local().y); S.floorT = 0; ended = false;
     key.visible = false;
     if (G.motherPlay) { G.motherPlay.reset && G.motherPlay.reset(); if (G.motherPlay.model) G.motherPlay.model.visible = false; }
     if (fromSave) {
       S.mode = 'away'; S.arrive = RELOAD_START.clone(); S.arriveT = 2.2; show(false); S.beats.atticCocoons = true;
     } else {
-      S.mode = 'wake'; S.pos.copy(DROP_POS); S.y = 2.9; S.wakeT = 0; const p = local(); S.yaw = Math.atan2(p.x - S.pos.x, p.y - S.pos.y); model.rotation.y = S.yaw; show(true); api.setOpen(0);
+      S.mode = 'wake'; S.pos.copy(DROP_POS); S.y = 2.9; S.wakeT = 0; const p = toward || local(); S.yaw = Math.atan2(p.x - S.pos.x, p.y - S.pos.y); model.rotation.y = S.yaw; show(true); api.setOpen(0);
+      if (toward) S.floor = floorOf(toward.y);
     }
   }
-  function takeKey() {
+  const KEY_MSG = 'You work the key free of the silk. The silk is warm. Above you, in the dark of the rafters, something very large lets go.';
+  function takeKey(by = null) {
     if (S.on) return;
+    if (isClient()) { if (G.net) G.net.toHost({ req: 'key' }); return; } // the host wakes her for everyone
     sfx.clicks(0.6, 2);
-    say('You work the key free of the silk. The silk is warm. Above you, in the dark of the rafters, something very large lets go.', 6000);
+    if (!by) say(KEY_MSG, 6000); else net() && net().toOne(by.id, { ev: 'say', msg: KEY_MSG, ms: 6000, floor: null });
+    send({ ev: 'say', msg: 'Up in the attic, someone has taken her key. Above the nest, something very large lets go.', ms: 6000, floor: null }, by ? by.id : null);
+    if (by) say('Up in the attic, someone has taken her key. Above the nest, something very large lets go.', 6000);
     G.visited().escape = true; G.save('escape');
-    begin(false);
+    begin(false, by ? by.pos : null);
+  }
+  // the ending, for everyone
+  function endAll() {
+    if (ended) return;
+    ended = true; S.on = false; if (model) model.visible = false;
+    send({ ev: 'end' });
+    G.onEnd();
+  }
+  // caught: alone, back to the 'escape' save; together, that player wakes at the top of the ladder
+  function catchP(q) {
+    if (!net()) return G.caught();
+    deadUntil.set(q.id, S.t + 6);
+    if (q.local) G.caughtMP(); else net().toOne(q.id, { ev: 'caught' });
+    // she has what she came for, for now: she withdraws, and comes back on someone else's trail
+    S.mode = 'gone'; S.goneT = (5 + Math.random() * 3) * (1 - 0.4 * crowd()); show(false); S.tid = null; pickT = 0;
+  }
+  // a guest starts following the host's chase
+  function follow() {
+    ensureModel(); swarms.clear(); S.on = true; ended = false; key.visible = false; R = { st: null };
+    G.visited().escape = true;
+    if (G.motherPlay) { G.motherPlay.reset && G.motherPlay.reset(); if (G.motherPlay.model) G.motherPlay.model.visible = false; }
   }
 
   const interactables = [
-    { zone: 'room', pos: KEY_SPOT.clone().add(O), r: 0.95, when: () => !S.on && !G.visited().escape && !!G.visited().chamber && !(G.mpClient && G.mpClient()),
-      prompt: 'E  take the iron key from the nest', act: takeKey },
+    { zone: 'room', pos: KEY_SPOT.clone().add(O), r: 0.95, when: () => !S.on && !G.visited().escape && !!G.visited().chamber,
+      prompt: 'E  take the iron key from the nest', act: () => takeKey() },
     { zone: 'room', pos: TUNNEL_DOOR.clone().add(O), r: 1.4, when: () => S.on && tunnelAnim < 0, prompt: 'E  open the chains with her key', act: openTunnel },
   ];
+
+  // host: send her state to the guests, 15 times a second
+  let stT = 0;
+  function broadcast(dt) {
+    const n = net(); if (!n || isClient()) return;
+    stT -= dt; if (stT > 0) return; stT = 1 / 15;
+    n.toAll({ ev: 'st', on: S.on ? 1 : 0, mode: S.mode, floor: S.floor, x: +S.pos.x.toFixed(3), z: +S.pos.y.toFixed(3), y: +S.y.toFixed(3), yaw: +S.yaw.toFixed(3),
+      open: model ? +api.open.toFixed(2) : 0, vis: model && model.visible ? 1 : 0, tun: tunnelAnim >= 0 ? 1 : 0 });
+  }
+  // guest: draw her where the host says she is, on your floor only
+  function followUpdate(dt) {
+    const st = R.st; if (!st) return;
+    const p = local(), mine = floorOf(p.y);
+    const vis = !!st.vis && st.floor === mine && (G.active ? G.active() : true);
+    const at = new THREE.Vector2(st.x, st.z);
+    if (S.pos.distanceTo(at) > 3 || !model.visible) S.pos.copy(at); else S.pos.lerp(at, Math.min(1, dt * 12));
+    S.y = st.y; S.yaw = st.yaw; S.mode = st.mode; S.floor = st.floor; placeModel();
+    model.visible = vis;
+    dist = vis ? S.pos.distanceTo(p) : 99;
+    if (vis && dt > 0) { api.update(st.mode === 'hunt' ? dt * 2.5 : dt); if (Math.abs(api.open - st.open) > 0.03) api.setOpen(st.open); }
+    if (vis && dist < 6 && !S.told.near) { S.told.near = true; say('A pale moth lands on the back of your hand. She is close.', 3500); }
+    // far enough into the tunnel: ask the host to end it for everyone
+    if (tunnelAnim > 0.9 && p.x < TUNNEL_END_X && Math.abs(p.y - 125) < 1.2 && !R.asked && G.net) { R.asked = true; G.net.toHost({ req: 'end' }); }
+  }
+
+  // torch burst from a point (room-local): she rears back and folds her wings over her face
+  function flashAt(d, from) {
+    if (!S.on || !model || !model.visible || S.mode === 'away' || S.mode === 'gone' || S.mode === 'wake') return;
+    const m = new THREE.Vector3(S.pos.x + O.x, 1.8, S.pos.y + O.z), v = m.clone().sub(d.origin);
+    if (floorOf(from.y) !== S.floor || v.length() > d.range || v.normalize().dot(d.dir) < 0.93 || !los(from, S.pos)) return;
+    S.stun = 3.5; S.mode = 'hunt'; api.fold(); api.twitch(); sfx.flutter(1);
+    // she recoils a step
+    const back = S.pos.clone().sub(from).setLength(1.2).add(S.pos); if (freeAt(back, 0.35)) S.pos.copy(back);
+    if (!S.told.stun) { S.told.stun = true; tell('She rears back from the light, wings snapping shut over her face. Go.', 3500); }
+  }
 
   const self = {
     interactables,
     get running() { return S.on; },
     get ownsMother() { return S.on || !!G.visited().escape; },
     get chasing() { return S.on; },
-    get debug() { return { mode: S.mode, floor: S.floor, x: S.pos.x, z: S.pos.y, dist, knows: S.knows, crumbs: S.crumbs.length, ci: S.ci, beats: { ...S.beats }, tunnel: tunnelAnim, stun: S.stun }; },
+    get debug() { return { mode: S.mode, floor: S.floor, x: S.pos.x, z: S.pos.y, dist, knows: S.knows, crumbs: S.crumbs.length, ci: S.ci, beats: { ...S.beats }, tunnel: tunnelAnim, stun: S.stun, visible: !!(model && model.visible), target: S.tid, following: !!R, dead: [...deadUntil.keys()], crowd: crowd() }; },
     begin, openTunnel,
     // tests / debugging: straight to the ending
-    endNow() { ended = true; S.on = false; if (model) model.visible = false; G.onEnd(); },
+    endNow() { if (isClient()) { ended = true; S.on = false; if (model) model.visible = false; G.onEnd(); return; } endAll(); },
     spawn() { return LADDER_TOP; },
     // from spawnAt(): every load resets the chase; the 'escape' save restarts it at the ladder
     reset(checkpoint, visited) {
-      S.on = false; S.mode = 'off'; swarms.clear(); resetTunnel(); if (model) model.visible = false; ended = false;
+      S.on = false; S.mode = 'off'; swarms.clear(); resetTunnel(); if (model) model.visible = false; ended = false; R = null; trails.clear(); deadUntil.clear(); T = null; S.tid = null;
       key.visible = !(visited && visited.escape);
       if (G.motherPlay && G.motherPlay.model) G.motherPlay.model.visible = !(visited && visited.escape);
       if (checkpoint === 'escape') { player.place(O.x + LADDER_TOP.x, O.z + LADDER_TOP.z, LADDER_TOP.yaw); begin(true); }
     },
+    // multiplayer messages about the chase ({t:'esc'} on the wire). from: 'h' (the host) or a guest's id
+    onNet(from, m) {
+      if (isClient()) {
+        if (m.ev === 'st') {
+          if (m.on && !S.on && !ended) follow();
+          if (!m.on && S.on && R) { S.on = false; R = null; if (model) model.visible = false; }
+          if (R) R.st = m;
+          if (m.tun && tunnelAnim < 0) openTunnelHere();
+        } else if (m.ev === 'say') { if (m.floor == null || m.floor === myFloor()) say(m.msg, m.ms); }
+        else if (m.ev === 'fx') {
+          if (m.floor !== myFloor()) return;
+          if (m.k === 'slam') { sfx.thud(); setTimeout(() => sfx.thud(), 90); sfx.creak(); shake = 0.5; }
+          else if (m.k === 'cocoon') { sfx.softClicks(6); sfx.flutter(0.8); sfx.glass && sfx.glass(); }
+          else if (m.k === 'burst') swarms.burst(new THREE.Vector3(...m.at), m.n, m.to ? new THREE.Vector3(...m.to) : null);
+        }
+        else if (m.ev === 'tunnel') openTunnelHere();
+        else if (m.ev === 'caught') { if (G.state() === 'playing' || G.state() === 'paused') G.caughtMP(); }
+        else if (m.ev === 'end') { if (!ended) { ended = true; S.on = false; R = null; if (model) model.visible = false; G.onEnd(); } }
+        return;
+      }
+      // host: a guest's request
+      const r = net() && net().players().find(q => q.id === from);
+      if (m.req === 'key' && !S.on && !G.visited().escape && r) takeKey({ id: from, pos: new THREE.Vector2(r.x - O.x, r.z - O.z) });
+      else if (m.req === 'tunnel' && S.on) openTunnel();
+      else if (m.req === 'end' && S.on && tunnelAnim > 0.9) endAll();
+      else if (m.req === 'flash' && S.on && m.o) flashAt({ origin: new THREE.Vector3(...m.o), dir: new THREE.Vector3(...m.d), range: m.r }, new THREE.Vector2(m.o[0] - O.x, m.o[2] - O.z));
+    },
     update(dt, t) {
       swarms.update(dt, t);
       if (shake > 0 && dt > 0) { shake -= dt; player.pitch += (Math.random() - 0.5) * shake * 0.03; }
+      if (R) { tunnelUpdate(dt); return followUpdate(dt); }
       if (!S.on) return;
       tunnelUpdate(dt);
-      if (!G.active() || dt <= 0) { if (model && model.visible) api.update(0); return; }
+      broadcast(dt);
+      const together = !!net();
+      if (together ? dt <= 0 || (G.inGame && !G.inGame()) : !G.active() || dt <= 0) { if (model && model.visible) api.update(0); return; }
       S.t += dt; wallCacheT -= dt;
-      const p = local(); const f = floorOf(p.y);
-      // the ending: far enough into the tunnel
-      if (tunnelAnim > 0.9 && p.x < TUNNEL_END_X && Math.abs(p.y - 125) < 1.2 && !ended) { ended = true; S.on = false; if (model) model.visible = false; G.onEnd(); return; }
-      // breadcrumbs: where you walked on this floor
+      for (const [id, until] of deadUntil) if (S.t > until) deadUntil.delete(id);
+      const list = hunters();
+      // the ending: anyone far enough into the tunnel
+      if (tunnelAnim > 0.9 && !ended && list.some(q => q.pos.x < TUNNEL_END_X && Math.abs(q.pos.y - 125) < 1.2)) return endAll();
+      // breadcrumbs: where each of you walked on your floor
+      for (const q of list) trackTrail(q);
+      for (const id of [...trails.keys()]) if (!list.some(q => q.id === id)) trails.delete(id);
+      const tq = pickTarget(list, dt);
+      if (!tq) { // nobody she can reach (all on the ground floor, or caught): she stops and withdraws
+        if (S.mode !== 'gone' && S.mode !== 'away' && S.mode !== 'wake') { S.mode = 'gone'; S.goneT = 4; show(false); }
+        return; }
+      if (tq.id !== S.tid) { // a new quarry: pick up their trail where she is
+        const was = S.tid; S.tid = tq.id; S.crumbs = trails.get(tq.id).crumbs;
+        if (was) { let bi = 0, bd = 1e9; S.crumbs.forEach((c, i) => { const d = c.distanceToSquared(S.pos); if (d < bd) { bd = d; bi = i; } }); S.ci = bi; S.maxCi = Infinity; }
+      }
+      T = tq; S.crumbs = trails.get(tq.id).crumbs; TP.copy(tq.pos);
+      const p = TP, f = floorOf(p.y), k = crowd();
+      if (together) { const me = local(); hearD = model.visible && floorOf(me.y) === S.floor ? S.pos.distanceTo(me) : 99; } else hearD = null;
       if (f !== S.floor) {
-        S.floor = f; S.floorT = 0; S.crumbs = [p.clone()]; S.ci = 0; wallCacheT = 0;
-        if (S.mode !== 'wake') { S.mode = 'away'; S.arrive = p.clone(); S.arriveT = ARRIVE_DELAY[f] || 6; show(false); }
-      } else { S.floorT += dt; const last = S.crumbs[S.crumbs.length - 1]; if (!last || last.distanceTo(p) > 0.4) S.crumbs.push(p.clone()); if (S.crumbs.length > 1500) { S.crumbs.splice(0, 500); S.ci = Math.max(0, S.ci - 500); if (S.maxCi !== Infinity) S.maxCi = Math.max(0, S.maxCi - 500); } }
+        S.floor = f; S.floorT = 0; S.ci = 0; wallCacheT = 0;
+        if (S.mode !== 'wake') { S.mode = 'away'; S.arrive = (S.crumbs[0] || p).clone(); S.arriveT = (ARRIVE_DELAY[f] || 6) * (1 - 0.35 * k); show(false); }
+      } else S.floorT += dt;
       floorBeats(p);
       dist = S.pos.distanceTo(p);
       if (model.visible) api.update(S.mode === 'hunt' ? dt * 2.5 : dt);
@@ -317,35 +497,37 @@ export function createEscape(G) {
       if (S.mode === 'wake') {
         S.wakeT += dt; S.y = Math.max(0, 2.9 - S.wakeT * 2.2); placeModel();
         if (S.wakeT > 0.5 && !S.told.wake) { S.told.wake = true; api.spread(); api.twitch(); sfx.flutter(1); sfx.clicks(1, 8); }
-        if (S.wakeT > 4.0) { S.stiff = 7; S.mode = 'hunt'; S.knows = true; say('Run. Light draws her; the dark hides you. A torch burst (B) will drive her back.', 6000); }
+        if (S.wakeT > 4.0) { S.stiff = 7; S.mode = 'hunt'; S.knows = true; tell('Run. Light draws her; the dark hides you. A torch burst (B) will drive her back.', 6000, null); }
         return;
       }
-      if (S.mode === 'gone') { S.goneT -= dt; if (S.goneT <= 0) { // back on your trail, some way behind you
+      if (S.mode === 'gone') { S.goneT -= dt; if (S.goneT <= 0 && S.crumbs.length) { // back on your trail, some way behind you
           let i = S.crumbs.length - 1, acc = 0; while (i > 0 && acc < 11) { acc += S.crumbs[i].distanceTo(S.crumbs[i - 1]); i--; }
-          appear(S.crumbs[i].clone(), 'hunt'); S.knows = lit(); S.maxCi = Infinity; S.prowl = !lit();
+          if (together && S.crumbs[i].distanceTo(p) < 5) { S.goneT = 1; return; } // never right on top of someone: wait until there is a trail behind them
+          appear(S.crumbs[i].clone(), 'hunt'); S.knows = tq.lit; S.maxCi = Infinity; S.prowl = !tq.lit;
         } return; }
       if (S.stun > 0) { S.stun -= dt; placeModel(); return; }
-      if (S.mode === 'glimpse') { S.glimpseT -= dt; S.yaw = Math.atan2(p.x - S.pos.x, p.y - S.pos.y); placeModel(); if (S.glimpseT <= 0) { S.mode = 'hunt'; S.knows = true; } if (dist < 0.85) return G.caught(); return; }
+      if (S.mode === 'glimpse') { S.glimpseT -= dt; S.yaw = Math.atan2(p.x - S.pos.x, p.y - S.pos.y); placeModel(); if (S.glimpseT <= 0) { S.mode = 'hunt'; S.knows = true; } if (dist < 0.85) return catchP(tq); return; }
 
-      // ---- senses ----
-      const hidden = hiddenNow();
-      const sightR = hidden ? 1.4 : lit() ? 16 : player.crouching ? 2.6 : 6.5;
+      // ---- senses (wider and quicker the more of you there are) ----
+      const sense = 1 + 0.3 * k, fast = 1 + 0.18 * k;
+      const hidden = tq.hidden;
+      const sightR = (hidden ? 1.4 : tq.lit ? 16 : tq.crouch ? 2.6 : 6.5) * sense;
       const see = dist < sightR && los(S.pos, p);
-      const noise = player.moving && !player.crouching && dist < (sprinting() ? 9 : 4.5);
-      if (see || noise || (lit() && dist < 24)) { if (!S.knows && S.mode === 'search') { api.spread(); sfx.flutter(1); } S.knows = true; S.lost = 0; S.maxCi = Infinity; S.prowl = false; if (S.mode === 'search') S.mode = 'hunt'; }
-      else if (S.knows) { S.lost += dt; if (S.lost > 1.6) { S.knows = false; S.maxCi = Math.max(S.ci, S.crumbs.length - 5); } }
+      const noise = tq.moving && !tq.crouch && dist < (tq.sprint ? 9 : 4.5) * sense;
+      if (see || noise || (tq.lit && dist < 24 * sense)) { if (!S.knows && S.mode === 'search') { api.spread(); sfx.flutter(1); } S.knows = true; S.lost = 0; S.maxCi = Infinity; S.prowl = false; if (S.mode === 'search') S.mode = 'hunt'; }
+      else if (S.knows) { S.lost += dt; if (S.lost > 1.6 * (1 - 0.4 * k)) { S.knows = false; S.maxCi = Math.max(S.ci, S.crumbs.length - 5); } }
 
       // ---- movement ----
       S.phase = (S.phase || 0) + dt; const moving = (S.phase % 0.55) < 0.55 * STEP_DUTY;
       let tgt = null, speed = 0;
       if (S.mode === 'hunt') {
-        if (see && dist < 9) { tgt = p; speed = lit() ? 3.3 : 2.9; // straight at you; keep her place on the trail
+        if (see && dist < 9 * sense) { tgt = p; speed = (tq.lit ? 3.3 : 2.9) * fast; // straight at you; keep her place on the trail
           for (let i = S.ci; i < S.crumbs.length; i++) if (S.crumbs[i].distanceTo(S.pos) < 0.8) S.ci = i; }
         else {
           const lim = Math.min(S.crumbs.length - 1, S.maxCi);
           while (S.ci < lim && S.crumbs[S.ci].distanceTo(S.pos) < 0.25) S.ci++;
-          tgt = S.crumbs[Math.min(S.ci, lim)]; speed = S.prowl ? 1.8 : lit() ? 3.0 : 2.5;
-          if (!S.knows && S.ci >= lim && tgt && tgt.distanceTo(S.pos) < 0.3) { S.mode = 'search'; S.searchT = 7 + Math.random() * 3; S.search = null; api.fold(); sfx.clicks(hear(), 3); }
+          tgt = S.crumbs[Math.min(S.ci, lim)]; speed = (S.prowl ? 1.8 : tq.lit ? 3.0 : 2.5) * fast;
+          if (!S.knows && S.ci >= lim && tgt && tgt.distanceTo(S.pos) < 0.3) { S.mode = 'search'; S.searchT = (7 + Math.random() * 3) * (1 - 0.35 * k); S.search = null; api.fold(); sfx.clicks(hear(), 3); }
         }
       } else if (S.mode === 'search') {
         S.searchT -= dt;
@@ -354,13 +536,13 @@ export function createEscape(G) {
           if (S.searchWait > 0) S.searchWait -= dt;
           if (!(S.searchWait > 0)) {
             const base = S.crumbs[Math.min(S.ci, S.crumbs.length - 1)] || S.pos;
-            for (let k = 0; k < 30; k++) { const c = base.clone().add(new THREE.Vector2((Math.random() - 0.5) * 6, (Math.random() - 0.5) * 6)); if (!freeAt(c, 0.4) || !los(S.pos, c)) continue;
+            for (let kk = 0; kk < 30; kk++) { const c = base.clone().add(new THREE.Vector2((Math.random() - 0.5) * 6, (Math.random() - 0.5) * 6)); if (!freeAt(c, 0.4) || !los(S.pos, c)) continue;
               if (hidden && c.distanceTo(p) < 1.35) c.sub(p).setLength(1.4).add(p); // she comes close, sniffs, and passes on
               S.search = c; break; }
           }
         }
-        tgt = S.searchWait > 0 ? null : S.search; speed = 1.2;
-        if (S.searchT <= 0) { S.mode = 'gone'; S.goneT = 8 + Math.random() * 4; show(false); if (!S.told.hid) { S.told.hid = true; say('The clicking moves off, and stops. She has lost you. For now.', 4500); } }
+        tgt = S.searchWait > 0 ? null : S.search; speed = 1.2 * fast;
+        if (S.searchT <= 0) { S.mode = 'gone'; S.goneT = (8 + Math.random() * 4) * (1 - 0.4 * k); show(false); if (!S.told.hid) { S.told.hid = true; tell('The clicking moves off, and stops. She has lost you. For now.', 4500); } }
       }
       // under a low header (the crawl hatch, a low arch) she has to fold herself small: slow
       if (lowAt(S.pos)) speed *= 0.3;
@@ -368,23 +550,26 @@ export function createEscape(G) {
       if (tgt && moving) {
         const d = tgt.clone().sub(S.pos), L = d.length();
         if (L > 0.01) { S.pos.addScaledVector(d.normalize(), Math.min(L, speed / STEP_DUTY * dt)); S.yaw = Math.atan2(d.x, d.y); }
-        if (see && dist < 9) pushOut(S.pos);
+        if (see && dist < 9 * sense) pushOut(S.pos);
       } else if (Math.random() < dt * 2) api.twitch();
+      // she never sets foot on the ground floor: at the cellar stair she stops, and withdraws
+      if (floorOf(S.pos.y) === 'ground') { S.pos.y = 25.05; S.mode = 'gone'; S.goneT = (8 + Math.random() * 4) * (1 - 0.4 * k); show(false); return; }
       placeModel();
       dist = S.pos.distanceTo(p);
-      if (dist < 0.85 && !(hidden && S.mode === 'search' && dist > 0.6)) return G.caught();
+      if (dist < 0.85 && !(hidden && S.mode === 'search' && dist > 0.6)) return catchP(tq);
+      // together: anyone else on her floor she walks into
+      if (together) for (const q of list) {
+        if (q === tq || floorOf(q.pos.y) !== S.floor) continue;
+        const dq = S.pos.distanceTo(q.pos);
+        if (dq < 0.85 && !(q.hidden && S.mode === 'search' && dq > 0.6)) return catchP(q);
+      }
       // a pale moth on your hand: she is close and you have not seen her
-      if (dist < 6 && !S.told.near) { S.told.near = true; say('A pale moth lands on the back of your hand. She is close.', 3500); }
+      if (dist < 6 && !S.told.near) { S.told.near = true; tell('A pale moth lands on the back of your hand. She is close.', 3500); }
     },
-    // torch burst: she rears back and folds her wings over her face
+    // torch burst: yours on the host; a guest's goes to the host
     flash(e) {
-      if (!S.on || !model || !model.visible || S.mode === 'away' || S.mode === 'gone' || S.mode === 'wake') return;
-      const d = e.detail, m = new THREE.Vector3(S.pos.x + O.x, 1.8, S.pos.y + O.z), v = m.clone().sub(d.origin);
-      if (v.length() > d.range || v.normalize().dot(d.dir) < 0.93 || !los(local(), S.pos)) return;
-      S.stun = 3.5; S.mode = 'hunt'; api.fold(); api.twitch(); sfx.flutter(1);
-      // she recoils a step
-      const back = S.pos.clone().sub(local()).setLength(1.2).add(S.pos); if (freeAt(back, 0.35)) S.pos.copy(back);
-      if (!S.told.stun) { S.told.stun = true; say('She rears back from the light, wings snapping shut over her face. Go.', 3500); }
+      if (R) { const d = e.detail; if (G.net) G.net.toHost({ req: 'flash', o: [d.origin.x, d.origin.y, d.origin.z], d: [d.dir.x, d.dir.y, d.dir.z], r: d.range }); return; }
+      flashAt(e.detail, local());
     },
   };
   addEventListener('flashburst', e => self.flash(e));

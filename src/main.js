@@ -260,7 +260,7 @@ const roomsPlay = createRoomsPlay({ origin: ROOM_ORIGIN, player, say, transition
 const motherPlay = createMotherPlay({
   ground, origin: ROOM_ORIGIN, player, camera, flashlight, lantern, say, colliders: () => colliders(),
   sfx: { flutter: (l) => { captionSound('[wings fluttering]'); playFlutter(l); }, clicks: (l, n) => { captionSound('[clicking nearby]'); playClicksAt(l, n); } }, detectScale: () => catPlay.detectScale,
-  active: () => state === 'playing' && zone === 'room',
+  active: () => state === 'playing' && zone === 'room', playerCount: () => playerCount(),
   caught: () => {
     state = 'cutscene'; player.enabled = false; playFlutter(1); playClicksAt(1, 6);
     say('Wings close over you, soft and enormous, and the light goes out.', 3000);
@@ -268,12 +268,33 @@ const motherPlay = createMotherPlay({
     setTimeout(() => { const s = loadSave(); spawnAt(s ? s.checkpoint : null, s || {}); $('fade').style.opacity = 0; state = 'playing'; player.enabled = true; say('Dark, and then nothing. You are back where you last saved.', 6000); }, 3400);
   },
 });
+// how many are in the house (1 alone): The Mother is busier the more of you there are
+function playerCount() { return mp && mp.active ? Math.max(1, Math.min(4, mp.count)) : 1; }
+// caught in the chase together: no reload (the house goes on for the others); you wake at the top of the ladder
+let escDead = false;
+function caughtTogether() {
+  if (escDead) return;
+  escDead = true; state = 'cutscene'; player.enabled = false; playFlutter(1); playClicksAt(1, 6);
+  if (motherPlay.hidden) motherPlay.reset();
+  say('Wings close over you, soft and enormous, and the light goes out.', 3000);
+  setTimeout(() => { if (state === 'cutscene') $('fade').style.opacity = 1; }, 600);
+  setTimeout(() => {
+    escDead = false; $('fade').style.opacity = 0;
+    if (state !== 'cutscene') return; // the ending began meanwhile
+    const sp = escape.spawn(); setZone('room'); player.place(ROOM_ORIGIN.x + sp.x, ROOM_ORIGIN.z + sp.z, sp.yaw);
+    state = 'playing'; player.enabled = true; say('The top of the ladder. Behind you, in the dark, she is coming.', 5000);
+  }, 3400);
+}
 // ---------- the escape: the finale chase (escape.js) and the ending (ending.js) ----------
 const escape = createEscape({
   room, ground, origin: ROOM_ORIGIN, player, camera, flashlight, lantern, say, motherPlay,
   sfx: { flutter: playFlutter, clicks: playClicksAt, thud: playThud, creak: playCreak, grind: playGrind, glass: playGlass, softClicks: playSoftClicks },
   colliders: () => colliders(), active: () => state === 'playing' && zone === 'room', visited: () => visited, save: (cp) => save(cp),
   mpClient: () => !!(mp && mp.isClient),
+  net: { active: () => !!(mp && mp.active), players: () => mp.players, toAll: (m, except) => mp.escSend(m, except), toOne: (id, m) => mp.escSend(m, null, id), toHost: (m) => mp.escSend(m) },
+  playerCount: () => playerCount(), caughtMP: () => caughtTogether(), state: () => state,
+  inGame: () => state !== 'home' && state !== 'ending',
+  localAlive: () => !escDead && zone === 'room' && ['playing', 'paused', 'modal', 'overlay'].includes(state),
   caught: () => {
     state = 'cutscene'; player.enabled = false; playFlutter(1); playClicksAt(1, 6);
     say('Wings close over you, soft and enormous, and the light goes out.', 3000);
@@ -287,6 +308,8 @@ const escape = createEscape({
     // the secret ending: every moth note in the house collected (counted from MOTH_NOTES, so new ones count too)
     const allNotes = MOTH_NOTES.length, have = new Set(mothsTaken.filter(id => NOTE_BY_ID[id])).size;
     const sv = loadSave() || {}, slotName = (sv.name || '').trim();
+    // the save is done with: Continue no longer replays the chase (it offers to start over)
+    if (!(mp && mp.isClient) && sv.checkpoint) writeSave({ ...sv, completed: true });
     let remembered = sv.collectedName; try { remembered = remembered || localStorage.getItem('pinned.collectedName'); } catch {}
     ending.start({ secret: allNotes > 0 && have >= allNotes ? {
       name: remembered || (slotName && !/^Save \d+$/.test(slotName) ? slotName : ''),
@@ -295,7 +318,7 @@ const escape = createEscape({
   },
 });
 const ending = createEnding({ renderer, quality: settings.quality, sfx: { click: playClick, flutter: playFlutter },
-  onDone: () => { show('hud', false); show('home', true); state = 'home'; player.enabled = false; backdrop.start(); refreshHome(); } });
+  onDone: () => { if (mp && mp.active) mp.leave(); show('hud', false); show('home', true); state = 'home'; player.enabled = false; backdrop.start(); refreshHome(); } });
 const interactables = [
   ...escape.interactables,
   ...motherPlay.interactables,
@@ -812,9 +835,15 @@ function refreshHome() {
   const n = latestSlot(), s = n && readSlot(n);
   if (n) setActiveSlot(n); // the home-screen journal shows the save Continue would load
   $('btnContinue').disabled = !s; $('btnLoad').disabled = !s;
-  $('homeNote').textContent = s ? `Continue: ${s.name || `Save ${n}`}, ${placeOf(s.checkpoint)}` : '';
+  $('homeNote').textContent = s ? `Continue: ${s.name || `Save ${n}`}, ${s.completed ? 'escaped. Start over?' : placeOf(s.checkpoint)}` : '';
 }
-function playSlot(n) { setActiveSlot(n); const s = loadSave(); if (s) startGame(s.checkpoint, s); else startGame(null); }
+// a finished save (the ending seen) is not replayed: it offers to start over from the beginning
+const confirmText = $('confirm').querySelector('p'), confirmDefault = confirmText.textContent;
+function playSlot(n) {
+  setActiveSlot(n); const s = loadSave();
+  if (s && s.completed) { confirmText.textContent = 'You got out. This save is finished. Start again from the beginning, in this slot?'; show('confirm', true); return; }
+  if (s) startGame(s.checkpoint, s); else startGame(null);
+}
 function lock() { try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch { /* headless etc. */ } }
 
 function startGame(checkpoint, saved = {}) {
@@ -847,10 +876,10 @@ function openSettings(from) { settingsReturn = from; show(from, false); show('se
 
 $('btnContinue').onclick = () => { const n = latestSlot(); if (n) playSlot(n); };
 $('btnLoad').onclick = () => slotsUI.open('load', n => playSlot(n));
-try { if (sessionStorage.getItem('pinned.autoContinue')) { sessionStorage.removeItem('pinned.autoContinue'); const s = loadSave(); if (s) startGame(s.checkpoint, s); } } catch {}
+try { if (sessionStorage.getItem('pinned.autoContinue')) { sessionStorage.removeItem('pinned.autoContinue'); const s = loadSave(); if (s && !s.completed) startGame(s.checkpoint, s); } } catch {}
 $('btnRestart').onclick = () => slotsUI.open('new', n => playSlot(n));
-$('btnConfirmYes').onclick = () => { show('confirm', false); clearSave(); startGame(null); };
-$('btnConfirmNo').onclick = () => show('confirm', false);
+$('btnConfirmYes').onclick = () => { show('confirm', false); confirmText.textContent = confirmDefault; clearSave(); startGame(null); };
+$('btnConfirmNo').onclick = () => { show('confirm', false); confirmText.textContent = confirmDefault; };
 $('btnMulti').onclick = () => mp && mp.openMenu();
 $('btnSettingsHome').onclick = () => openSettings('home');
 $('btnSettingsPause').onclick = () => openSettings('pause');
@@ -996,6 +1025,8 @@ function applyWorld(w) {
   if (w.attic && progress(w.attic) > progress(ground.attic.serialize())) { ground.attic.restore(w.attic); res.solved = true; }
   return res;
 }
-mp = initMultiplayer({ chooseSlot: cb => slotsUI.open('host', n => { setActiveSlot(n); cb(!!loadSave()); }), scene, camera, player, flashlight, say, lock, setZone, startGame, worldSnapshot, applyWorld,
+mp = initMultiplayer({ chooseSlot: cb => slotsUI.open('host', n => { setActiveSlot(n); const s = loadSave(); cb(!!s && !s.completed); }),
+  onEsc: (from, m) => escape.onNet(from, m),
+  extraState: () => ({ ln: lantern.on ? 1 : 0, hd: motherPlay.hidden ? 1 : 0, mv: player.moving ? 1 : 0, sp: player.moving && !player.crouching && player.keys && (player.keys.ShiftLeft || player.keys.ShiftRight) ? 1 : 0, dd: escDead ? 1 : 0 }), scene, camera, player, flashlight, say, lock, setZone, startGame, worldSnapshot, applyWorld,
   get zone() { return zone; }, get state() { return state; } });
 window.__pinned.mp = mp;
