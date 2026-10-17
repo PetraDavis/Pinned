@@ -19,6 +19,7 @@ import { MOTH_NOTES, STORY, buildMothNotes, mothImage } from './mothNotes.js';
 import { specimenCanvas } from './world/drawerPuzzle.js';
 import { Player } from './player.js';
 import { startAudio, setVolume, playThud, playGlass, playCreak, playGrind, playClick, setHiss, playSoftClicks, playFlutter, playClicksAt } from './audio.js';
+import { updateAudio, initAudioSettings, playDoor, playDrawer, playDial, playLamp, playLantern, playChime } from './audio/index.js';
 import { createFlashlight, batteryMesh } from './flashlight.js';
 import { createLantern, lanternMesh } from './lantern.js';
 import { loadSettings, saveSettings, loadSave, writeSave, clearSave, setActiveSlot, setPlaytimeSource, latestSlot, readSlot } from './storage.js';
@@ -114,7 +115,7 @@ for (const l of LANTERNS) {
 function raiseLantern() {
   if (!lantern.have) return;
   if (flashlight.on) { flashlight.toggle(); updateBatteryHud(); }
-  const on = lantern.raise();
+  const on = lantern.raise(); if (on) playLantern();
   if (on && lantern.fuel <= 0) { lantern.lower(); say('The lantern is dry. Another one might still have paraffin in it.'); }
 }
 const batteryEl = $('battery'), batteryFill = $('batteryFill');
@@ -154,6 +155,7 @@ for (const [id, key] of Object.entries(sliders)) {
   $(id).value = settings[key];
   $(id).addEventListener('input', e => { settings[key] = +e.target.value; applySettings(); saveSettings(settings); });
 }
+initAudioSettings(settings, saveSettings); // Music / Effects / Voice chat sliders (src/audio/)
 // Quality applies in place (no reload): pixel ratio, shadow resolution and shadow
 // filtering change immediately; texture resolution follows on the next load.
 let composer = null;
@@ -301,7 +303,7 @@ const interactables = [
     zone: 'room', pos: ROOM_LAMP, r: 1.5,
     prompt: () => (room.lampOn ? 'E  turn the lamp down' : 'E  light the oil lamp'),
     act: () => {
-      room.setLamp(!room.lampOn);
+      room.setLamp(!room.lampOn); playLamp(room.lampOn);
       if (room.lampOn) say('The wick catches. Warm light crawls up the walls, and every pinned moth seems to lean towards it.');
       const sv = loadSave(); if (sv && !(mp && mp.isClient)) writeSave({ ...sv, lampLit: room.lampOn });
     },
@@ -345,7 +347,7 @@ const interactables = [
     act: () => {
       if (d.id === 'stairC' && d.locked && ground.dinner.solved) { openPadlock(); return; }
       if (d.locked) { say(d.msg, 6000); playCreak(); return; }
-      d.open(); playThud(); if (d.openMsg) say(d.openMsg, 5000);
+      d.open(); playDoor(); if (d.openMsg) say(d.openMsg, 5000);
     },
   })),
   ...ground.dinner.seats.map(st => ({
@@ -450,10 +452,10 @@ function cabinetInteraction() {
   if (!hit) return { prompt: 'Aim at a drawer to open it', act: () => say('A specimen cabinet. Eight drawers, each labelled in a careful hand.') };
   const P = room.puzzle, d = hit.object.userData.drawer, item = d.userData.item;
   const open = d.userData.target > 0;
-  if (!open) return { prompt: 'E  open the drawer', act: () => { d.userData.target = 1; if (!item) say(FLAVOUR_EMPTY); } };
+  if (!open) return { prompt: 'E  open the drawer', act: () => { d.userData.target = 1; playDrawer(true); if (!item) say(FLAVOUR_EMPTY); } };
   if (item && !P.held) return { prompt: `E  take the ${SPECIES[item].common}`, act: () => { P.takeFromDrawer(d); updateHeld(); } };
   if (!item && P.held) return { prompt: `E  put the ${SPECIES[P.held].common} in the drawer   ·   Q  close it`, act: () => { P.putIntoDrawer(d); updateHeld(); }, alt: () => { d.userData.target = 0; } };
-  return { prompt: 'E  close the drawer', act: () => { d.userData.target = 0; } };
+  return { prompt: 'E  close the drawer', act: () => { d.userData.target = 0; playDrawer(false); } };
 }
 // the Specimen Study board: lift a case, then choose another to swap it with
 const BOARD_POS = new THREE.Vector3(ROOM_ORIGIN.x + 15.5, 0, ROOM_ORIGIN.z - 5.35);
@@ -578,7 +580,7 @@ function checkDinner() {
 }
 // ---------- the cellar padlock: four brass dials ----------
 const dials = [0, 0, 0, 0]; let dialSel = 0, dialBase = 10;
-function drawDials() { document.querySelectorAll('#padlock .dial').forEach((el, i) => { el.querySelector('span').textContent = dialBase === 26 ? String.fromCharCode(65 + dials[i]) : dials[i]; el.classList.toggle('sel', i === dialSel); }); }
+function drawDials() { if (!$('padlock').classList.contains('hidden')) playDial(); document.querySelectorAll('#padlock .dial').forEach((el, i) => { el.querySelector('span').textContent = dialBase === 26 ? String.fromCharCode(65 + dials[i]) : dials[i]; el.classList.toggle('sel', i === dialSel); }); }
 let padTarget = 'cellar';
 function openPadlock(target = 'cellar') {
   const info = atticPlay.lockInfo(target), base = info ? info.base : 10;
@@ -724,7 +726,7 @@ let mothsTaken = [];
 const NOTE_BY_ID = Object.fromEntries(MOTH_NOTES.map(n => [n.id, n]));
 const imgCache = {}; const imgOf = (k) => imgCache[k] || (imgCache[k] = mothImage(k));
 function takeMoth(n) {
-  mothsTaken.push(n.id); mothNotes.take(n.id); playThud();
+  mothsTaken.push(n.id); mothNotes.take(n.id); playChime();
   const sp = SPECIES[n.key], i = mothsTaken.length - 1;
   $('mothCardImg').src = imgOf(n.key); $('mothCardName').textContent = sp.common; $('mothCardLatin').textContent = sp.latin;
   $('mothCardText').textContent = n.text;
@@ -877,6 +879,7 @@ function loop() {
   }
   flashlight.update(dt, t, player.moving, currentQ, lantern.on ? { on: true, onTime: lantern.onTime, pos: lantern.worldPos(lurePos) } : null);
   setHiss(state === 'playing' && zone === 'room' ? ground.hiss : 0);
+  updateAudio({ dt, realDt, state, frozen: frozen(), zone, player, camera, origin: ROOM_ORIGIN, mother: motherPlay });
   if (state === 'playing') hintTick(dt);
   catPlay.update(dt, t, state === 'playing');
   if (state === 'playing' && flashlight.on) updateBatteryHud();
