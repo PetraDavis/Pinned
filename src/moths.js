@@ -659,25 +659,26 @@ export const SPECIES = {
       paint(g) { for (let i = 0; i < 6; i++) { blob(g, -4.2, 8 + i * 5.2, 2.2, 1.8, 0, '#d88a96'); blob(g, 4.2, 8 + i * 5.2, 2.2, 1.8, 0, '#d88a96'); } g.fillStyle = '#1e1612'; g.fillRect(-1.4, 6, 2.8, 32); } },
     antenna: { type: 'thick', len: 22, color: '#d8d0c8' },
   },
-  wallichii: {
-    latin: 'Brahmaea wallichii', common: 'Owl moth', span: 112,
-    fore: [[2, -7], [28, -22], [64, -32], [100, -36], [112, -30], [106, -16], [84, 2], [54, 14], [24, 16], [6, 7]],
-    hind: [[3, 4], [30, 8], [62, 18], [76, 34], [68, 54], [44, 62], [20, 54], [6, 34], [2, 16]],
+  pyri: {
+    latin: 'Saturnia pyri', common: 'Giant peacock moth', span: 112,
+    fore: [[2, -7], [28, -22], [64, -32], [100, -36], [112, -30], [106, -14], [84, 4], [54, 14], [24, 16], [6, 7]],
+    hind: [[3, 4], [30, 8], [62, 18], [76, 34], [70, 54], [46, 62], [20, 54], [6, 34], [2, 16]],
     foreAngle: -0.04, hindAngle: 0.04,
-    paintFore(g) {
-      g.fillStyle = '#5a3a24'; g.fillRect(-5, -40, 125, 60);
-      // the dark basal band with its owl-eye spots
-      g.fillStyle = '#2e1c10'; g.beginPath(); g.moveTo(0, -10); g.lineTo(34, -28); g.lineTo(40, 14); g.lineTo(0, 8); g.fill();
-      for (const [x, y] of [[18, -12], [26, 2]]) eyespot(g, x, y, 4, [[1, '#d8b070'], [0.62, '#1a0e06'], [0.25, '#f0e0b0']]);
-      // fine wavy lines, row on row, toward the margin
-      for (let k = 0; k < 14; k++) { const x0 = 46 + k * 4.6; const pts = []; for (let i = 0; i <= 10; i++) { const t = i / 10; pts.push([x0 + Math.sin(t * 14 + k) * 1.4 + t * 10, 14 - t * 46]); } band(g, pts, 1, k % 2 ? 'rgba(220,180,120,0.6)' : 'rgba(25,14,6,0.8)'); }
+    paintFore(g, r) {
+      g.fillStyle = '#6e6458'; g.fillRect(-5, -40, 125, 60);
+      g.fillStyle = '#4a3a30'; g.beginPath(); g.moveTo(0, -10); g.lineTo(30, -26); g.lineTo(36, 14); g.lineTo(0, 8); g.fill();
+      band(g, [[38, 14], [42, -4], [40, -28]], 2, '#e8e0d0');
+      g.fillStyle = 'rgba(220,210,190,0.55)'; g.fillRect(92, -36, 24, 50);
+      eyespot(g, 62, -10, 10, [[1, '#1a1410'], [0.8, '#c8b088'], [0.62, '#7a2a1c'], [0.4, '#141010'], [0.14, '#f0e8d8']]);
+      speckle(g, r, 160, 0, -36, 110, 14, 'rgba(30,24,20,0.3)', 1);
     },
-    paintHind(g) {
-      g.fillStyle = '#4e3220'; g.fillRect(-5, -5, 85, 70);
-      for (let k = 0; k < 10; k++) { const rr = 18 + k * 5; g.strokeStyle = k % 2 ? 'rgba(220,180,120,0.55)' : 'rgba(20,12,6,0.8)'; g.lineWidth = 1.1; g.beginPath(); g.arc(0, 4, rr, 0.05, 1.5); g.stroke(); }
+    paintHind(g, r) {
+      g.fillStyle = '#665c50'; g.fillRect(-5, -5, 85, 70);
+      g.fillStyle = 'rgba(220,210,190,0.5)'; g.fillRect(56, -5, 30, 70);
+      eyespot(g, 36, 30, 9, [[1, '#1a1410'], [0.8, '#c8b088'], [0.62, '#7a2a1c'], [0.4, '#141010'], [0.14, '#f0e8d8']]);
     },
-    body: { thorax: [9, 12], abdomen: [8, 32], fur: '#3a2416', furHi: '#8a6040', head: 5.5, paint(g) { for (let i = 0; i < 5; i++) blob(g, 0, 9 + i * 5.5, 6, 0.9, 0, '#c89a60'); } },
-    antenna: { type: 'feather', len: 20, color: '#3a2416' },
+    body: { thorax: [9, 12], abdomen: [8, 32], fur: '#4a3e34', furHi: '#9a8a78', head: 5.5, paint(g) { blob(g, 0, -10, 8, 2, 0, '#e0d8c8'); } },
+    antenna: { type: 'feather', len: 20, color: '#3a2e24' },
   },
   agrippina: {
     latin: 'Thysania agrippina', common: 'White witch', span: 124,

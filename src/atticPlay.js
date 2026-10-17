@@ -9,9 +9,9 @@ import { ATTIC, RACK_ORDER, SPAN_MM, EGG_CODE, BOX_WORD, CLOCK_MOTHS, CIPHER_PLA
 // ---------- hints: three per puzzle, from a nudge to the near-answer ----------
 export const ATTIC_HINTS = {
   rack: [
-    'Read the brass plate on the rack by the lamp. Each hook takes one moth: lift one, then swap it with another.',
-    'Hang them by the size of their wings, the smallest on the left as you face the wall, the largest on the right. The White witch has the widest wings of any moth.',
-    'Left to right: Small magpie, Lappet, Privet hawk-moth, Owl moth, White witch.',
+    'Read the brass plate on the rack by the lamp. Each hook carries a little name plate: lift one, then swap it with another.',
+    'Hang them by the size of the moths’ wings, the smallest on the left as you face the wall, the largest on the right. The plates only give their names, so you will have to find out how big each one is.',
+    'Look each one up by its Latin name: a field guide or an encyclopaedia will give the wingspan. Some of these are a good deal bigger than you would guess.',
   ],
   eggs: [
     'The ledger on the clerk’s desk records how many eggs each mother laid. The big jars on the table are labelled with the same four moths, and they lift: each of the places on the table is numbered, I to IV.',
@@ -129,7 +129,7 @@ export function createAtticPlay(deps) {
     const a = A();
     if (a.rackCorrect()) {
       a.solveRack(); sfx.clicks(5); sfx.grind();
-      say('The last moth settles on its hook. On the wall the five shadows creep together in the lamplight, wing into wing, into the shape of a door. Then the shape swings open.', 9000);
+      say('The last plate settles on its hook. On the wall the five shadows creep together in the lamplight, wing into wing, into the shape of a door. Then the shape swings open.', 9000);
       save('atticRack');
     } else {
       const n = a.rackRight(); a.shakeRack(); sfx.clicks(n); sfx.creak();
