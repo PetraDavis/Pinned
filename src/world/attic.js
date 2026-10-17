@@ -284,8 +284,11 @@ export function buildAttic(ctx) {
   box(group, 2.6, 0.06, 0.9, 43.4, 0.78, 181.4, timber); for (const [dx, dz] of [[-1.2, -0.38], [1.2, -0.38], [-1.2, 0.38], [1.2, 0.38]]) box(group, 0.06, 0.78, 0.06, 43.4 + dx, 0.39, 181.4 + dz, timber, null, { cast: false });
   rect(local, 42.05, 44.75, 180.9, 181.9);
   const eggGeo = new THREE.SphereGeometry(0.012, 6, 4);
+  // the jars stand on four numbered places along the table front; they can be lifted and swapped
+  const JAR_X = i => 42.5 + i * 0.6, jars = {}, jarPicks = [], carry = new THREE.Group();
+  carry.position.set(0.3, -0.36, -0.62); carry.rotation.y = -0.3;
   EGG_JARS.forEach((j, i) => {
-    const x = 42.5 + i * 0.6, jg = new THREE.Group(); jg.position.set(x, 0.81, 181.35); group.add(jg);
+    const jg = new THREE.Group(); jg.position.set(JAR_X(i), 0.81, 181.35); group.add(jg);
     const gl = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.36, 18, 1, true), jarGlass); gl.position.y = 0.18; jg.add(gl);
     const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.135, 0.135, 0.03, 18), brass); lid.position.y = 0.37; jg.add(lid);
     // eggs heaped by how many she laid (a handful for the fewest, the jar packed for the most)
@@ -294,7 +297,16 @@ export function buildAttic(ctx) {
     for (let k = 0; k < n; k++) { const a = r() * 6.28, rr = Math.sqrt(r()) * 0.11; m4.makeTranslation(Math.cos(a) * rr, 0.015 + r() * fillH, Math.sin(a) * rr); inst.setMatrixAt(k, m4); }
     jg.add(inst);
     const lab = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 0.1), paper(jarLabelTex(j.key))); lab.position.set(0, 0.17, 0.132); jg.add(lab);
+    // a figure scratched into the lid, that only shows when the jars stand in their right order
+    const dig = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.2), new THREE.MeshBasicMaterial({ map: lidDigitTex(String(j.eggs)[0]), transparent: true, depthWrite: false }));
+    dig.rotation.x = -Math.PI / 2; dig.position.y = 0.3875; dig.visible = false; dig.userData.noLimit = true; jg.add(dig);
+    jars[j.key] = { g: jg, dig };
   });
+  for (let i = 0; i < 4; i++) {
+    const pl = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.09), paper(slotTex(i)));
+    pl.rotation.x = -Math.PI / 2; pl.position.set(JAR_X(i), 0.8125, 181.72); group.add(pl);
+    const pick = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.5, 0.5), new THREE.MeshBasicMaterial({ visible: false })); pick.position.set(JAR_X(i), 1.05, 181.4); pick.userData.jarSlot = i; group.add(pick); jarPicks.push(pick);
+  }
   // the ledger, open on a clerk's desk
   const ld = new THREE.Group(); ld.position.set(44.6, 0, 184.45); group.add(ld);
   box(ld, 1.2, 0.05, 0.6, 0, 0.82, 0, darkWood); for (const [dx, dz] of [[-0.55, -0.25], [0.55, -0.25], [-0.55, 0.25], [0.55, 0.25]]) box(ld, 0.05, 0.82, 0.05, dx, 0.41, dz, darkWood, null, { cast: false });
@@ -390,6 +402,15 @@ export function buildAttic(ctx) {
 
   // ======================= state =======================
   const S = {};
+  const JAR_START = EGG_JARS.map(j => j.key), JAR_ORDER = [...EGG_JARS].sort((a, b) => a.eggs - b.eggs).map(j => j.key);
+  const placeJars = () => {
+    for (const [k, o] of Object.entries(jars)) {
+      const i = S.jars.indexOf(k);
+      if (k === S.jarHeld) { carry.add(o.g); o.g.position.set(0, 0, 0); }
+      else if (i >= 0) { group.add(o.g); o.g.position.set(JAR_X(i), 0.81, 181.35); }
+      o.dig.visible = !!S.jarsSolved;
+    }
+  };
   let shadowAnim = 0, hatchAnim = 0, lidAnim = 0, handsAnim = 0, rackShake = 0;
   let removeLocal = () => {}, addLocal = () => {};
   const projShadow = (h, key) => {
@@ -410,7 +431,15 @@ export function buildAttic(ctx) {
     });
   }
   const api = {
-    group, motherAnchor, pickables, hooks,
+    group, motherAnchor, pickables, hooks, jarPicks, carry,
+    get jars() { return S.jars; }, get jarHeld() { return S.jarHeld; }, get jarsSolved() { return S.jarsSolved; },
+    // a numbered place on the table: put down what is carried, pick up what stood there
+    useJar(i) { const prev = S.jars[i]; S.jars[i] = S.jarHeld; S.jarHeld = prev; placeJars(); return prev; },
+    jarsFull() { return S.jars.every(Boolean); },
+    jarsCorrect() { return S.jars.every((k, i) => k === JAR_ORDER[i]); },
+    jarsRight() { return S.jars.filter((k, i) => k === JAR_ORDER[i]).length; },
+    solveJars() { S.jarsSolved = true; S.jars = [...JAR_ORDER]; S.jarHeld = null; placeJars(); },
+    settleJar() { if (S.jarHeld) { S.jars[S.jars.indexOf(null)] = S.jarHeld; S.jarHeld = null; placeJars(); } },
     get rack() { return S.rack; }, get rackSolved() { return S.rackSolved; },
     get eggsOpen() { return S.eggsOpen; }, get boxOpen() { return S.boxOpen; },
     get clock() { return S.clock; }, get clockSolved() { return S.clockSolved; },
@@ -429,11 +458,13 @@ export function buildAttic(ctx) {
     setHour(i, h) { S.clock[i] = ((h - 1) % 12 + 12) % 12 + 1; placeToken(i, S.clock[i]); },
     clockCorrect() { return CLOCK_MOTHS.every((c, i) => S.clock[i] === c.hour); },
     solveClock() { S.clockSolved = true; CLOCK_MOTHS.forEach((c, i) => api.setHour(i, c.hour)); removeLocal(hatchCol); },
-    serialize() { return { rack: [...S.rack], rackSolved: S.rackSolved, eggsOpen: S.eggsOpen, boxOpen: S.boxOpen, clock: [...S.clock], clockSolved: S.clockSolved, wheel: S.wheel, sawRafters: S.sawRafters }; },
+    serialize() { return { jars: S.jars.map(k => k || S.jarHeld), jarsSolved: S.jarsSolved, rack: [...S.rack], rackSolved: S.rackSolved, eggsOpen: S.eggsOpen, boxOpen: S.boxOpen, clock: [...S.clock], clockSolved: S.clockSolved, wheel: S.wheel, sawRafters: S.sawRafters }; },
     restore(s) {
       if (!s) return;
       if (Array.isArray(s.rack) && s.rack.length === 5) { S.rack = [...s.rack]; placeRack(); }
       if (s.rackSolved) api.solveRack(true);
+      S.jarHeld = null; if (Array.isArray(s.jars) && s.jars.length === 4 && s.jars.every(k => jars[k])) { S.jars = [...s.jars]; placeJars(); }
+      if (s.jarsSolved) api.solveJars();
       if (s.eggsOpen) api.openEggs(true);
       if (s.boxOpen) { api.openBox(); lidAnim = 1; handsAnim = 1; }
       if (Array.isArray(s.clock)) s.clock.forEach((h, i) => api.setHour(i, h));
@@ -441,6 +472,7 @@ export function buildAttic(ctx) {
       if (s.clockSolved) { api.solveClock(); hatchAnim = 1; }
     },
     reset() {
+      S.jars = [...JAR_START]; S.jarHeld = null; S.jarsSolved = false; placeJars();
       S.rack = [...RACK_START]; S.rackSolved = false; S.eggsOpen = false; S.boxOpen = false; S.clock = [...CLOCK_START]; S.clockSolved = false; S.wheel = 0; S.sawRafters = false;
       shadowAnim = 0; hatchAnim = 0; lidAnim = 0; handsAnim = 0; doorShadow.material.opacity = 0;
       doors.aEggClock.locked = true; eggLock.visible = true;
@@ -558,6 +590,17 @@ function plateTex() {
   g.fillStyle = '#9a7a3a'; g.fillRect(0, 0, 340, 80); g.strokeStyle = '#4a3a1a'; g.lineWidth = 4; g.strokeRect(4, 4, 332, 72);
   g.fillStyle = '#2a1e0e'; g.font = 'italic 19px Georgia, serif'; g.textAlign = 'center';
   g.fillText('From the least of them', 170, 34); g.fillText('to the White Witch', 170, 60);
+  return canvasTexture(c);
+}
+function slotTex(i) {
+  const c = document.createElement('canvas'); c.width = 160; c.height = 90; const g = c.getContext('2d');
+  g.fillStyle = '#9a7a3a'; g.fillRect(0, 0, 160, 90); g.strokeStyle = '#4a3a1a'; g.lineWidth = 4; g.strokeRect(4, 4, 152, 82);
+  g.fillStyle = '#2a1e0e'; g.font = 'bold 46px Georgia, serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(['I', 'II', 'III', 'IV'][i], 80, 48);
+  return canvasTexture(c);
+}
+function lidDigitTex(d) {
+  const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+  g.fillStyle = '#fff4c8'; g.shadowColor = '#ffd870'; g.shadowBlur = 14; g.font = 'bold 84px Georgia, serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(d, 64, 70);
   return canvasTexture(c);
 }
 function jarLabelTex(key) {
