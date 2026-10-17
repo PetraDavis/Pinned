@@ -8,6 +8,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { buildTextures } from './textures.js';
 import { buildExterior, SUN_DIR, CLIMB_SPOT, BROKEN_WINDOW, FRONT_DOOR, GATE, FENCE } from './world/exterior.js';
 import { createLampMoths } from './lampMoths.js';
+import { createMotherMoths } from './motherMoths.js';
 import { buildFirstRoom, ROOM_LAMP, ROOM_SPAWN, ROOM_WINDOW, ROOM_DOOR, ROOM_ORIGIN, ROOM_CABINET, ROOM_MOSAIC, ROOM_STANDS, ROOM_PANEL } from './world/firstRoom.js';
 import { tickSilk } from './world/cocoon.js';
 import { JOURNAL, LIFESPAN_ORDER, SEATING_NOTE, DINNER_SOLUTION } from './world/groundFloor.js';
@@ -109,6 +110,7 @@ for (const b of BATTERIES) {
 }
 // lanterns: carried in the same (right) hand as the torch; specimens go in the left
 const lantern = createLantern(camera);
+const motherMoths = createMotherMoths(camera, settings.quality); // the swarm that means she is near
 const LANTERNS = [
   { id: 'l1', zone: 'room', pos: new THREE.Vector3(ROOM_ORIGIN.x + 4.2, 0, ROOM_ORIGIN.z + 3.8) },
   { id: 'l2', zone: 'room', pos: new THREE.Vector3(ROOM_ORIGIN.x + 13.4, 0, ROOM_ORIGIN.z - 4.4) },
@@ -185,7 +187,7 @@ function buildComposer() {
 let currentQ = QUALITY;
 function applyQuality(q) {
   const Q = QUALITIES[q] || QUALITIES.high;
-  currentQ = Q; if (typeof ground !== 'undefined') ground.setQuality(q); if (typeof lampMoths !== 'undefined') lampMoths.setQuality(q);
+  currentQ = Q; if (typeof ground !== 'undefined') ground.setQuality(q); if (typeof lampMoths !== 'undefined') lampMoths.setQuality(q); if (typeof motherMoths !== 'undefined') motherMoths.setQuality(q);
   if (typeof lightLimiter !== 'undefined') setTimeout(() => { lightLimiter.refresh(); lightLimiter.update(camera, true); });
   renderer.setPixelRatio(Math.min(devicePixelRatio, Q.pr));
   renderer.setSize(innerWidth, innerHeight);
@@ -312,7 +314,7 @@ const escape = createEscape({
     state = 'cutscene'; player.enabled = false; playFlutter(1); playClicksAt(1, 6);
     say('Wings close over you, soft and enormous, and the light goes out.', 3000);
     setTimeout(() => { $('fade').style.opacity = 1; }, 600);
-    setTimeout(() => { const s = loadSave(); spawnAt(s ? s.checkpoint : null, s || {}); $('fade').style.opacity = 0; state = 'playing'; player.enabled = true; say('The top of the ladder. Behind you, in the dark, she is coming.', 5000); }, 3400);
+    setTimeout(() => { const s = loadSave(); spawnAt(s ? s.checkpoint : null, s || {}); $('fade').style.opacity = 0; state = 'playing'; player.enabled = true; say('The top of the ladder.', 5000); }, 3400);
   },
   onEnd: () => {
     state = 'ending'; player.enabled = false; show('hud', false); promptEl.textContent = '';
@@ -634,7 +636,7 @@ function showHint() {
   if ((hintsUsed[grp] || 0) >= HINT_LIMIT) {
     // past the (unstated) limit: refuse, more and more crossly, then just STOP
     const k = (hintsUsed[grp + ':no'] || 0); hintsUsed[grp + ':no'] = k + 1;
-    say(HINT_REFUSALS[Math.min(k, HINT_REFUSALS.length - 1)], 3000); return;
+    say(k >= 9 ? 'OH MY GOD, STOP.' : HINT_REFUSALS[Math.min(k, HINT_REFUSALS.length - 1)], 3000); return; // 10th refusal on: the last straw
   }
   hintsUsed[grp] = (hintsUsed[grp] || 0) + 1;
   const n = Math.min(HINTS[p].length, (hintState[p] || 0) + 1); hintState[p] = n; stuckTime = 0;
@@ -873,7 +875,7 @@ function startGame(checkpoint, saved = {}) {
   startAudio(settings.volume);
   lock();
   if (!checkpoint) say('The Pale Wing house. Everyone at school says it’s haunted. Find a way past the fence.', 6000);
-  else say((checkpoint === 'escape' && 'The top of the ladder. Behind you, in the dark, she is coming.') || atticPlay.backMessage(checkpoint) || (checkpoint === 'cellar' ? 'You are back in the cellar, at the foot of the stairs.' : checkpoint === 'catacombs' ? 'You are back in the catacombs, at the foot of the chapel steps.' : checkpoint === 'chapel' ? 'You are back in the chapel.' : checkpoint === 'firstfloor' ? 'You are back on the first floor.' : checkpoint === 'leader' ? 'You are back in the leader’s bedroom.' : checkpoint === 'dining' ? 'You are back in the dining room.' : checkpoint === 'kitchen' ? 'You are back in the kitchen, by the cellar door.' : checkpoint === 'study' ? 'You are back in the Specimen Study.' : checkpoint === 'grandhall' ? 'You are back in the Grand Hall.' : checkpoint === 'hallway' ? 'You are back in the hallway.' : checkpoint === 'room' ? 'You are back in the drawing room.' : 'You are back on the grounds.'));
+  else say((checkpoint === 'escape' && 'The top of the ladder.') || atticPlay.backMessage(checkpoint) || (checkpoint === 'cellar' ? 'You are back in the cellar, at the foot of the stairs.' : checkpoint === 'catacombs' ? 'You are back in the catacombs, at the foot of the chapel steps.' : checkpoint === 'chapel' ? 'You are back in the chapel.' : checkpoint === 'firstfloor' ? 'You are back on the first floor.' : checkpoint === 'leader' ? 'You are back in the leader’s bedroom.' : checkpoint === 'dining' ? 'You are back in the dining room.' : checkpoint === 'kitchen' ? 'You are back in the kitchen, by the cellar door.' : checkpoint === 'study' ? 'You are back in the Specimen Study.' : checkpoint === 'grandhall' ? 'You are back in the Grand Hall.' : checkpoint === 'hallway' ? 'You are back in the hallway.' : checkpoint === 'room' ? 'You are back in the drawing room.' : 'You are back on the grounds.'));
 }
 function pause() {
   if (state !== 'playing') return;
@@ -973,6 +975,7 @@ function loop() {
   lightLimiter.update(camera);
   if (!escape.ownsMother) motherPlay.update(dt);
   escape.update(dt, t);
+  { const d = escape.ownsMother ? escape.warnDist : motherPlay.warnDist; motherMoths.update(dt, t, d, motherPlay.hidden || state !== 'playing'); }
   // shadow maps: only for shadow-casting lamps near the player, refreshed every other frame
   if (!shadowLights) { shadowLights = []; scene.traverse(o => { if (o.isLight && o.shadow && !o.isDirectionalLight && o.userData.shadowOn) shadowLights.push(o); }); }
   frameNo++;
@@ -1011,7 +1014,7 @@ loop();
 window.__pinned = { tutorial,
   start: startGame, pause, resume, quitHome, player, setZone, interactables, interact: () => current && current.act(), refresh: () => { current = findInteractable(); },
   caps: CAPS, get state() { return state; }, get zone() { return zone; }, get prompt() { return current && (typeof current.prompt === 'function' ? current.prompt() : current.prompt); }, room,
-  renderer, scene, camera, flashlight, lantern, catacombs: catPlay, ground, mother: motherPlay, escape, ending, credits, save: (cp) => save(cp), visited, get hints() { return { used: hintsUsed, state: hintState }; }, currentPuzzle: () => currentPuzzle(), openPadlock, tryPadlock, dials, get gameTime() { return gameTime; }, get colliders() { return colliders(); }, collection, photo, halluc, get tutorial() { return tutorial; },
+  renderer, scene, camera, flashlight, lantern, motherMoths, catacombs: catPlay, ground, mother: motherPlay, escape, ending, credits, save: (cp) => save(cp), visited, get hints() { return { used: hintsUsed, state: hintState }; }, currentPuzzle: () => currentPuzzle(), openPadlock, tryPadlock, dials, get gameTime() { return gameTime; }, get colliders() { return colliders(); }, collection, photo, halluc, get tutorial() { return tutorial; },
 };
 
 // ---------- multiplayer (src/net/) ----------

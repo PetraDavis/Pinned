@@ -272,7 +272,7 @@ export function createEscape(G) {
     if (f === 'first' && !S.beats.firstSlam && S.floorT > 1.0) { S.beats.firstSlam = true; slam('Somewhere on this floor a door slams, and keeps on rattling in its frame.'); swarm(new THREE.Vector3(p.x - 1.5, 2.6, p.y), 30, new THREE.Vector3(p.x, 1.4, p.y)); }
     if (f === 'first' && aheadOk('firstAhead') && S.mode === 'hunt' && dist > 7 && p.distanceTo(new THREE.Vector2(FIRST.stairB.x, FIRST.stairB.z)) < 13) {
       const c = aheadPoint(new THREE.Vector2(FIRST.stairB.x, FIRST.stairB.z));
-      if (c) { const first = !S.beats.firstAhead; aheadDone('firstAhead'); appear(c, 'glimpse', first ? 'She is ahead of you. How is she ahead of you?' : null); S.glimpseT = 1.6; }
+      if (c) { const first = !S.beats.firstAhead; aheadDone('firstAhead'); appear(c, 'glimpse', null); S.glimpseT = 1.6; }
     }
     if (f === 'first' && !S.beats.firstCocoon && S.beats.firstAhead && S.mode === 'hunt') { S.beats.firstCocoon = true; burstCocoon(p.x + 1.2, p.y + 0.6); }
     if (f === 'catacombs' && !S.beats.cataSwarm && S.floorT > 0.8) { S.beats.cataSwarm = true; slam(); swarm(new THREE.Vector3(CATA.stairB.x, 2.3, CATA.stairB.z - 0.6), 40, new THREE.Vector3(p.x, 1.4, p.y)); }
@@ -375,7 +375,7 @@ export function createEscape(G) {
     const n = net(); if (!n || isClient()) return;
     stT -= dt; if (stT > 0) return; stT = 1 / 15;
     n.toAll({ ev: 'st', on: S.on ? 1 : 0, mode: S.mode, floor: S.floor, x: +S.pos.x.toFixed(3), z: +S.pos.y.toFixed(3), y: +S.y.toFixed(3), yaw: +S.yaw.toFixed(3),
-      open: model ? +api.open.toFixed(2) : 0, vis: model && model.visible ? 1 : 0, tun: tunnelAnim >= 0 ? 1 : 0 });
+      open: model ? +api.open.toFixed(2) : 0, vis: model && model.visible ? 1 : 0, s: S.stun > 0 ? 1 : 0, tun: tunnelAnim >= 0 ? 1 : 0 });
   }
   // guest: draw her where the host says she is, on your floor only
   function followUpdate(dt) {
@@ -388,7 +388,6 @@ export function createEscape(G) {
     model.visible = vis;
     dist = vis ? S.pos.distanceTo(p) : 99;
     if (vis && dt > 0) { api.update(st.mode === 'hunt' ? dt * 2.5 : dt); if (Math.abs(api.open - st.open) > 0.03) api.setOpen(st.open); }
-    if (vis && dist < 6 && !S.told.near) { S.told.near = true; say('A pale moth lands on the back of your hand. She is close.', 3500); }
     // far enough into the tunnel: ask the host to end it for everyone
     if (tunnelAnim > 0.9 && p.x < TUNNEL_END_X && Math.abs(p.y - 125) < 1.2 && !R.asked && G.net) { R.asked = true; G.net.toHost({ req: 'end' }); }
   }
@@ -409,6 +408,8 @@ export function createEscape(G) {
     get running() { return S.on; },
     get ownsMother() { return S.on || !!G.visited().escape; },
     get chasing() { return S.on; },
+    // for the moth swarm: metres to her when you can see her on your floor, 99 otherwise or while stunned
+    get warnDist() { return (!model || !model.visible || S.stun > 0 || (R && R.st && R.st.s)) ? 99 : dist; },
     get debug() { return { mode: S.mode, floor: S.floor, x: S.pos.x, z: S.pos.y, dist, knows: S.knows, crumbs: S.crumbs.length, ci: S.ci, beats: { ...S.beats }, tunnel: tunnelAnim, stun: S.stun, visible: !!(model && model.visible), target: S.tid, following: !!R, dead: [...deadUntil.keys()], crowd: crowd() }; },
     begin, openTunnel,
     // tests / debugging: straight to the ending
@@ -489,7 +490,7 @@ export function createEscape(G) {
         S.arriveT -= dt;
         const far = p.distanceTo(S.arrive);
         if (S.arriveT <= 0 && (far > 3.5 || S.arriveT < -8)) {
-          appear(S.arrive, 'hunt', S.told[f] ? null : ({ first: 'Above you, the ladder creaks under a weight that is not yours. She is coming down after you.', catacombs: 'Up the stair, the dry rustle of wings, folding to fit. She is coming down.', attic: 'Behind you, from the egg store: a click, and then another.' })[f]);
+          appear(S.arrive, 'hunt');
           S.told[f] = true;
         }
         return;
@@ -497,7 +498,7 @@ export function createEscape(G) {
       if (S.mode === 'wake') {
         S.wakeT += dt; S.y = Math.max(0, 2.9 - S.wakeT * 2.2); placeModel();
         if (S.wakeT > 0.5 && !S.told.wake) { S.told.wake = true; api.spread(); api.twitch(); sfx.flutter(1); sfx.clicks(1, 8); }
-        if (S.wakeT > 4.0) { S.stiff = 7; S.mode = 'hunt'; S.knows = true; tell('Run. Light draws her; the dark hides you. A torch burst (B) will drive her back.', 6000, null); }
+        if (S.wakeT > 4.0) { S.stiff = 7; S.mode = 'hunt'; S.knows = true; }
         return;
       }
       if (S.mode === 'gone') { S.goneT -= dt; if (S.goneT <= 0 && S.crumbs.length) { // back on your trail, some way behind you
@@ -569,8 +570,6 @@ export function createEscape(G) {
         const dq = S.pos.distanceTo(q.pos);
         if (dq < 0.85 && !(q.under && !(S.sawIn && S.sawIn[q.id])) && !(q.hidden && S.mode === 'search' && dq > 0.6)) return catchP(q);
       }
-      // a pale moth on your hand: she is close and you have not seen her
-      if (dist < 6 && !S.told.near) { S.told.near = true; tell('A pale moth lands on the back of your hand. She is close.', 3500); }
     },
     // torch burst: yours on the host; a guest's goes to the host
     flash(e) {
