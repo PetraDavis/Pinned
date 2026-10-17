@@ -9,7 +9,7 @@ import { drawMoth, SPECIES } from './moths.js';
 
 export const MOTH_NOTES = [
   // ---- ground floor ----
-  { id: 'n-atlas', key: 'atlas', kind: 'wall', pos: [27.0, 2.2, -7.93], ry: 0,
+  { id: 'n-atlas', key: 'atlas', kind: 'wall', pos: [24.8, 2.2, -7.93], ry: 0,
     text: 'Pinned through the thorax to the wallpaper, still perfect: “The Atlas has no mouth. It lives a week on what it ate as a child. So shall we.”' },
   { id: 'n-infusa', key: 'infusa', kind: 'wall', pos: [9.6, 1.9, 4.72], ry: Math.PI,
     text: 'A Bogong moth, a long way from home. Scratched beside it: “They fly a thousand miles to sleep in the same cold caves their parents slept in. They never met their parents.”' },

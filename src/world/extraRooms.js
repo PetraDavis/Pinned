@@ -425,7 +425,8 @@ export function buildExtraRooms(ctx) {
     }
     for (const [x, y, z, ry] of [[X0 + 0.05, FH - 0.4, Z0 + 0.4, Math.PI / 4], [X1 - 0.05, FH - 0.4, Z1 - 0.4, -Math.PI * 0.75]]) cobweb(x, y, z, ry, 0.9);
     cocoon('first', 28.1, 92.4, 1.1, true, FH); cocoon('first', 29.3, 85.9, 0.7, true, FH);
-    light(X0 + 0.02, 2.3, 92.3, 0xffa860, 2.6, 7, '+x').userData.creepy = true;
+    light(X0 + 0.02, 2.3, 92.3, 0xffa860, 3.6, 9, '+x').userData.creepy = true;
+    light(X0 + 0.8, 2.4, 90.6, 0xd0b898, 2.6, 6, false).userData.fill = true; // a faint spill so the coats read
     light(X1 - 0.2, 0.98, 96.0, 0xffc080, 1.2, 4, 'candle');
     flush();
   }
@@ -831,7 +832,7 @@ export function buildExtraRooms(ctx) {
   }
   // a long coat or cape hanging on a hook against a wall running along z (front facing +x)
   function coat(x, y, z, color, k, seed) {
-    const m = mat({ map: tex.fabric, color, roughness: 1, side: THREE.DoubleSide });
+    const m = mat({ map: tex.fabric, color: new THREE.Color(color).multiplyScalar(color === 0xd8d0c0 ? 1 : 1.7), roughness: 0.9, side: THREE.DoubleSide, emissive: new THREE.Color(color).multiplyScalar(color === 0xd8d0c0 ? 0.06 : 0.35) }); // lifted a little so the coats read in the gloom
     const h = 1.25 * k, g = new THREE.CylinderGeometry(0.07 * k, 0.24 * k, h, 12, 4, true, 0, Math.PI);
     const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const yy = p.getY(i); p.setX(i, p.getX(i) * 0.75 + Math.sin(yy * 9 + seed) * 0.01); }
     add(m, g, x, y - h / 2 - 0.02, z);
