@@ -38,3 +38,13 @@ export const deleteSlot = n => write(slotKey(n), null);
 export const loadSave = () => read(slotKey(active));
 export const writeSave = s => { const prev = read(slotKey(active)); write(slotKey(active), { ...s, name: (prev && prev.name) || `Save ${active}`, playtime: Math.round(playBase + playSource()), time: Date.now() }); };
 export const clearSave = () => write(slotKey(active), null);
+
+// ---------- the collection ----------
+// Every moth ever picked up, in any slot: a global set that outlives deleted saves.
+const EKEY = 'pinned.everMoths';
+export function everMoths() {
+  const s = new Set(read(EKEY) || []);
+  for (const { save } of listSlots()) for (const id of (save && save.moths) || []) s.add(id);
+  return s;
+}
+export function addEverMoth(id) { const s = everMoths(); s.add(id); write(EKEY, [...s]); }
