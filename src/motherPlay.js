@@ -56,8 +56,8 @@ export function createMotherPlay(G) {
     S.hidden = h.under; veil.style.opacity = 1; player.enabled = false; player.place(O.x + h.under[0], O.z + h.under[1], h.yaw); player.lowView = 1.3; // eye ~0.3 m off the floor
     S.hideOut = h.out;
     if (!inAttic(h.under[1])) return; // the escape chase decides for itself whether she saw you go in
-    if (isClient()) { if (R.m === 'chase' && dist < 3) say('She saw you go under.', 2500); return; } // the host decides what she does about it
-    if (S.mode === 'chase' && S.tid === 'h' && dist < 3) say('She saw you go under.', 2500); else if (S.mode === 'chase' && S.tid === 'h') { S.mode = 'search'; S.lost = 0; }
+    if (isClient()) return; // the host decides what she does about it
+    if (S.mode === 'chase' && S.tid === 'h' && dist < 3) { /* she saw you go under */ } else if (S.mode === 'chase' && S.tid === 'h') { S.mode = 'search'; S.lost = 0; }
   }
   function crawlOut() { const o = S.hideOut; S.hidden = null; veil.style.opacity = 0; player.lowView = 0; player.enabled = true; if (o) player.place(O.x + o[0], O.z + o[1], player.yaw); }
   addEventListener('keydown', e => {
@@ -161,7 +161,6 @@ export function createMotherPlay(G) {
     S.warnT -= dt;
     const near = here && dist < 8 && R.m !== 'chase' && R.m !== 'asleep' && !R.s;
     moth.style.opacity = near ? 1 : 0;
-    if (near && S.warnT <= 0) { S.warnT = 25; say('A small, pale moth lands on the back of your hand and will not leave. She is close.', 4500); }
   }
 
   function step(dt, speed) { // twitchy: bursts of motion and dead stops
@@ -177,6 +176,8 @@ export function createMotherPlay(G) {
   return {
     model, api,
     get mode() { return S.mode; }, get hidden() { return !!S.hidden; },
+    // for the moth swarm: metres to her from your view, 99 when asleep, stunned or on another floor
+    get warnDist() { const p = P(); if (!inAttic(p.y)) return 99; const off = isClient() ? (R.m === 'asleep' || R.s) : (S.mode === 'asleep' || S.stun > 0); return off ? 99 : pos.distanceTo(p); },
     debugPlace(x, z, yaw = 0) { pos.set(x, z); S.yaw = yaw; anchor.position.set(x, 0, z); anchor.rotation.y = yaw; },
     get debug() { return { ...S, x: pos.x, z: pos.y, dist }; },
     reset() { pos.set(...WP[0]); S.mode = 'asleep'; S.path = []; S.stun = 0; S.hidden = null; player.lowView = 0; S.wake = 0; S.wakeAt = 0; S.tid = null; veil.style.opacity = 0; moth.style.opacity = 0; api.setOpen(0); anchor.position.set(pos.x, 0, pos.y); deadUntil.clear(); R.have = false; R.m = 'asleep'; R.s = 0; },
@@ -192,7 +193,7 @@ export function createMotherPlay(G) {
       if (isClient()) {
         if (m.ev === 'st') {
           const p = P(), here = inAttic(p.y);
-          if (R.m === 'asleep' && m.m !== 'asleep' && here) say('From the far end of the attic, a dry rustle, like a great deal of paper being unfolded. Then nothing.', 6000);
+          /* she wakes: no caption, the moths will tell you */
           if (!R.s && m.s && here && pos.distanceTo(p) < 15) say(STUN_MSG, 4000);
           Object.assign(R, { x: m.x, z: m.z, yaw: m.yaw, m: m.m, s: m.s, have: true });
           for (const op of m.op || []) if (op === 'spread' || op === 'fold' || op === 'twitch') api[op]();
@@ -215,7 +216,7 @@ export function createMotherPlay(G) {
       const p = T ? T.pos : pos.clone(), tdist = pos.distanceTo(p);
       // asleep until the hatch is unbolted, and only once one of you is up here
       if (S.mode === 'asleep') {
-        if (ground.attic.clockSolved && here) { const now = performance.now() / 1000; if (!S.wakeAt) S.wakeAt = now + 5; if (now > S.wakeAt) { S.wakeAt = 0; S.mode = 'wander'; S.still = 0.3; anim('twitch'); sfx.flutter(hear()); if (localHere) say('From the far end of the attic, a dry rustle, like a great deal of paper being unfolded. Then nothing.', 6000); } }
+        if (ground.attic.clockSolved && here) { const now = performance.now() / 1000; if (!S.wakeAt) S.wakeAt = now + 5; if (now > S.wakeAt) { S.wakeAt = 0; S.mode = 'wander'; S.still = 0.3; anim('twitch'); sfx.flutter(hear()); } }
         api.update(0); anchor.position.set(pos.x, 0, pos.y); broadcast(dt); return;
       }
       if (S.stun > 0) { S.stun -= dt; api.update(dt * 0.3); broadcast(dt); return; }
@@ -257,7 +258,6 @@ export function createMotherPlay(G) {
       S.warnT -= dt;
       const near = localHere && dist < 8 && !(S.mode === 'chase' && S.tid === 'h');
       moth.style.opacity = near ? 1 : 0;
-      if (near && S.warnT <= 0) { S.warnT = 25; say('A small, pale moth lands on the back of your hand and will not leave. She is close.', 4500); }
-    },
+      },
   };
 }
