@@ -9,6 +9,7 @@ import { buildTextures } from './textures.js';
 import { buildExterior, SUN_DIR, CLIMB_SPOT, BROKEN_WINDOW, FRONT_DOOR, GATE, FENCE } from './world/exterior.js';
 import { createLampMoths } from './lampMoths.js';
 import { buildFirstRoom, ROOM_LAMP, ROOM_SPAWN, ROOM_WINDOW, ROOM_DOOR, ROOM_ORIGIN, ROOM_CABINET, ROOM_MOSAIC, ROOM_STANDS, ROOM_PANEL } from './world/firstRoom.js';
+import { tickSilk } from './world/cocoon.js';
 import { JOURNAL, LIFESPAN_ORDER, SEATING_NOTE, DINNER_SOLUTION } from './world/groundFloor.js';
 import { SPECIES } from './moths.js';
 import { CELLAR, FIRST, WARDROBE_VERSE, DESK_CODE } from './world/lowerUpper.js';
@@ -20,7 +21,8 @@ import { Player } from './player.js';
 import { startAudio, setVolume, playThud, playGlass, playCreak, playGrind, playClick, setHiss, playSoftClicks, playFlutter, playClicksAt } from './audio.js';
 import { createFlashlight, batteryMesh } from './flashlight.js';
 import { createLantern, lanternMesh } from './lantern.js';
-import { loadSettings, saveSettings, loadSave, writeSave, clearSave } from './storage.js';
+import { loadSettings, saveSettings, loadSave, writeSave, clearSave, setActiveSlot, setPlaytimeSource, latestSlot, readSlot } from './storage.js';
+import { createSlotScreen, placeOf } from './slots.js';
 import { startHomeBackdrop } from './homeScreen.js';
 import { createAtticPlay } from './atticPlay.js';
 import { createMotherPlay } from './motherPlay.js';
@@ -781,14 +783,19 @@ const show = (id, on) => $(id).classList.toggle('hidden', !on);
 let settingsReturn = 'home';
 const backdrop = startHomeBackdrop($('homeBg'));
 
+// save slots: Continue takes the latest, Load and New Game choose one; every save goes to the active slot
+const slotsUI = createSlotScreen();
+let playSecs = 0, lastPlayNow = 0; setPlaytimeSource(() => playSecs);
 function refreshHome() {
-  const s = loadSave();
-  $('btnContinue').disabled = !s;
-  $('homeNote').textContent = '';
+  const n = latestSlot(), s = n && readSlot(n);
+  $('btnContinue').disabled = !s; $('btnLoad').disabled = !s;
+  $('homeNote').textContent = s ? `Continue: ${s.name || `Save ${n}`}, ${placeOf(s.checkpoint)}` : '';
 }
+function playSlot(n) { setActiveSlot(n); const s = loadSave(); if (s) startGame(s.checkpoint, s); else startGame(null); }
 function lock() { try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch { /* headless etc. */ } }
 
 function startGame(checkpoint, saved = {}) {
+  playSecs = 0;
   spawnAt(checkpoint, saved);
   if (restoreHeld) { if (restoreHeld.lantern) raiseLantern(); else if (restoreHeld.torch && !flashlight.on) { flashlight.toggle(); updateBatteryHud(); } restoreHeld = null; }
   show('home', false); show('hud', true); backdrop.stop();
@@ -815,9 +822,10 @@ function quitHome() {
 }
 function openSettings(from) { settingsReturn = from; show(from, false); show('settings', true); }
 
-$('btnContinue').onclick = () => { const s = loadSave(); if (s) startGame(s.checkpoint, s); };
+$('btnContinue').onclick = () => { const n = latestSlot(); if (n) playSlot(n); };
+$('btnLoad').onclick = () => slotsUI.open('load', n => playSlot(n));
 try { if (sessionStorage.getItem('pinned.autoContinue')) { sessionStorage.removeItem('pinned.autoContinue'); const s = loadSave(); if (s) startGame(s.checkpoint, s); } } catch {}
-$('btnRestart').onclick = () => { if (loadSave()) show('confirm', true); else startGame(null); };
+$('btnRestart').onclick = () => slotsUI.open('new', n => playSlot(n));
 $('btnConfirmYes').onclick = () => { show('confirm', false); clearSave(); startGame(null); };
 $('btnConfirmNo').onclick = () => show('confirm', false);
 $('btnMulti').onclick = () => mp && mp.openMenu();
@@ -872,6 +880,7 @@ let shadowLights = null, frameNo = 0; const tmpShadowV = new THREE.Vector3();
 function loop() {
   const realDt = Math.min(clock.getDelta(), 0.05);
   const dt = frozen() ? 0 : realDt;
+  { const now = performance.now() / 1000; if (state === 'playing' || state === 'paused') playSecs += Math.min(1, now - (lastPlayNow || now)); lastPlayNow = now; }
   gameTime += dt; const t = gameTime;
   if (state === 'playing') player.update(dt, colliders());
   if (anim) anim.update(dt);
@@ -903,6 +912,7 @@ function loop() {
     if (state === 'playing' && !grandHallSaved && player.pos.x > ROOM_ORIGIN.x + 20.6 && player.pos.z < ROOM_ORIGIN.z + 12) { grandHallSaved = true; save('grandhall'); say('The Grand Hall. Somewhere above, wings stir in the dark.', 5000); }
   }
   else if (curtain) { curtain.rotation.x = -0.25 - Math.sin(t * 1.3) * 0.12 + Math.sin(t * 3.1) * 0.05; }
+  tickSilk(t);
   lightLimiter.fade(realDt);
   if (state === 'ending') ending.frame(document.hidden ? 0 : realDt);
   else if (state !== 'home') { if (currentQ.post && composer) composer.render(dt); else renderer.render(scene, camera); }
@@ -952,6 +962,6 @@ function applyWorld(w) {
   if (w.attic && progress(w.attic) > progress(ground.attic.serialize())) { ground.attic.restore(w.attic); res.solved = true; }
   return res;
 }
-mp = initMultiplayer({ scene, camera, player, flashlight, say, lock, setZone, startGame, worldSnapshot, applyWorld,
+mp = initMultiplayer({ chooseSlot: cb => slotsUI.open('host', n => { setActiveSlot(n); cb(!!loadSave()); }), scene, camera, player, flashlight, say, lock, setZone, startGame, worldSnapshot, applyWorld,
   get zone() { return zone; }, get state() { return state; } });
 window.__pinned.mp = mp;

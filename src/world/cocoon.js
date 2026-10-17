@@ -23,8 +23,10 @@ export function cocoonBody(h, seed, phase = 0) {
 export function spunCocoon(x, z, h, hanging, top, silkGeos, threadPts) {
   const { geos, rng: cr } = cocoonBody(h, Math.floor(x * 31 + z * 17), x);
   const place = (g) => { if (hanging) { g.rotateX(Math.PI); g.translate(x, top - 0.22, z); } else { g.rotateZ(Math.PI / 2 * 0.92); g.translate(x + h * 0.45, 0.17, z); } return g; };
-  for (const g of geos) silkGeos.push(place(g));
   const anchor = hanging ? new THREE.Vector3(x, top - 0.22, z) : new THREE.Vector3(x + h * 0.9, 0.3, z);
+  // each vertex remembers its cocoon's anchor and a phase, so the merged mesh can still twitch (animSilk)
+  const ph = 1 + cr() * 6.28, pivot = hanging ? anchor : new THREE.Vector3(x + h * 0.45, 0.02, z);
+  for (const g of geos) { place(g); const n = g.attributes.position.count, a = new Float32Array(n * 4); for (let i = 0; i < n; i++) a.set([pivot.x, pivot.y, pivot.z, ph], i * 4); g.setAttribute('aCoc', new THREE.BufferAttribute(a, 4)); silkGeos.push(g); }
   const n = 5 + Math.floor(cr() * 4);
   for (let i = 0; i < n; i++) {
     const a2 = cr() * 6.28, d = 0.15 + cr() * (i < 2 ? 1.6 : 0.5);
@@ -35,6 +37,36 @@ export function spunCocoon(x, z, h, hanging, top, silkGeos, threadPts) {
 }
 
 // geometry lists -> one geometry with only position/normal/uv
+// (keeps the twitch attribute when any of them has it; pieces without it stay still)
 export function mergeSilk(mergeGeometries, geos) {
-  return mergeGeometries(geos.map(g => { const n = g.index ? g.toNonIndexed() : g; for (const k of Object.keys(n.attributes)) if (!['position', 'normal', 'uv'].includes(k)) n.deleteAttribute(k); return n; }), false);
+  const anim = geos.some(g => g.attributes.aCoc);
+  return mergeGeometries(geos.map(g => {
+    const n = g.index ? g.toNonIndexed() : g;
+    for (const k of Object.keys(n.attributes)) if (!['position', 'normal', 'uv', ...(anim ? ['aCoc'] : [])].includes(k)) n.deleteAttribute(k);
+    if (anim && !n.attributes.aCoc) n.setAttribute('aCoc', new THREE.BufferAttribute(new Float32Array(n.attributes.position.count * 4), 4));
+    return n;
+  }), false);
+}
+
+// The merged cocoons, alive: a slow breathing swell, frequent small twitches and now and then a
+// bigger jolt, all in the vertex shader (one draw call, nothing per frame on the CPU but a clock).
+const silkT = { value: 0 }, animCache = new WeakMap();
+export function tickSilk(t) { silkT.value = t; }
+export function animSilk(mat) {
+  if (animCache.has(mat)) return animCache.get(mat);
+  const m = mat.clone();
+  m.onBeforeCompile = (sh) => {
+    sh.uniforms.uSilkT = silkT;
+    sh.vertexShader = 'attribute vec4 aCoc;\nuniform float uSilkT;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+      if (aCoc.w > 0.5) {
+        float ph = aCoc.w; vec3 d = transformed - aCoc.xyz; float L = length(d);
+        transformed.xz += d.xz * 0.035 * sin(uSilkT * 0.9 + ph * 2.0);
+        float tw = pow(max(0.0, sin(uSilkT * 1.1 + ph * 5.0)), 30.0) + pow(max(0.0, sin(uSilkT * 0.53 + ph * 3.0)), 40.0);
+        float jolt = pow(max(0.0, sin(uSilkT * 0.17 + ph * 4.0)), 160.0);
+        float s = sin(uSilkT * 37.0 + ph * 7.0) * (tw * 0.04 + jolt * 0.11);
+        transformed.x += L * s; transformed.z += L * s * 0.7 * cos(ph * 3.0);
+      }`);
+  };
+  m.customProgramCacheKey = () => 'animSilk';
+  animCache.set(mat, m); return m;
 }

@@ -38,8 +38,11 @@ Down the chapel steps, the **Catacombs** (the game saves at the foot of the step
 Up the back stair from the catacombs, the **First Floor**: the **Cocoon Room** (silk frames, wrapped shapes on trestles, a silkworm moth in a jar), the **Nursery**, the gallery over the Grand Hall (the main stair's head is buried in rubble), the **Library** (a peppered moth pinned on a naturalist's card), the **Luna Bedroom** (a countdown scratched into the wall, and a vanity mirror), the **Leader's Bedroom** (a four-poster and a desk with a four-figure letter-lock: the peppered moth's card and the wall between them give the code) and the **Linen Room** behind it (a mirror, and a ladder up to a padlocked hatch). Each floor has a lantern to find, and hints (H) for its puzzle. The game saves on reaching each floor and on solving each puzzle.
 
 Progress is saved automatically at save points (climbing the fence, entering the first room, unlocking the east door), and settings
-(mouse sensitivity, volume, brightness, field of view) are kept in `localStorage`. **Continue** on the home
-screen resumes from the last save point.
+(mouse sensitivity, volume, brightness, field of view) are kept in `localStorage`. There are five named save
+slots: **Continue** on the home screen resumes the most recent one, **Load** picks a slot (each shows its
+name, floor and room, moths found, time played and date, with Rename and Delete), and **New Game** starts in an
+empty slot or overwrites one after you confirm. Save points write to the slot you are playing. An old single
+save is moved into slot 1.
 
 ## Moths and the Moth Journal
 
@@ -49,7 +52,7 @@ The story is carried by moths, not paper. Twenty-three specimens, each a differe
 
 Explore the house together, peer to peer. There is no game server: the **host's browser is the server**, and everyone else connects to the host over WebRTC.
 
-- **Host:** home screen -> **Multiplayer** -> **Host a new game** (or **Host from my save**). The game starts and the HUD shows a five-character **room code**; share it with your friends. The host's progress saves to the host's normal save slot.
+- **Host:** home screen -> **Multiplayer** -> **Host a game…**, then pick a save slot to host from (or an empty slot for a new game). The game starts and the HUD shows a five-character **room code**; share it with your friends. The host's progress saves to the slot they chose.
 - **Join:** home screen -> **Multiplayer**, type the code, **Join**. You appear next to the host. A guest's progress lives in the host's game; joining never touches your own save.
 - **No code / signaling down:** open *No code? Connect by copy-paste*. The host opens the pause menu -> *Invite a player by copy-paste* -> **Make an invite** and sends the text to the player (any chat app); the player pastes it, presses **Make my reply** and sends the reply back; the host pastes it and presses **Connect**. One invite per player. If the signaling server is unreachable, the host can start with **Host with copy-paste invites only**.
 

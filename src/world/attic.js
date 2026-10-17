@@ -23,7 +23,8 @@ import { tex } from '../textures.js';
 import { mat, box, rect, rep, rand } from './build.js';
 import { gasLampFixture } from './fixtures.js';
 import { silkTexture } from './lowerUpper.js';
-import { spunCocoon } from './cocoon.js';
+import { spunCocoon, mergeSilk, animSilk } from './cocoon.js';
+import { preservedBodies } from './bodies.js';
 const spinCocoon = (silkGeos, threadPts, x, z, h, hanging, top) => spunCocoon(x, z, h, hanging, top, silkGeos, threadPts);
 import { drawMoth, SPECIES } from '../moths.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -284,8 +285,11 @@ export function buildAttic(ctx) {
   box(group, 2.6, 0.06, 0.9, 43.4, 0.78, 181.4, timber); for (const [dx, dz] of [[-1.2, -0.38], [1.2, -0.38], [-1.2, 0.38], [1.2, 0.38]]) box(group, 0.06, 0.78, 0.06, 43.4 + dx, 0.39, 181.4 + dz, timber, null, { cast: false });
   rect(local, 42.05, 44.75, 180.9, 181.9);
   const eggGeo = new THREE.SphereGeometry(0.012, 6, 4);
+  // the jars stand on four numbered places along the table front; they can be lifted and swapped
+  const JAR_X = i => 42.5 + i * 0.6, jars = {}, jarPicks = [], carry = new THREE.Group();
+  carry.position.set(0.3, -0.36, -0.62); carry.rotation.y = -0.3;
   EGG_JARS.forEach((j, i) => {
-    const x = 42.5 + i * 0.6, jg = new THREE.Group(); jg.position.set(x, 0.81, 181.35); group.add(jg);
+    const jg = new THREE.Group(); jg.position.set(JAR_X(i), 0.81, 181.35); group.add(jg);
     const gl = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.36, 18, 1, true), jarGlass); gl.position.y = 0.18; jg.add(gl);
     const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.135, 0.135, 0.03, 18), brass); lid.position.y = 0.37; jg.add(lid);
     // eggs heaped by how many she laid (a handful for the fewest, the jar packed for the most)
@@ -294,7 +298,16 @@ export function buildAttic(ctx) {
     for (let k = 0; k < n; k++) { const a = r() * 6.28, rr = Math.sqrt(r()) * 0.11; m4.makeTranslation(Math.cos(a) * rr, 0.015 + r() * fillH, Math.sin(a) * rr); inst.setMatrixAt(k, m4); }
     jg.add(inst);
     const lab = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 0.1), paper(jarLabelTex(j.key))); lab.position.set(0, 0.17, 0.132); jg.add(lab);
+    // a figure scratched into the lid, that only shows when the jars stand in their right order
+    const dig = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.2), new THREE.MeshBasicMaterial({ map: lidDigitTex(String(j.eggs)[0]), transparent: true, depthWrite: false }));
+    dig.rotation.x = -Math.PI / 2; dig.position.y = 0.3875; dig.visible = false; dig.userData.noLimit = true; jg.add(dig);
+    jars[j.key] = { g: jg, dig };
   });
+  for (let i = 0; i < 4; i++) {
+    const pl = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.09), paper(slotTex(i)));
+    pl.rotation.x = -Math.PI / 2; pl.position.set(JAR_X(i), 0.8125, 181.72); group.add(pl);
+    const pick = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.5, 0.5), new THREE.MeshBasicMaterial({ visible: false })); pick.position.set(JAR_X(i), 1.05, 181.4); pick.userData.jarSlot = i; group.add(pick); jarPicks.push(pick);
+  }
   // the ledger, open on a clerk's desk
   const ld = new THREE.Group(); ld.position.set(44.6, 0, 184.45); group.add(ld);
   box(ld, 1.2, 0.05, 0.6, 0, 0.82, 0, darkWood); for (const [dx, dz] of [[-0.55, -0.25], [0.55, -0.25], [-0.55, 0.25], [0.55, 0.25]]) box(ld, 0.05, 0.82, 0.05, dx, 0.41, dz, darkWood, null, { cast: false });
@@ -319,7 +332,9 @@ export function buildAttic(ctx) {
     const t = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.16), new THREE.MeshStandardMaterial({ map: cutoutTex(c.key, false), transparent: true, alphaTest: 0.3, side: THREE.DoubleSide }));
     t.position.z = 0.075; clockG.add(t); return t;
   });
-  const placeToken = (i, h) => { const a = Math.PI / 2 - (h % 12) / 12 * Math.PI * 2, rr = CR * 0.62 + (i % 2) * 0.08; clockTokens[i].position.set(Math.cos(a) * rr, Math.sin(a) * rr, 0.075 + i * 0.002); };
+  // twelve hour places round the rim to aim at: lift a moth off one, set it on another
+  const clockPicks = []; for (let h = 1; h <= 12; h++) { const a = Math.PI / 2 - (h % 12) / 12 * Math.PI * 2, pk = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.12), new THREE.MeshBasicMaterial({ visible: false })); pk.position.set(Math.cos(a) * CR * 0.68, Math.sin(a) * CR * 0.68, 0.08); pk.userData.hour = h; clockG.add(pk); clockPicks.push(pk); }
+  const placeToken = (i, h) => { clockTokens[i].visible = S.clockHeld !== i; const a = Math.PI / 2 - (h % 12) / 12 * Math.PI * 2, rr = CR * 0.62 + (i % 2) * 0.08; clockTokens[i].position.set(Math.cos(a) * rr, Math.sin(a) * rr, 0.075 + i * 0.002); };
   // the collector's record pinned beside it (the clue)
   const log = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.4), paper(noteTex(r))); log.position.set(47.885, 1.55, 173.4); log.rotation.y = -Math.PI / 2; group.add(log);
   light(47.75, 2.35, 176.4, 0xffa860, 2.6, 6, '-x').userData.creepy = true;
@@ -379,17 +394,39 @@ export function buildAttic(ctx) {
   const waking = [];
   for (const [x, z, h, crack] of [[34.2, 174.6, 1.5, true], [36.0, 178.6, 1.7, false], [33.4, 181.8, 1.6, true], [37.2, 173.4, 1.3, false], [35.6, 182.6, 1.4, true], [32.0, 175.4, 1.2, false]]) waking.push(wakingCocoon(x, z, h, crack));
   light(35.0, 2.6, 178.4, 0x9a8a9a, 6, 12, false).userData.fill = true;
+  // the preserved: the Order's faithful, hung on strings like marionettes (bodies.js)
+  let marionettes = null;
+  {
+    const R = z => roofY(z) - 0.12;
+    marionettes = preservedBodies(group, [
+      ['arch', 37.0, 2.55, 179.4, Math.PI, 0.8, 0, [['FL', 36.9, R(179.6), 179.6], ['FR', 37.3, R(179.0), 179.0], ['WL', 37.7, 0.01, 180.1], ['WR', 36.4, 0.01, 178.9], ['H', 37.5, 0.01, 179.0]]],
+      ['loll', 38.3, 1.02, 177.4, 0, -Math.PI / 2, 0, [['SL', 38.3, R(177.0), 177.0], ['SR', 38.0, R(178.0), 178.0], ['WL', 38.95, 1.8, 176.8], ['N', 38.95, 2.2, 177.6], ['FL', 37.8, 0.01, 177.2]]],
+      ['bridge', 34.4, 0.95, 183.8, -Math.PI / 2, 0, 0, [['P', 34.4, R(183.8), 183.8], ['C', 34.0, R(183.4), 183.4], ['WL', 35.4, 0.01, 183.2], ['WR', 33.2, 0.01, 183.6], ['FL', 34.6, 1.0, 185.35], ['H', 34.4, 0.01, 182.8]]],
+      ['pinned', 30.32, 1.15, 181.6, 0, Math.PI / 2, 0, [['WL', 30.03, 2.3, 180.8], ['WR', 30.03, 1.2, 182.4], ['N', 30.03, 2.0, 181.6], ['FL', 30.6, 0.01, 181.0], ['FR', 30.6, 0.01, 182.2], ['P', 30.03, 1.0, 181.6]]],
+      ['slump', 33.2, 0.14, 171.85, 0, 0, 0, [['N', 33.4, R(171.6), 171.6], ['WL', 33.8, 0.01, 172.4], ['SR', 32.6, 1.0, 171.42], ['H', 33.6, R(172.0), 172.0]]],
+    ], threadPts, silk, 909, { roofY, nest: new THREE.Vector3(ATTIC.motherSpawn.x + 0.4, RH - 0.25, ATTIC.motherSpawn.z) });
+    rect(local, 36.7, 37.3, 179.1, 179.7); rect(local, 38.0, 38.6, 177.1, 177.7); rect(local, 33.9, 34.9, 182.9, 184.8); rect(local, 30.0, 30.6, 181.0, 182.2); rect(local, 32.7, 33.8, 171.4, 172.8);
+  }
 
   // ---------- merge silk ----------
   {
-    const merged = mergeGeometries(silkGeos.map(g => { const n = g.index ? g.toNonIndexed() : g; for (const k of Object.keys(n.attributes)) if (!['position', 'normal', 'uv'].includes(k)) n.deleteAttribute(k); return n; }), false);
-    const silkMesh = new THREE.Mesh(merged, silk); silkMesh.castShadow = true; silkMesh.receiveShadow = true; group.add(silkMesh);
+    const merged = mergeSilk(mergeGeometries, silkGeos);
+    const silkMesh = new THREE.Mesh(merged, animSilk(silk)); silkMesh.castShadow = true; silkMesh.receiveShadow = true; group.add(silkMesh);
     const tg = new THREE.BufferGeometry(); tg.setAttribute('position', new THREE.Float32BufferAttribute(threadPts, 3));
     group.add(new THREE.LineSegments(tg, new THREE.LineBasicMaterial({ color: 0xd8d0c0, transparent: true, opacity: 0.35 })));
   }
 
   // ======================= state =======================
   const S = {};
+  const JAR_START = EGG_JARS.map(j => j.key), JAR_ORDER = [...EGG_JARS].sort((a, b) => a.eggs - b.eggs).map(j => j.key);
+  const placeJars = () => {
+    for (const [k, o] of Object.entries(jars)) {
+      const i = S.jars.indexOf(k);
+      if (k === S.jarHeld) { carry.add(o.g); o.g.position.set(0, 0, 0); }
+      else if (i >= 0) { group.add(o.g); o.g.position.set(JAR_X(i), 0.81, 181.35); }
+      o.dig.visible = !!S.jarsSolved;
+    }
+  };
   let shadowAnim = 0, hatchAnim = 0, lidAnim = 0, handsAnim = 0, rackShake = 0;
   let removeLocal = () => {}, addLocal = () => {};
   const projShadow = (h, key) => {
@@ -410,7 +447,15 @@ export function buildAttic(ctx) {
     });
   }
   const api = {
-    group, motherAnchor, pickables, hooks,
+    group, motherAnchor, pickables, hooks, jarPicks, carry,
+    get jars() { return S.jars; }, get jarHeld() { return S.jarHeld; }, get jarsSolved() { return S.jarsSolved; },
+    // a numbered place on the table: put down what is carried, pick up what stood there
+    useJar(i) { const prev = S.jars[i]; S.jars[i] = S.jarHeld; S.jarHeld = prev; placeJars(); return prev; },
+    jarsFull() { return S.jars.every(Boolean); },
+    jarsCorrect() { return S.jars.every((k, i) => k === JAR_ORDER[i]); },
+    jarsRight() { return S.jars.filter((k, i) => k === JAR_ORDER[i]).length; },
+    solveJars() { S.jarsSolved = true; S.jars = [...JAR_ORDER]; S.jarHeld = null; placeJars(); },
+    settleJar() { if (S.jarHeld) { S.jars[S.jars.indexOf(null)] = S.jarHeld; S.jarHeld = null; placeJars(); } },
     get rack() { return S.rack; }, get rackSolved() { return S.rackSolved; },
     get eggsOpen() { return S.eggsOpen; }, get boxOpen() { return S.boxOpen; },
     get clock() { return S.clock; }, get clockSolved() { return S.clockSolved; },
@@ -426,22 +471,34 @@ export function buildAttic(ctx) {
     openBox() { S.boxOpen = true; },
     setWheel(k) { S.wheel = ((k % 26) + 26) % 26; inner.rotation.z = -S.wheel / 26 * Math.PI * 2; },
     seeRafters() { S.sawRafters = true; },
+    clockPicks, get clockHeld() { return S.clockHeld; },
+    mothAtHour(h) { const i = S.clock.findIndex((x, k) => x === h && k !== S.clockHeld); return i; },
+    // lift the moth at hour h, or set the carried one there (lifting whatever sat there)
+    useHour(h) {
+      const at = api.mothAtHour(h), held = S.clockHeld;
+      if (held < 0) { if (at < 0) return; S.clockHeld = at; placeToken(at, S.clock[at]); return; }
+      if (at >= 0) { S.clock[at] = S.clock[held]; S.clockHeld = at; } else S.clockHeld = -1;
+      S.clock[held] = h; CLOCK_MOTHS.forEach((c, i) => placeToken(i, S.clock[i]));
+    },
     setHour(i, h) { S.clock[i] = ((h - 1) % 12 + 12) % 12 + 1; placeToken(i, S.clock[i]); },
     clockCorrect() { return CLOCK_MOTHS.every((c, i) => S.clock[i] === c.hour); },
-    solveClock() { S.clockSolved = true; CLOCK_MOTHS.forEach((c, i) => api.setHour(i, c.hour)); removeLocal(hatchCol); },
-    serialize() { return { rack: [...S.rack], rackSolved: S.rackSolved, eggsOpen: S.eggsOpen, boxOpen: S.boxOpen, clock: [...S.clock], clockSolved: S.clockSolved, wheel: S.wheel, sawRafters: S.sawRafters }; },
+    solveClock() { S.clockSolved = true; S.clockHeld = -1; CLOCK_MOTHS.forEach((c, i) => api.setHour(i, c.hour)); removeLocal(hatchCol); },
+    serialize() { return { jars: S.jars.map(k => k || S.jarHeld), jarsSolved: S.jarsSolved, rack: [...S.rack], rackSolved: S.rackSolved, eggsOpen: S.eggsOpen, boxOpen: S.boxOpen, clock: [...S.clock], clockSolved: S.clockSolved, wheel: S.wheel, sawRafters: S.sawRafters }; },
     restore(s) {
       if (!s) return;
       if (Array.isArray(s.rack) && s.rack.length === 5) { S.rack = [...s.rack]; placeRack(); }
       if (s.rackSolved) api.solveRack(true);
+      S.jarHeld = null; if (Array.isArray(s.jars) && s.jars.length === 4 && s.jars.every(k => jars[k])) { S.jars = [...s.jars]; placeJars(); }
+      if (s.jarsSolved) api.solveJars();
       if (s.eggsOpen) api.openEggs(true);
       if (s.boxOpen) { api.openBox(); lidAnim = 1; handsAnim = 1; }
-      if (Array.isArray(s.clock)) s.clock.forEach((h, i) => api.setHour(i, h));
+      S.clockHeld = -1; if (Array.isArray(s.clock)) s.clock.forEach((h, i) => api.setHour(i, h));
       api.setWheel(s.wheel || 0); S.sawRafters = !!s.sawRafters;
       if (s.clockSolved) { api.solveClock(); hatchAnim = 1; }
     },
     reset() {
-      S.rack = [...RACK_START]; S.rackSolved = false; S.eggsOpen = false; S.boxOpen = false; S.clock = [...CLOCK_START]; S.clockSolved = false; S.wheel = 0; S.sawRafters = false;
+      S.jars = [...JAR_START]; S.jarHeld = null; S.jarsSolved = false; placeJars();
+      S.rack = [...RACK_START]; S.rackSolved = false; S.eggsOpen = false; S.boxOpen = false; S.clock = [...CLOCK_START]; S.clockHeld = -1; S.clockSolved = false; S.wheel = 0; S.sawRafters = false;
       shadowAnim = 0; hatchAnim = 0; lidAnim = 0; handsAnim = 0; doorShadow.material.opacity = 0;
       doors.aEggClock.locked = true; eggLock.visible = true;
       addLocal(sdCol); addLocal(hatchCol);
@@ -449,6 +506,7 @@ export function buildAttic(ctx) {
     },
     bindColliders(rem, addB) { removeLocal = rem; addLocal = addB; },
     update(t, dt) {
+      if (marionettes) marionettes.update(t);
       // rack: a wrong arrangement rattles; the right one draws the shadows together into a door
       if (rackShake > 0) { rackShake -= dt; hooks.forEach((h, i) => { h.spec.rotation.z = Math.sin(t * 40 + i) * 0.15 * rackShake; }); } else hooks.forEach((h, i) => { h.spec.rotation.z = Math.sin(t * 0.7 + i * 1.3) * 0.04; });
       if (S.rackSolved && shadowAnim < 1.5) shadowAnim = Math.min(1.5, shadowAnim + dt * 0.45);
@@ -471,7 +529,8 @@ export function buildAttic(ctx) {
       // the waking cocoons: long stillness, then a jerk; the splitting ones breathe at the seam
       for (const w of waking) {
         if (w.jerk > 0) { w.jerk -= dt; w.g.rotation.z = Math.sin(t * 38 + w.ph) * 0.06 * w.jerk; w.g.rotation.x = Math.cos(t * 31 + w.ph) * 0.04 * w.jerk; }
-        else { w.g.rotation.z = Math.sin(t * 0.6 + w.ph) * 0.012; w.g.rotation.x = 0; if (Math.random() < dt * 0.12) w.jerk = 0.4 + Math.random() * 0.6; }
+        else { w.g.rotation.z = Math.sin(t * 0.6 + w.ph) * 0.012; w.g.rotation.x = 0; if (Math.random() < dt * 0.6) w.jerk = Math.random() < 0.15 ? 1.4 : 0.3 + Math.random() * 0.4; }
+        const br = 1 + 0.035 * Math.sin(t * 0.9 + w.ph); w.g.scale.set(br, 1, br);
         if (w.slit) { const o = 0.75 + 0.35 * Math.max(0, Math.sin(t * 0.9 + w.ph)) + (w.jerk > 0 ? 0.3 : 0); w.slit.scale.x = o; }
       }
       veils.forEach((v, i) => { v.rotation.z = Math.sin(t * 0.5 + i * 1.7) * 0.03; });
@@ -558,6 +617,17 @@ function plateTex() {
   g.fillStyle = '#9a7a3a'; g.fillRect(0, 0, 340, 80); g.strokeStyle = '#4a3a1a'; g.lineWidth = 4; g.strokeRect(4, 4, 332, 72);
   g.fillStyle = '#2a1e0e'; g.font = 'italic 19px Georgia, serif'; g.textAlign = 'center';
   g.fillText('From the least of them', 170, 34); g.fillText('to the White Witch', 170, 60);
+  return canvasTexture(c);
+}
+function slotTex(i) {
+  const c = document.createElement('canvas'); c.width = 160; c.height = 90; const g = c.getContext('2d');
+  g.fillStyle = '#9a7a3a'; g.fillRect(0, 0, 160, 90); g.strokeStyle = '#4a3a1a'; g.lineWidth = 4; g.strokeRect(4, 4, 152, 82);
+  g.fillStyle = '#2a1e0e'; g.font = 'bold 46px Georgia, serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(['I', 'II', 'III', 'IV'][i], 80, 48);
+  return canvasTexture(c);
+}
+function lidDigitTex(d) {
+  const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+  g.fillStyle = '#fff4c8'; g.shadowColor = '#ffd870'; g.shadowBlur = 14; g.font = 'bold 84px Georgia, serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(d, 64, 70);
   return canvasTexture(c);
 }
 function jarLabelTex(key) {

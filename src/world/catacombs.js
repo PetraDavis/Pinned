@@ -16,7 +16,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { tex } from '../textures.js';
 import { mat, rep, rect, rand } from './build.js';
-import { cocoonBody, spunCocoon, mergeSilk } from './cocoon.js';
+import { cocoonBody, spunCocoon, mergeSilk, animSilk } from './cocoon.js';
 import { silkTex } from './lowerUpper.js';
 import { drawMoth, SPECIES } from '../moths.js';
 import { POISON_ORDER, DECOY_KEYS } from '../catacombMoths.js';
@@ -441,7 +441,7 @@ export function buildCatacombs(ctx) {
     const sm = new THREE.InstancedMesh(skullGeo, skullMat, skulls.length);
     skulls.forEach(([x, y, z, yaw, k], i) => { q.setFromAxisAngle(up, yaw); sm.setMatrixAt(i, m4.compose(pp.set(x, y, z), q, s.set(k, k, k))); sm.setColorAt(i, col.setHSL(0.1, 0.22, 0.66 + r() * 0.18)); });
     sm.instanceColor.needsUpdate = true; sm.computeBoundingSphere(); group.add(sm);
-    const silkMesh = new THREE.Mesh(mergeSilk(mergeGeometries, silkGeos), silk); silkMesh.castShadow = true; group.add(silkMesh);
+    const silkMesh = new THREE.Mesh(mergeSilk(mergeGeometries, silkGeos), animSilk(silk)); silkMesh.castShadow = true; group.add(silkMesh);
     const tg = new THREE.BufferGeometry(); tg.setAttribute('position', new THREE.Float32BufferAttribute(threadPts, 3));
     group.add(new THREE.LineSegments(tg, new THREE.LineBasicMaterial({ color: 0xd8d0c0, transparent: true, opacity: 0.35 })));
     flush();
@@ -499,11 +499,11 @@ export function buildCatacombs(ctx) {
       for (const m of resting) { m.t -= dt; if (m.t < 0) { m.t = 2 + Math.random() * 6; m.k = 0.5; } if (m.k > 0) { m.k -= dt; m.m.scale.x = 1 - Math.abs(Math.sin(m.k * 40)) * 0.25; } else m.m.scale.x = 1; }
       // wall cocoons: an occasional twitch, the crack breathing open and shut
       for (const c of wallCocoons) {
-        c.t -= dt; if (c.t < 0) { c.t = 3 + Math.random() * 9; c.tw = 0.7; }
+        c.t -= dt; if (c.t < 0) { c.t = 0.8 + Math.random() * 3; c.tw = Math.random() < 0.15 ? 1.6 : 0.5; }
         if (c.tw > 0) c.tw -= dt;
         const k = Math.max(0, c.tw);
         c.g.rotation.z = Math.sin(t * 38) * 0.035 * k; c.g.rotation.x = -0.12 + Math.sin(t * 29 + 1) * 0.02 * k;
-        c.crack.scale.x = 0.8 + 0.3 * Math.sin(t * 0.9 + c.h * 10) + k * 1.4; c.g.scale.y = 1 + k * 0.03;
+        c.crack.scale.x = 0.8 + 0.3 * Math.sin(t * 0.9 + c.h * 10) + k * 1.4; c.g.scale.y = 1 + k * 0.03; const br = 1 + 0.03 * Math.sin(t * 0.9 + c.h * 7); c.g.scale.x = c.g.scale.z = br;
       }
       // the crypt: a drip, rings spreading on the black water; tipping lids
       rippleT -= dt; if (rippleT < 0) { rippleT = 1.5 + Math.random() * 3; ripple.position.x = CRYPT.x0 + 0.3 + Math.random() * (CRYPT.x1 - CRYPT.x0 - 0.6); ripple.position.z = CRYPT.z0 + 0.4 + Math.random() * (CRYPT.z1 - CRYPT.z0 - 0.8); ripple.userData.a = 0; }

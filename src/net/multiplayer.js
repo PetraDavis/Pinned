@@ -37,8 +37,8 @@ export function initMultiplayer(G) {
   const nameIn = el('input', { type: 'text', id: 'mpName', maxLength: 18, value: S.name, placeholder: 'Your name', autocomplete: 'off' });
   const codeIn = el('input', { type: 'text', id: 'mpCode', maxLength: 5, placeholder: 'CODE', autocomplete: 'off', spellcheck: false });
   const note = el('p', { className: 'note', id: 'mpNote' });
-  const btnHostNew = el('button', { id: 'mpHostNew', textContent: 'Host a new game' });
-  const btnHostSave = el('button', { id: 'mpHostSave', textContent: 'Host from my save' });
+  const btnHostNew = el('button', { id: 'mpHostNew', textContent: 'Host a game…' });
+  const btnHostSave = el('button', { id: 'mpHostSave', textContent: 'Host from my save' }); btnHostSave.style.display = 'none';
   const btnJoin = el('button', { id: 'mpJoin', textContent: 'Join' });
   const manOffer = el('textarea', { id: 'mpManOffer', placeholder: 'Paste the invite the host sent you' });
   const btnManReply = el('button', { id: 'mpManReply', className: 'mp-small', textContent: 'Make my reply' });
@@ -102,11 +102,11 @@ export function initMultiplayer(G) {
   btnInvCopy.onclick = () => copyText(invOut);
 
   function openMenu() {
-    btnHostSave.disabled = !loadSave(); note.textContent = '';
+    note.textContent = '';
     mpScreen.classList.remove('hidden');
   }
   function closeMenu() { mpScreen.classList.add('hidden'); }
-  const busy = on => { for (const b of [btnHostNew, btnHostSave, btnJoin, btnManReply, btnHostManual]) b.disabled = on; if (!on) btnHostSave.disabled = !loadSave(); };
+  const busy = on => { for (const b of [btnHostNew, btnHostSave, btnJoin, btnManReply, btnHostManual]) b.disabled = on; };
 
   function refreshUi() {
     const n = (S.role === 'host' ? S.clients.size : remotes.players.size) + 1;
@@ -400,9 +400,10 @@ export function initMultiplayer(G) {
       return a.code;
     } catch (e) { note.textContent = 'That invite did not work. Ask the host for a new one.'; busy(false); return null; }
   }
-  btnHostNew.onclick = () => hostGame(false);
-  btnHostSave.onclick = () => hostGame(true);
-  btnHostManual.onclick = () => hostGame(!!loadSave() && confirm('Continue from your save? (Cancel starts a new game.)'), 'manual');
+  // the host picks the save slot to host from (or an empty one for a new game); progress saves there
+  const pickSlot = cb => G.chooseSlot ? G.chooseSlot(cb) : cb(false);
+  btnHostNew.onclick = () => pickSlot(fromSave => hostGame(fromSave));
+  btnHostManual.onclick = () => pickSlot(fromSave => hostGame(fromSave, 'manual'));
   btnJoin.onclick = () => joinCode(codeIn.value);
   btnManReply.onclick = () => manualJoin(manOffer.value);
 

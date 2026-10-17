@@ -16,7 +16,7 @@ import * as THREE from 'three';
 import { tex } from '../textures.js';
 import { mat, box, rect, rep, rand } from './build.js';
 import { gasLampFixture } from './fixtures.js';
-import { spunCocoon } from './cocoon.js';
+import { spunCocoon, mergeSilk, animSilk } from './cocoon.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 export const CELLAR = { spawn: new THREE.Vector3(31.75, 0, 46.7), shaftFoot: new THREE.Vector3(34.45, 0, 46.2), stairC: new THREE.Vector3(31.75, 0, 45.6), shaft: new THREE.Vector3(34.45, 0, 45.6), stairE: new THREE.Vector3(56.25, 0, 52.4) };
@@ -363,8 +363,8 @@ export function buildLowerUpper(ctx) {
 
   // ---------- merge all spun silk into one mesh, all anchor threads into one line set ----------
   {
-    const merged = mergeGeometries(silkGeos.map(g => { const n = g.index ? g.toNonIndexed() : g; for (const k of Object.keys(n.attributes)) if (!['position', 'normal', 'uv'].includes(k)) n.deleteAttribute(k); return n; }), false);
-    const silkMesh = new THREE.Mesh(merged, silk); silkMesh.castShadow = true; silkMesh.receiveShadow = true; group.add(silkMesh);
+    const merged = mergeSilk(mergeGeometries, silkGeos);
+    const silkMesh = new THREE.Mesh(merged, animSilk(silk)); silkMesh.castShadow = true; silkMesh.receiveShadow = true; group.add(silkMesh);
     const tg = new THREE.BufferGeometry(); tg.setAttribute('position', new THREE.Float32BufferAttribute(threadPts, 3));
     group.add(new THREE.LineSegments(tg, new THREE.LineBasicMaterial({ color: 0xd8d0c0, transparent: true, opacity: 0.35 })));
   }

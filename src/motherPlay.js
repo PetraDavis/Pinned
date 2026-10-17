@@ -96,7 +96,7 @@ export function createMotherPlay(G) {
     get mode() { return S.mode; }, get hidden() { return !!S.hidden; },
     debugPlace(x, z, yaw = 0) { pos.set(x, z); S.yaw = yaw; anchor.position.set(x, 0, z); anchor.rotation.y = yaw; },
     get debug() { return { ...S, x: pos.x, z: pos.y, dist }; },
-    reset() { pos.set(...WP[0]); S.mode = 'asleep'; S.path = []; S.stun = 0; S.hidden = null; S.wake = 0; veil.style.opacity = 0; moth.style.opacity = 0; api.setOpen(0); anchor.position.set(pos.x, 0, pos.y); },
+    reset() { pos.set(...WP[0]); S.mode = 'asleep'; S.path = []; S.stun = 0; S.hidden = null; S.wake = 0; S.wakeAt = 0; veil.style.opacity = 0; moth.style.opacity = 0; api.setOpen(0); anchor.position.set(pos.x, 0, pos.y); },
     interactables: COTS.map(([x, z]) => ({
       zone: 'room', pos: new THREE.Vector3(O.x + x, 0, O.z + z + 1.3), r: 1.1,
       prompt: () => S.hidden ? 'E  crawl out' : 'E  hide under the cot',
@@ -112,7 +112,7 @@ export function createMotherPlay(G) {
       const here = inAttic(p.y);
       // asleep until the hatch is unbolted, and only once the player is up here
       if (S.mode === 'asleep') {
-        if (ground.attic.clockSolved && here) { S.wake += dt; if (S.wake > 6) { S.mode = 'wander'; api.twitch(); sfx.flutter(hear()); say('From the far end of the attic, a dry rustle, like a great deal of paper being unfolded. Then nothing.', 6000); } }
+        if (ground.attic.clockSolved && here) { const now = performance.now() / 1000; if (!S.wakeAt) S.wakeAt = now + 5; if (now > S.wakeAt) { S.wakeAt = 0; S.mode = 'wander'; S.still = 0.3; api.twitch(); sfx.flutter(hear()); say('From the far end of the attic, a dry rustle, like a great deal of paper being unfolded. Then nothing.', 6000); } }
         api.update(0); anchor.position.set(pos.x, 0, pos.y); return;
       }
       if (S.stun > 0) { S.stun -= dt; api.update(dt * 0.3); return; }
