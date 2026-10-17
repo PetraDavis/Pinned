@@ -522,12 +522,17 @@ const HINT_GROUP = { room: 'drawing+study', study: 'drawing+study', dinner: 'din
 Object.assign(HINT_GROUP, catPlay.hintGroups);
 Object.assign(HINTS, atticPlay.hints); Object.assign(HINT_GROUP, atticPlay.hintGroups);
 const HINT_LIMIT = 3;
+const HINT_REFUSALS = ['I don’t feel like it.', 'Stop asking.', 'Stop bothering me.', 'I can’t do everything.', 'STOP.'];
 let hintsUsed = {};
 function showHint() {
   const p = currentPuzzle();
   if (!p) { say('Nothing here seems to need solving right now.', 3000); return; }
   const grp = HINT_GROUP[p] || p;
-  if ((hintsUsed[grp] || 0) >= HINT_LIMIT) { say('I don’t feel like it.', 3000); return; }
+  if ((hintsUsed[grp] || 0) >= HINT_LIMIT) {
+    // past the (unstated) limit: refuse, more and more crossly, then just STOP
+    const k = (hintsUsed[grp + ':no'] || 0); hintsUsed[grp + ':no'] = k + 1;
+    say(HINT_REFUSALS[Math.min(k, HINT_REFUSALS.length - 1)], 3000); return;
+  }
   hintsUsed[grp] = (hintsUsed[grp] || 0) + 1;
   const n = Math.min(HINTS[p].length, (hintState[p] || 0) + 1); hintState[p] = n; stuckTime = 0;
   say(`Hint ${n}/${HINTS[p].length}: ${HINTS[p][n - 1]}`, 11000);

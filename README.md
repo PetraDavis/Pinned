@@ -18,7 +18,7 @@ all geometry and textures are generated in code.
 | E | Interact (climb, try doors, examine) |
 | F | Flashlight (battery runs down; batteries can be found) |
 | L | Raise or lower a paraffin lantern once you have found one (it shares the torch hand; its light draws moths) |
-| H | Hint for the current puzzle (each more direct; three per pair of rooms, then you're on your own; also in the pause menu) |
+| H | Hint for the current puzzle (each more direct; also in the pause menu) |
 | Q | Close a drawer while holding a specimen |
 | Esc / P | Pause menu (or the II button, top right) |
 
