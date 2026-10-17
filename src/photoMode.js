@@ -109,11 +109,15 @@ export function createPhotoMode({ renderer, scene, camera, render, enter, exit }
     g.filter = cssFilter(); g.drawImage(src, 0, 0); g.filter = 'none';
     if (opt.vig) { const r = g.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.32, w / 2, h / 2, Math.hypot(w, h) / 2); r.addColorStop(0, 'rgba(0,0,0,0)'); r.addColorStop(1, 'rgba(0,0,0,.78)'); g.fillStyle = r; g.fillRect(0, 0, w, h); }
     if (opt.grain) { g.fillStyle = g.createPattern(grain(), 'repeat'); g.fillRect(0, 0, w, h); }
-    const url = c.toDataURL('image/png');
-    const a = q('.ph-link'); a.href = url; a.download = `pinned-${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}.png`; a.style.display = '';
+    const url = c.toDataURL('image/png'), name = `pinned-${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}.png`;
+    // inside claude.ai the page cannot download directly: hand the file to the viewer's save prompt
+    if (downloads) { c.toBlob(blob => { downloads.save({ filename: name, data: blob }).catch(() => {}); }, 'image/png'); return url; }
+    const a = q('.ph-link'); a.href = url; a.download = name; a.style.display = '';
     a.click();
     return url;
   }
+  let downloads = null;
+  try { if (window.claude && window.claude.use) window.claude.use('downloads').then(d => { downloads = d; }).catch(() => {}); } catch { /* not in claude.ai */ }
   q('.ph-save').onclick = shot;
   q('.ph-done').onclick = () => stop();
 
