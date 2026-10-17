@@ -80,9 +80,13 @@ export function buildCatacombs(ctx) {
     const g = geo.index ? geo.toNonIndexed() : geo;
     if (uv) worldUV(g, uv);
     for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k)) g.deleteAttribute(k);
-    if (!lists.has(material)) lists.set(material, []);
-    lists.get(material).push(g);
+    const L = tunnelPart ? tunnelLists[tunnelPart] : lists;
+    if (!L.has(material)) L.set(material, []);
+    L.get(material).push(g);
   }
+  // the sealed tunnel's door, chains and bricks are kept out of the static merge (escape.js opens them)
+  let tunnelPart = null; const tunnelLists = { door: new Map(), bricks: new Map() };
+  const tunnelDoor = new THREE.Group(), tunnelBricks = new THREE.Group(); tunnelDoor.name = 'tunnelDoor'; tunnelBricks.name = 'tunnelBricks';
   const B = (material, w, h, d, x, y, z, ry = 0, uv = 0.5) => addGeo(material, new THREE.BoxGeometry(w, h, d), x, y, z, ry, 0, 0, uv);
   function flush() {
     for (const [m, gs] of lists) { const mesh = new THREE.Mesh(mergeGeometries(gs, false), m); mesh.receiveShadow = true; mesh.castShadow = false; group.add(mesh); }
@@ -181,14 +185,17 @@ export function buildCatacombs(ctx) {
   rect(local, 32.6, 34.4, 116.8, 120.05);
   // the sealed tunnel: an arched passage west, bricked up behind an iron door, chained
   B(stone, 2.6, H, 0.2, 28.7, H / 2, 124.1); B(stone, 2.6, H, 0.2, 28.7, H / 2, 125.9); B(stone, 2.6, 0.1, 1.8, 28.7, 2.25, 125.0);
-  B(brick, 0.3, 2.2, 1.6, 27.6, 1.1, 125.0, 0, 0.9);
-  // (static and merged; the ending will open it: its collider is 'catTunnel')
+  tunnelPart = 'bricks'; B(brick, 0.3, 2.2, 1.6, 27.6, 1.1, 125.0, 0, 0.9);
+  // (kept apart from the merge as api.tunnelDoor / api.tunnelBricks; escape.js opens it: its collider is 'catTunnel')
+  tunnelPart = 'door';
   { const TX = 29.0, TZ = 125.0;
     B(iron, 0.06, 2.05, 1.45, TX, 1.03, TZ, 0, 0);
     for (const y of [0.4, 1.0, 1.6]) B(iron, 0.08, 0.08, 1.5, TX + 0.02, y, TZ, 0, 0);
     // two chains crossing the door, and a padlock where they meet
     for (const s of [-1, 1]) for (let k = 0; k < 16; k++) { const t = k / 15; addGeo(iron, new THREE.TorusGeometry(0.035, 0.009, 4, 8), TX + 0.08, 0.35 + t * 1.5, TZ + s * (0.65 - t * 1.3), k % 2 ? Math.PI / 2 : 0, 0, Math.atan2(1.5, 1.3) * s); }
     B(brass, 0.06, 0.13, 0.1, TX + 0.1, 1.1, TZ, 0, 0); }
+  tunnelPart = null;
+  for (const [part, grp] of [['door', tunnelDoor], ['bricks', tunnelBricks]]) { for (const [m, gs] of tunnelLists[part]) { const mesh = new THREE.Mesh(mergeGeometries(gs, false), m); mesh.receiveShadow = true; grp.add(mesh); } group.add(grp); }
   const tunnelCol = { minX: 27.4, maxX: 29.95, minZ: 124.1, maxZ: 125.9, door: 'catTunnel' }; local.push(tunnelCol);
   boneWall('x', 128, 30.3, 39.7, -1);
   boneWall('z', 30, 120.3, 124.0, 1); boneWall('z', 30, 126.0, 127.6, 1);
@@ -444,7 +451,7 @@ export function buildCatacombs(ctx) {
   const st = { ossOpen: false, crossed: false, tombOpen: false, heat: 0, hatch: 0, cabinetOpen: false, inserted: [] };
   let removeLocal = () => {}, addLocal = () => {}, gateY = 0, rippleT = 0, slabSlide = 0, cabAnim = 0;
   const api = {
-    CATA, CRYPT, DRAWERS, drawers, drawerMesh, coffins, nicheSkulls, resting,
+    CATA, CRYPT, DRAWERS, tunnelDoor, tunnelBricks, drawers, drawerMesh, coffins, nicheSkulls, resting,
     get ossOpen() { return st.ossOpen; }, get crossed() { return st.crossed; }, get tombOpen() { return st.tombOpen; },
     get heat() { return st.heat; }, set heat(v) { st.heat = v; }, get cabinetOpen() { return st.cabinetOpen; },
     get inserted() { return st.inserted; },

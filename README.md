@@ -49,6 +49,14 @@ save is moved into slot 1.
 
 No puzzles, nothing in the way: the **Conservatory** (behind the Grand Hall's north door, glass lean-to by moonlight), the first-floor **Bathroom** (between the Leader's and Luna's bedrooms), the **West Corridor** (through a door in the Library's west wall: the members' coats, portraits, a stopped clock) and its turret stair up to the **Observatory** (a dome open to the moon, a brass telescope, star charts and moth-and-moon diagrams); in the catacombs, off the Tomb Hall, the **Bogong Cave** (rock covered in sleeping moths) and the **Burial Niches**. The Nursery's door into the Leader's room is unbolted, and opening the boiler-room wardrobe lets a swarm of clothes moths out. Two more moths (a Drinker and an Indian moon moth) live there (`src/world/extraRooms.js`, `src/roomsPlay.js`, `src/roomMoths.js`).
 
+## The escape
+
+In her chamber, an old iron key lies in the silk of the Mother's nest. Taking it is the last thing you do in the attic: she unfolds out of the rafters and hunts you down through the house. Get back through the crawl hatch and down ladder D, across the first floor to the back stair B, down into the catacombs and back through them to the Bone Gallery, where her key opens the chained, bricked-up tunnel. The game saves as you take the key; if she catches you, you start again at the top of the ladder.
+
+She only exists on the floor you are on, and follows you down a little after you, or is suddenly ahead of you. Light draws her: with the torch or lantern on she always knows where you are and moves faster. In the dark, crouched and out of her sight, she loses you, searches where she lost you, and withdraws for a while. A torch burst (B) stuns her. She has to fold herself small to get through the crawl hatch.
+
+After the tunnel there is a short ending with no controls (Esc skips it once you have seen it through), and then the home screen.
+
 ## Moths and the Moth Journal
 
 The story is carried by moths, not paper. Twenty-five specimens, each a different species (four of them in the catacombs), are pinned in boxes, sealed in jars or resting on the walls of every built room. Pick one up (E) to read its message; it goes into the **Moth Journal** (pause menu or home screen), which shows every moth collected with its picture, name and message, and writes out the story in plain words, one passage per moth, in the order you find them. Two of them carry puzzle clues: the Herald above the boiler (the altar) and the Peppered moth in the library (the desk). The journal is kept in the save.
@@ -106,7 +114,9 @@ Any static server works (`npx serve`, etc.). An internet connection is needed to
 - `src/flashlight.js` - held torch, battery, beam, dust and moths
 - `src/world/drawerPuzzle.js` - specimen cabinet, numbered stands, sequence puzzle and the hallway
 - `src/world/lowerUpper.js` - the cellar and the first floor
-- `src/world/catacombs.js` - the catacombs: bone walls, ossuary, flooded crypt, tomb, apothecary, back stair B, the sealed tunnel (`CATA.tunnel`, collider `catTunnel`, kept for the ending)
+- `src/world/catacombs.js` - the catacombs: bone walls, ossuary, flooded crypt, tomb, apothecary, back stair B, the sealed tunnel (`CATA.tunnel`, collider `catTunnel`; its door and bricks are separate groups that `escape.js` opens)
+- `src/escape.js` - the finale chase: the key in her nest, the Mother on every floor (trail-following, light as bait, searching, torch stun), the beats (cocoons, swarms, slams), the tunnel opening, the `escape` save
+- `src/ending.js` - the ending cutscene, in its own small scene: the bedroom window, the empty cocoon, the collector's case, the title
 - `src/catacombsPlay.js` - the catacombs in play: interactions, puzzles, poison (`detectScale`, `onPoison` hooks for later), hints and save state
 - `src/catacombMoths.js` - the catacombs' moth species, moth notes and story passages
 - `src/world/cocoon.js` - spun silk cocoons, shared by every floor

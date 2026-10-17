@@ -34,6 +34,8 @@ import { createMotherPlay } from './motherPlay.js';
 import { createHallucinations, initAccessibilitySettings } from './hallucinate.js';
 import { captionSound } from './captions.js';
 import { initMultiplayer } from './net/multiplayer.js';
+import { createEscape } from './escape.js';
+import { createEnding } from './ending.js';
 let mp = null; // multiplayer session (src/net/), set up at the end of this file
 
 const $ = id => document.getElementById(id);
@@ -265,7 +267,36 @@ const motherPlay = createMotherPlay({
     setTimeout(() => { const s = loadSave(); spawnAt(s ? s.checkpoint : null, s || {}); $('fade').style.opacity = 0; state = 'playing'; player.enabled = true; say('Dark, and then nothing. You are back where you last saved.', 6000); }, 3400);
   },
 });
+// ---------- the escape: the finale chase (escape.js) and the ending (ending.js) ----------
+const escape = createEscape({
+  room, ground, origin: ROOM_ORIGIN, player, camera, flashlight, lantern, say, motherPlay,
+  sfx: { flutter: playFlutter, clicks: playClicksAt, thud: playThud, creak: playCreak, grind: playGrind, glass: playGlass, softClicks: playSoftClicks },
+  colliders: () => colliders(), active: () => state === 'playing' && zone === 'room', visited: () => visited, save: (cp) => save(cp),
+  mpClient: () => !!(mp && mp.isClient),
+  caught: () => {
+    state = 'cutscene'; player.enabled = false; playFlutter(1); playClicksAt(1, 6);
+    say('Wings close over you, soft and enormous, and the light goes out.', 3000);
+    setTimeout(() => { $('fade').style.opacity = 1; }, 600);
+    setTimeout(() => { const s = loadSave(); spawnAt(s ? s.checkpoint : null, s || {}); $('fade').style.opacity = 0; state = 'playing'; player.enabled = true; say('The top of the ladder. Behind you, in the dark, she is coming.', 5000); }, 3400);
+  },
+  onEnd: () => {
+    state = 'ending'; player.enabled = false; show('hud', false); promptEl.textContent = '';
+    if (document.pointerLockElement) document.exitPointerLock();
+    if (flashlight.on) flashlight.toggle(); if (lantern.on) lantern.lower();
+    // the secret ending: every moth note in the house collected (counted from MOTH_NOTES, so new ones count too)
+    const allNotes = MOTH_NOTES.length, have = new Set(mothsTaken.filter(id => NOTE_BY_ID[id])).size;
+    const sv = loadSave() || {}, slotName = (sv.name || '').trim();
+    let remembered = sv.collectedName; try { remembered = remembered || localStorage.getItem('pinned.collectedName'); } catch {}
+    ending.start({ secret: allNotes > 0 && have >= allNotes ? {
+      name: remembered || (slotName && !/^Save \d+$/.test(slotName) ? slotName : ''),
+      onName: (n) => { try { localStorage.setItem('pinned.collectedName', n); } catch {} const cur = loadSave(); if (cur && !(mp && mp.isClient)) writeSave({ ...cur, collectedName: n }); },
+    } : null });
+  },
+});
+const ending = createEnding({ renderer, quality: settings.quality, sfx: { click: playClick, flutter: playFlutter },
+  onDone: () => { show('hud', false); show('home', true); state = 'home'; player.enabled = false; backdrop.start(); refreshHome(); } });
 const interactables = [
+  ...escape.interactables,
   ...motherPlay.interactables,
   ...catPlay.interactables,
   ...LANTERNS.map(l => ({
@@ -714,6 +745,8 @@ function spawnAt(checkpoint, saved = {}) {
   for (const k of Object.keys(visited)) delete visited[k]; Object.assign(visited, saved.visited || {});
   catPlay.load(saved.cat); catPlay.closeUI();
   const at = (v, yaw) => { setZone('room'); player.place(ROOM_ORIGIN.x + v.x, ROOM_ORIGIN.z + v.z, yaw); };
+  if (checkpoint === 'escape') { setZone('room'); escape.reset(checkpoint, visited); return; }
+  escape.reset(null, visited);
   const as = atticPlay.spawnFor(checkpoint); if (as) { at(as, as.yaw); return; }
   if (checkpoint === 'cellar') { at(CELLAR.spawn, Math.PI); return; }
   if (checkpoint === 'catacombs') { at(CATA.spawn, Math.PI); return; }
@@ -791,7 +824,7 @@ function startGame(checkpoint, saved = {}) {
   startAudio(settings.volume);
   lock();
   if (!checkpoint) say('The Pale Wing house. Everyone at school says it’s haunted. Find a way past the fence.', 6000);
-  else say(atticPlay.backMessage(checkpoint) || (checkpoint === 'cellar' ? 'You are back in the cellar, at the foot of the stairs.' : checkpoint === 'catacombs' ? 'You are back in the catacombs, at the foot of the chapel steps.' : checkpoint === 'chapel' ? 'You are back in the chapel.' : checkpoint === 'firstfloor' ? 'You are back on the first floor.' : checkpoint === 'leader' ? 'You are back in the leader’s bedroom.' : checkpoint === 'dining' ? 'You are back in the dining room.' : checkpoint === 'kitchen' ? 'You are back in the kitchen, by the cellar door.' : checkpoint === 'study' ? 'You are back in the Specimen Study.' : checkpoint === 'grandhall' ? 'You are back in the Grand Hall.' : checkpoint === 'hallway' ? 'You are back in the hallway.' : checkpoint === 'room' ? 'You are back in the drawing room.' : 'You are back on the grounds.'));
+  else say((checkpoint === 'escape' && 'The top of the ladder. Behind you, in the dark, she is coming.') || atticPlay.backMessage(checkpoint) || (checkpoint === 'cellar' ? 'You are back in the cellar, at the foot of the stairs.' : checkpoint === 'catacombs' ? 'You are back in the catacombs, at the foot of the chapel steps.' : checkpoint === 'chapel' ? 'You are back in the chapel.' : checkpoint === 'firstfloor' ? 'You are back on the first floor.' : checkpoint === 'leader' ? 'You are back in the leader’s bedroom.' : checkpoint === 'dining' ? 'You are back in the dining room.' : checkpoint === 'kitchen' ? 'You are back in the kitchen, by the cellar door.' : checkpoint === 'study' ? 'You are back in the Specimen Study.' : checkpoint === 'grandhall' ? 'You are back in the Grand Hall.' : checkpoint === 'hallway' ? 'You are back in the hallway.' : checkpoint === 'room' ? 'You are back in the drawing room.' : 'You are back on the grounds.'));
 }
 function pause() {
   if (state !== 'playing') return;
@@ -888,7 +921,8 @@ function loop() {
   lantern.update(dt, t, player.moving);
   lampMoths.update(t, camera);
   lightLimiter.update(camera);
-  motherPlay.update(dt);
+  if (!escape.ownsMother) motherPlay.update(dt);
+  escape.update(dt, t);
   // shadow maps: only for shadow-casting lamps near the player, refreshed every other frame
   if (!shadowLights) { shadowLights = []; scene.traverse(o => { if (o.isLight && o.shadow && !o.isDirectionalLight && o.userData.shadowOn) shadowLights.push(o); }); }
   frameNo++;
@@ -912,7 +946,8 @@ function loop() {
   tickSilk(t);
   halluc.update(dt, state === 'playing', zone === 'room');
   lightLimiter.fade(realDt);
-  if (state !== 'home') { if (currentQ.post && composer) composer.render(dt); else renderer.render(scene, camera); }
+  if (state === 'ending') ending.frame(document.hidden ? 0 : realDt);
+  else if (state !== 'home') { if (currentQ.post && composer) composer.render(dt); else renderer.render(scene, camera); }
   requestAnimationFrame(loop);
 }
 
@@ -925,7 +960,7 @@ loop();
 window.__pinned = {
   start: startGame, pause, resume, quitHome, player, setZone, interactables, interact: () => current && current.act(), refresh: () => { current = findInteractable(); },
   caps: CAPS, get state() { return state; }, get zone() { return zone; }, get prompt() { return current && (typeof current.prompt === 'function' ? current.prompt() : current.prompt); }, room,
-  renderer, scene, camera, flashlight, lantern, catacombs: catPlay, ground, mother: motherPlay, get hints() { return { used: hintsUsed, state: hintState }; }, currentPuzzle: () => currentPuzzle(), openPadlock, tryPadlock, dials, get gameTime() { return gameTime; }, get colliders() { return colliders(); }, collection, photo, halluc,
+  renderer, scene, camera, flashlight, lantern, catacombs: catPlay, ground, mother: motherPlay, escape, ending, save: (cp) => save(cp), visited, get hints() { return { used: hintsUsed, state: hintState }; }, currentPuzzle: () => currentPuzzle(), openPadlock, tryPadlock, dials, get gameTime() { return gameTime; }, get colliders() { return colliders(); }, collection, photo, halluc,
 };
 
 // ---------- multiplayer (src/net/) ----------

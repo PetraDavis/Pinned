@@ -221,6 +221,13 @@ function headSurfaceZ(x, y) {
 
 // skin: pores and freckles, a slight blush; at M1 tired shadows under the eyes; from M6
 // faint wing-pattern markings on the cheeks
+// The faint wing-pattern markings under the reflection's skin (M6+): four nested rings round a
+// soft dark centre. Exported so the ending can give the moth on the window the same marks.
+export function drawWingMarks(g, cx, cy, s = 1, alpha = 0.16, col = '150,130,120', blotCol = '140,110,100', blotA = 0.2) {
+  g.strokeStyle = `rgba(${col},${alpha})`; g.lineWidth = 1.5 * s;
+  for (let k = 0; k < 4; k++) { g.beginPath(); g.ellipse(cx, cy, (12 + k * 6) * s, (8 + k * 4) * s, 0, 0, 7); g.stroke(); }
+  const gr = g.createRadialGradient(cx, cy, 0, cx, cy, 6 * s); gr.addColorStop(0, `rgba(${blotCol},${blotA})`); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(cx - 6 * s, cy - 6 * s, 12 * s, 12 * s);
+}
 function skinTex(stage) {
   const c = document.createElement('canvas'); c.width = c.height = 512; const g = c.getContext('2d');
   g.fillStyle = '#ffffff'; g.fillRect(0, 0, 512, 512);
@@ -231,7 +238,7 @@ function skinTex(stage) {
   if (stage < 2) { for (const du of [-0.06, 0.06]) blot(0.75 + du, 0.47, 20, 'rgba(110,80,90,0.28)'); blot(0.73, 0.52, 10, 'rgba(120,110,100,0.2)'); } // tired, and a smudge
   for (const du of [-0.1, 0.1]) blot(0.75 + du, 0.56, 32, 'rgba(220,130,120,0.14)');
   blot(0.75, 0.53, 12, 'rgba(220,140,130,0.1)');
-  if (stage >= 6) for (const du of [-0.1, 0.1]) { g.strokeStyle = 'rgba(150,130,120,0.16)'; g.lineWidth = 1.5; for (let k = 0; k < 4; k++) { g.beginPath(); g.ellipse((0.75 + du) * 512, 0.55 * 512, 12 + k * 6, 8 + k * 4, 0, 0, 7); g.stroke(); } blot(0.75 + du, 0.55, 6, 'rgba(140,110,100,0.2)'); }
+  if (stage >= 6) for (const du of [-0.1, 0.1]) drawWingMarks(g, (0.75 + du) * 512, 0.55 * 512);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
 }
 function irisTex(col) {
