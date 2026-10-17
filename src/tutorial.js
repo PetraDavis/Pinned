@@ -13,7 +13,7 @@ export const STEPS = [
   { id: 'lamp', text: 'The oil lamp on the side table. E to light it.' },
   { id: 'torch', text: 'F for the torch. B spends its battery in one bright burst.' },
   { id: 'crouch', text: 'C, or Ctrl, to crouch. Quieter, and lower.' },
-  { id: 'hide', text: 'She hunts by light and by sight. If she comes, crawl under a cot (E) and keep still.', info: 14 },
+  { id: 'hide', text: 'She hunts by light and by sight. E to hide under beds, tables and pews; E again, or move, to crawl out.', info: 14 },
   { id: 'run', text: 'Shift to run. Space to jump. She will hear you running.' },
   { id: 'moths', text: 'Pinned moths are hidden in the house. E to take one.', info: 10 },
   { id: 'hint', text: 'Lost? H, and the house may whisper a hint.', info: 10 },

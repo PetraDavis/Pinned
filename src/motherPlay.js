@@ -16,6 +16,17 @@ const WP = [[35.6, 178.4], [37.5, 174.2], [40.5, 174.2], [43.5, 176.0], [43.5, 1
 const EDGES = [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 7], [7, 8], [8, 9], [9, 10], [9, 11], [11, 12], [12, 13], [12, 14], [13, 14]];
 const NB = WP.map(() => []); for (const [a, b] of EDGES) { NB[a].push(b); NB[b].push(a); }
 const COTS = [0, 1, 2, 3].map(k => [49.6 + k * 2.1, 172.45]);
+// Places to hide under (room-local): under = where you lie, out = where you stand to get in and
+// where you come out, yaw = which way you look while under (towards the room). Every floor she
+// can hunt on; the catacombs have nothing to get under. Furniture stays where it is.
+const HIDE_SPOTS = [
+  ...COTS.map(([x, z]) => ({ name: 'cot', under: [x, z + 0.25], out: [x, z + 1.4], yaw: Math.PI })),        // attic
+  { name: 'bed', under: [47.9, 80.95], out: [48.8, 80.95], yaw: -Math.PI / 2 },                             // first floor: child's bed
+  { name: 'four-poster', under: [55.2, 81.7], out: [55.2, 83.0], yaw: Math.PI },                            // Leader's Bedroom
+  { name: 'table', under: [34.6, 92.6], out: [34.6, 93.8], yaw: Math.PI },                                  // library table
+  ...[51.3, 55.9].map(x => ({ name: 'pew', under: [x, 49.4], out: [x, 48.75], yaw: 0 })),                  // cellar chapel, back row
+];
+export { HIDE_SPOTS };
 const inAttic = z => z > 170.5 && z < 186.5;
 
 export function createMotherPlay(G) {
@@ -38,6 +49,20 @@ export function createMotherPlay(G) {
   // hidden under a cot: a dark vignette
   const veil = document.createElement('div'); veil.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:5;opacity:0;transition:opacity .4s;background:radial-gradient(ellipse at 50% 80%,rgba(0,0,0,0) 0 22%,rgba(0,0,0,.92) 60%),linear-gradient(#000 0 30%,transparent 46%)';
   document.body.appendChild(veil);
+
+  // hiding: E on furniture to get under it (low view, vignette); E or any move key to come out
+  function hideIn(h) {
+    S.hidden = h.under; veil.style.opacity = 1; player.enabled = false; player.place(O.x + h.under[0], O.z + h.under[1], h.yaw); player.lowView = 1.3; // eye ~0.3 m off the floor
+    S.hideOut = h.out;
+    if (!inAttic(h.under[1])) return; // the escape chase decides for itself whether she saw you go in
+    if (isClient()) { if (R.m === 'chase' && dist < 3) say('She saw you go under.', 2500); return; } // the host decides what she does about it
+    if (S.mode === 'chase' && S.tid === 'h' && dist < 3) say('She saw you go under.', 2500); else if (S.mode === 'chase' && S.tid === 'h') { S.mode = 'search'; S.lost = 0; }
+  }
+  function crawlOut() { const o = S.hideOut; S.hidden = null; veil.style.opacity = 0; player.lowView = 0; player.enabled = true; if (o) player.place(O.x + o[0], O.z + o[1], player.yaw); }
+  addEventListener('keydown', e => {
+    if (!S.hidden || e.repeat || (G.state && G.state() !== 'playing')) return;
+    if (['KeyE', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) { e.stopImmediatePropagation(); crawlOut(); }
+  }, true);
 
   // line of sight in the floor plan: blocked by any wall rect (not low headers)
   function los(a, b) {
@@ -153,18 +178,13 @@ export function createMotherPlay(G) {
     get mode() { return S.mode; }, get hidden() { return !!S.hidden; },
     debugPlace(x, z, yaw = 0) { pos.set(x, z); S.yaw = yaw; anchor.position.set(x, 0, z); anchor.rotation.y = yaw; },
     get debug() { return { ...S, x: pos.x, z: pos.y, dist }; },
-    reset() { pos.set(...WP[0]); S.mode = 'asleep'; S.path = []; S.stun = 0; S.hidden = null; S.wake = 0; S.wakeAt = 0; S.tid = null; veil.style.opacity = 0; moth.style.opacity = 0; api.setOpen(0); anchor.position.set(pos.x, 0, pos.y); deadUntil.clear(); R.have = false; R.m = 'asleep'; R.s = 0; },
+    reset() { pos.set(...WP[0]); S.mode = 'asleep'; S.path = []; S.stun = 0; S.hidden = null; player.lowView = 0; S.wake = 0; S.wakeAt = 0; S.tid = null; veil.style.opacity = 0; moth.style.opacity = 0; api.setOpen(0); anchor.position.set(pos.x, 0, pos.y); deadUntil.clear(); R.have = false; R.m = 'asleep'; R.s = 0; },
     // out from under a cot without moving her (waking after being caught, together)
-    unhide() { if (S.hidden) { S.hidden = null; veil.style.opacity = 0; } },
-    interactables: COTS.map(([x, z]) => ({
-      zone: 'room', pos: new THREE.Vector3(O.x + x, 0, O.z + z + 1.3), r: 1.1,
-      prompt: () => S.hidden ? 'E  crawl out' : 'E  hide under the cot',
-      act: () => {
-        if (S.hidden) { S.hidden = null; veil.style.opacity = 0; player.enabled = true; player.place(O.x + x, O.z + z + 1.4, player.yaw); return; }
-        S.hidden = [x, z]; veil.style.opacity = 1; player.enabled = false; player.place(O.x + x, O.z + z + 1.15, Math.PI);
-        if (isClient()) { if (R.m === 'chase' && dist < 3) say('She saw you go under.', 2500); return; } // the host decides what she does about it
-        if (S.mode === 'chase' && S.tid === 'h' && dist < 3) say('She saw you go under.', 2500); else if (S.mode === 'chase' && S.tid === 'h') { S.mode = 'search'; S.lost = 0; }
-      },
+    unhide() { if (S.hidden) { S.hidden = null; veil.style.opacity = 0; player.lowView = 0; } },
+    interactables: HIDE_SPOTS.map(h => ({
+      zone: 'room', pos: new THREE.Vector3(O.x + h.out[0], 0, O.z + h.out[1]), r: 1.1, when: () => !S.hidden,
+      prompt: `E  hide under the ${h.name}`,
+      act: () => hideIn(h),
     })),
     // {t:'esc', mo:1} messages. from: 'h' (the host) or a guest's id
     onNet(from, m) {

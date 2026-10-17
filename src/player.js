@@ -102,7 +102,7 @@ export class Player {
 
   applyCamera(extraY = 0) {
     const bobY = this.grounded ? Math.sin(this.bob) * (0.035 - 0.015 * this.crouchT) : 0;
-    this.camera.position.set(this.pos.x, EYE + (CROUCH_EYE - EYE) * this.crouchT + this.y + bobY + extraY, this.pos.z);
+    this.camera.position.set(this.pos.x, EYE + (CROUCH_EYE - EYE) * this.crouchT + this.y + bobY + extraY - (this.lowView || 0), this.pos.z);
     this.camera.rotation.set(this.pitch, this.yaw, 0, 'YXZ');
   }
 }
