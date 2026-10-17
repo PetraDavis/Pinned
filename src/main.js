@@ -37,6 +37,7 @@ import { captionSound } from './captions.js';
 import { initMultiplayer } from './net/multiplayer.js';
 import { createEscape } from './escape.js';
 import { createEnding } from './ending.js';
+import { createCredits } from './credits.js';
 let mp = null; // multiplayer session (src/net/), set up at the end of this file
 
 const $ = id => document.getElementById(id);
@@ -318,7 +319,10 @@ const escape = createEscape({
   },
 });
 const ending = createEnding({ renderer, quality: settings.quality, sfx: { click: playClick, flutter: playFlutter },
-  onDone: () => { if (mp && mp.active) mp.leave(); show('hud', false); show('home', true); state = 'home'; player.enabled = false; backdrop.start(); refreshHome(); } });
+  // then the credits, locally for each player, and back to the home screen
+  onDone: () => { if (mp && mp.active) mp.leave(); show('hud', false); state = 'home'; player.enabled = false;
+    credits.play(() => { show('home', true); backdrop.start(); refreshHome(); }); } });
+const credits = createCredits();
 const interactables = [
   ...escape.interactables,
   ...motherPlay.interactables,
@@ -893,6 +897,7 @@ $('journalBack').onclick = () => { show('journal', false); show(journalReturn, t
 $('mothCardClose').onclick = closeMothCard;
 // the Collection cabinet (src/collection.js) and photo mode (src/photoMode.js)
 const collection = createCollection();
+$('btnCredits').onclick = () => { show('home', false); credits.play(() => show('home', true)); };
 $('btnCollection').onclick = () => { show('home', false); collection.open(() => show('home', true)); };
 const photo = createPhotoMode({ renderer, scene, camera,
   render: () => { if (currentQ.post && composer) composer.render(0); else renderer.render(scene, camera); },
@@ -991,7 +996,7 @@ loop();
 window.__pinned = {
   start: startGame, pause, resume, quitHome, player, setZone, interactables, interact: () => current && current.act(), refresh: () => { current = findInteractable(); },
   caps: CAPS, get state() { return state; }, get zone() { return zone; }, get prompt() { return current && (typeof current.prompt === 'function' ? current.prompt() : current.prompt); }, room,
-  renderer, scene, camera, flashlight, lantern, catacombs: catPlay, ground, mother: motherPlay, escape, ending, save: (cp) => save(cp), visited, get hints() { return { used: hintsUsed, state: hintState }; }, currentPuzzle: () => currentPuzzle(), openPadlock, tryPadlock, dials, get gameTime() { return gameTime; }, get colliders() { return colliders(); }, collection, photo, halluc,
+  renderer, scene, camera, flashlight, lantern, catacombs: catPlay, ground, mother: motherPlay, escape, ending, credits, save: (cp) => save(cp), visited, get hints() { return { used: hintsUsed, state: hintState }; }, currentPuzzle: () => currentPuzzle(), openPadlock, tryPadlock, dials, get gameTime() { return gameTime; }, get colliders() { return colliders(); }, collection, photo, halluc,
 };
 
 // ---------- multiplayer (src/net/) ----------
