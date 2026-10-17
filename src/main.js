@@ -15,6 +15,7 @@ import { SPECIES } from './moths.js';
 import { CELLAR, FIRST, WARDROBE_VERSE, DESK_CODE } from './world/lowerUpper.js';
 import { CATA } from './world/catacombs.js';
 import { createCatacombsPlay } from './catacombsPlay.js';
+import { createRoomsPlay } from './roomsPlay.js';
 import { MOTH_NOTES, STORY, buildMothNotes, mothImage } from './mothNotes.js';
 import { specimenCanvas } from './world/drawerPuzzle.js';
 import { Player } from './player.js';
@@ -242,6 +243,8 @@ const atticPlay = createAtticPlay({
   modal: { open() { state = 'overlay'; player.enabled = false; if (document.pointerLockElement) document.exitPointerLock(); }, close() { state = 'playing'; player.enabled = true; lock(); } },
   visited: () => visited,
 });
+// ---------- the extra rooms (roomsPlay.js, world/extraRooms.js) ----------
+const roomsPlay = createRoomsPlay({ origin: ROOM_ORIGIN, player, say, transition, sfx: { thud: playThud, creak: playCreak } });
 // ---------- The Mother (motherPlay.js) ----------
 const motherPlay = createMotherPlay({
   ground, origin: ROOM_ORIGIN, player, camera, flashlight, lantern, say, colliders: () => colliders(),
@@ -407,7 +410,7 @@ const interactables = [
   // ---- cellar ----
   { zone: 'room', pos: W(ground.lu.wardrobe.pos), r: 1.3, prompt: () => ground.lu.wardOpen ? 'E  read the scratches inside the door' : 'E  open the wardrobe',
     act: () => {
-      if (!ground.lu.wardOpen) { ground.lu.openWardrobe(); playCreak(); flashlight.scare && flashlight.scare(); say('The doors swing open and a cloud of tiny pale moths pours out, into your face, your hair. The coats inside are eaten to lace. There is writing scratched inside the door.', 8000); return; }
+      if (!ground.lu.wardOpen) { ground.lu.openWardrobe(); ground.extra.wardrobeSwarm(); playCreak(); flashlight.scare && flashlight.scare(); say('The doors swing open and a cloud of tiny pale moths pours out, into your face, your hair. The coats inside are eaten to lace. There is writing scratched inside the door.', 8000); return; }
       say(WARDROBE_VERSE, 14000);
     } },
   ...ground.lu.tiles.map(t => ({
@@ -425,6 +428,7 @@ const interactables = [
   { zone: 'room', pos: W(ground.lu.desk.pos), r: 1.2, prompt: () => ground.lu.deskOpen ? 'An empty drawer.' : 'E  try the desk',
     act: () => { if (ground.lu.deskOpen) return; openPadlock('desk'); } },
   ...atticPlay.interactables,
+  ...roomsPlay.interactables,
 ];
 function W(v) { return new THREE.Vector3(v.x, 0, v.z).add(ROOM_ORIGIN); }
 const visited = {};

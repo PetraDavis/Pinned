@@ -44,9 +44,13 @@ name, floor and room, moths found, time played and date, with Rename and Delete)
 empty slot or overwrites one after you confirm. Save points write to the slot you are playing. An old single
 save is moved into slot 1.
 
+## Rooms off the route
+
+No puzzles, nothing in the way: the **Conservatory** (behind the Grand Hall's north door, glass lean-to by moonlight), the first-floor **Bathroom** (between the Leader's and Luna's bedrooms), the **West Corridor** (through a door in the Library's west wall: the members' coats, portraits, a stopped clock) and its turret stair up to the **Observatory** (a dome open to the moon, a brass telescope, star charts and moth-and-moon diagrams); in the catacombs, off the Tomb Hall, the **Bogong Cave** (rock covered in sleeping moths) and the **Burial Niches**. The Nursery's door into the Leader's room is unbolted, and opening the boiler-room wardrobe lets a swarm of clothes moths out. Two more moths (a Drinker and an Indian moon moth) live there (`src/world/extraRooms.js`, `src/roomsPlay.js`, `src/roomMoths.js`).
+
 ## Moths and the Moth Journal
 
-The story is carried by moths, not paper. Twenty-three specimens, each a different species (four of them in the catacombs), are pinned in boxes, sealed in jars or resting on the walls of every built room. Pick one up (E) to read its message; it goes into the **Moth Journal** (pause menu or home screen), which shows every moth collected with its picture, name and message, and writes out the story in plain words, one passage per moth, in the order you find them. Two of them carry puzzle clues: the Herald above the boiler (the altar) and the Peppered moth in the library (the desk). The journal is kept in the save.
+The story is carried by moths, not paper. Twenty-five specimens, each a different species (four of them in the catacombs), are pinned in boxes, sealed in jars or resting on the walls of every built room. Pick one up (E) to read its message; it goes into the **Moth Journal** (pause menu or home screen), which shows every moth collected with its picture, name and message, and writes out the story in plain words, one passage per moth, in the order you find them. Two of them carry puzzle clues: the Herald above the boiler (the altar) and the Peppered moth in the library (the desk). The journal is kept in the save.
 
 ## Multiplayer
 
