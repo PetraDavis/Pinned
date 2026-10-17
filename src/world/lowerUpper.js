@@ -409,29 +409,7 @@ export function buildLowerUpper(ctx) {
   // Spun cocoons: a fibrous silk body wrapped in criss-crossing strands, with anchor threads
   // fanning out to the ceiling (or the floor). All cocoons and threads are merged into one
   // mesh and one line set when the floors are finished, so they cost two draw calls.
-  function cocoon(x, z, h, hanging) {
-    const top = z > 70 ? FH : CH, cr = rand(Math.floor(x * 31 + z * 17));
-    const prof = []; for (let i = 0; i <= 14; i++) { const t = i / 14; prof.push(new THREE.Vector2(Math.max(0.004, Math.sin(Math.pow(t, 0.85) * Math.PI) * 0.21 * h * (1 + 0.08 * Math.sin(t * 13 + x))), t * h)); }
-    const shell = new THREE.LatheGeometry(prof, 16);
-    const mtx = new THREE.Matrix4();
-    const place = (g) => { if (hanging) { g.rotateX(Math.PI); g.translate(x, top - 0.22, z); } else { g.rotateZ(Math.PI / 2 * 0.92); g.translate(x + h * 0.45, 0.17, z); } return g; };
-    silkGeos.push(place(shell));
-    // wrapped strands: helices around the body, a little loose
-    for (let k = 0; k < 3; k++) {
-      const pts = [], turns = 3 + k, ph = cr() * 6.28, tilt = (cr() - 0.5) * 0.6;
-      for (let i = 0; i <= 60; i++) { const t = 0.06 + i / 60 * 0.88, rr = Math.sin(Math.pow(t, 0.85) * Math.PI) * 0.21 * h * 1.04 + 0.004, a2 = ph + t * turns * Math.PI * 2; pts.push(new THREE.Vector3(Math.cos(a2) * rr, t * h + Math.cos(a2) * rr * tilt, Math.sin(a2) * rr)); }
-      silkGeos.push(place(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 60, 0.0035, 3, false)));
-    }
-    // anchor threads
-    const anchor = hanging ? new THREE.Vector3(x, top - 0.22, z) : new THREE.Vector3(x + h * 0.9, 0.3, z);
-    const n = 5 + Math.floor(cr() * 4);
-    for (let i = 0; i < n; i++) {
-      const a2 = cr() * 6.28, d = 0.15 + cr() * (i < 2 ? 1.6 : 0.5);
-      const end = hanging ? new THREE.Vector3(x + Math.cos(a2) * d, top - 0.005, z + Math.sin(a2) * d) : new THREE.Vector3(anchor.x + Math.cos(a2) * d, i < 2 ? 0.005 : 0.3 + cr() * 1.2, anchor.z + Math.sin(a2) * d);
-      const from = anchor.clone().add(new THREE.Vector3((cr() - 0.5) * 0.06, hanging ? 0 : (cr() - 0.5) * 0.1, (cr() - 0.5) * 0.06));
-      threadPts.push(from.x, from.y, from.z, end.x, end.y, end.z);
-    }
-  }
+  function cocoon(x, z, h, hanging) { spinCocoon(silkGeos, threadPts, x, z, h, hanging, z > 70 ? FH : CH); }
   function wrapped(x, z, ry) {
     // a body bound in silk, lying on a low trestle
     const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = ry; group.add(g);
@@ -450,7 +428,34 @@ export function buildLowerUpper(ctx) {
   }
 }
 
+// Spun cocoons, shared with the attic (see attic.js): pushes the silk body, its wrapped
+// strands (into silkGeos) and its anchor threads (into threadPts) for merging later.
+export function spinCocoon(silkGeos, threadPts, x, z, h, hanging, top) {
+  const cr = rand(Math.floor(x * 31 + z * 17));
+  const prof = []; for (let i = 0; i <= 14; i++) { const t = i / 14; prof.push(new THREE.Vector2(Math.max(0.004, Math.sin(Math.pow(t, 0.85) * Math.PI) * 0.21 * h * (1 + 0.08 * Math.sin(t * 13 + x))), t * h)); }
+  const shell = new THREE.LatheGeometry(prof, 16);
+  const mtx = new THREE.Matrix4();
+  const place = (g) => { if (hanging) { g.rotateX(Math.PI); g.translate(x, top - 0.22, z); } else { g.rotateZ(Math.PI / 2 * 0.92); g.translate(x + h * 0.45, 0.17, z); } return g; };
+  silkGeos.push(place(shell));
+  // wrapped strands: helices around the body, a little loose
+  for (let k = 0; k < 3; k++) {
+    const pts = [], turns = 3 + k, ph = cr() * 6.28, tilt = (cr() - 0.5) * 0.6;
+    for (let i = 0; i <= 60; i++) { const t = 0.06 + i / 60 * 0.88, rr = Math.sin(Math.pow(t, 0.85) * Math.PI) * 0.21 * h * 1.04 + 0.004, a2 = ph + t * turns * Math.PI * 2; pts.push(new THREE.Vector3(Math.cos(a2) * rr, t * h + Math.cos(a2) * rr * tilt, Math.sin(a2) * rr)); }
+    silkGeos.push(place(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 60, 0.0035, 3, false)));
+  }
+  // anchor threads
+  const anchor = hanging ? new THREE.Vector3(x, top - 0.22, z) : new THREE.Vector3(x + h * 0.9, 0.3, z);
+  const n = 5 + Math.floor(cr() * 4);
+  for (let i = 0; i < n; i++) {
+    const a2 = cr() * 6.28, d = 0.15 + cr() * (i < 2 ? 1.6 : 0.5);
+    const end = hanging ? new THREE.Vector3(x + Math.cos(a2) * d, top - 0.005, z + Math.sin(a2) * d) : new THREE.Vector3(anchor.x + Math.cos(a2) * d, i < 2 ? 0.005 : 0.3 + cr() * 1.2, anchor.z + Math.sin(a2) * d);
+    const from = anchor.clone().add(new THREE.Vector3((cr() - 0.5) * 0.06, hanging ? 0 : (cr() - 0.5) * 0.1, (cr() - 0.5) * 0.06));
+    threadPts.push(from.x, from.y, from.z, end.x, end.y, end.z);
+  }
+}
+
 // ---------- textures ----------
+export const silkTexture = () => silkTex();
 function silkTex() {
   // fibrous silk: a dense felt of fine fibres, wrapped bands crossing it, darker stained
   // patches and thin gaps where the weave shows through

@@ -7,6 +7,7 @@
 import * as THREE from 'three';
 import { gasLampFixture } from './fixtures.js';
 import { buildLowerUpper } from './lowerUpper.js';
+import { buildAttic } from './attic.js';
 import { makeAvatar } from './avatar.js';
 export { makeAvatar };
 import { buildGlassWindow, cultGlassTexture } from './stainedGlass.js';
@@ -388,14 +389,16 @@ export function buildGroundFloor(group, local, { quality: q0 = 'high' } = {}) {
 
   // =============== the Cellar and the First Floor ===============
   const lu = buildLowerUpper({ group, local, wall, room, plane, door, light, addMirror, doors, carpetTex, buildRubble, makeSpecimenBox });
+  // =============== the Attic (see attic.js) ===============
+  const attic = buildAttic({ group, local, wall, plane, door, light, addMirror, doors });
 
   let hiss = 0; const tmpV = new THREE.Vector3();
   const api = {
     get hiss() { return hiss; },
-    lu, dinner, note: noteMesh, doors, mirrors, lights, cases: Object.values(cases), lifespan: L,
+    lu, attic, dinner, note: noteMesh, doors, mirrors, lights, cases: Object.values(cases), lifespan: L,
     journal: journalMesh,
     setQuality(q) { quality = q; glassWin.setQuality(q); },
-    bindColliders(remove, add) { removeCollider = remove; addColliderBack = add; lu.bindColliders(remove, add); },
+    bindColliders(remove, add) { removeCollider = remove; addColliderBack = add; lu.bindColliders(remove, add); attic.bindColliders(remove, add); },
     // aim interaction for the lifespan board cases (main.js raycasts against these)
     pickables: Object.values(cases).flatMap(b => { const out = []; b.traverse(o => o.isMesh && out.push(o)); return out; }),
     caseAt(key) { return L.order.indexOf(key); },
@@ -411,14 +414,14 @@ export function buildGroundFloor(group, local, { quality: q0 = 'high' } = {}) {
     reset() {
       L.order = [...START_ORDER]; L.lifted = null; L.solved = false; placeCases();
       for (const d of Object.values(doors)) { d.reset(); }
-      doors.grand.locked = true; dinner.reset(); lu.reset();
+      doors.grand.locked = true; dinner.reset(); lu.reset(); attic.reset();
       for (const id of ['cWineEgg', 'fNurseryLeader', 'fLeaderBath', 'fBathLuna', 'fLeaderLinen']) doors[id].locked = true;
     },
     update(t, dt, camera) {
       glassWin.update(t);
       for (const d of Object.values(doors)) d.update(dt);
       dinner.update(dt, t);
-      lu.update(t, dt);
+      lu.update(t, dt); attic.update(t, dt);
       // gas lights: a gentle waver; the creepier ones sputter, dip and now and then drop out
       hiss = 0;
       lights.forEach((l, i) => {
