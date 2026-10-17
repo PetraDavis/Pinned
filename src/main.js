@@ -1011,7 +1011,7 @@ loop();
 window.__pinned = { tutorial,
   start: startGame, pause, resume, quitHome, player, setZone, interactables, interact: () => current && current.act(), refresh: () => { current = findInteractable(); },
   caps: CAPS, get state() { return state; }, get zone() { return zone; }, get prompt() { return current && (typeof current.prompt === 'function' ? current.prompt() : current.prompt); }, room,
-  renderer, scene, camera, flashlight, lantern, catacombs: catPlay, ground, mother: motherPlay, escape, ending, credits, save: (cp) => save(cp), visited, get hints() { return { used: hintsUsed, state: hintState }; }, currentPuzzle: () => currentPuzzle(), openPadlock, tryPadlock, dials, get gameTime() { return gameTime; }, get colliders() { return colliders(); }, collection, photo, halluc,
+  renderer, scene, camera, flashlight, lantern, catacombs: catPlay, ground, mother: motherPlay, escape, ending, credits, save: (cp) => save(cp), visited, get hints() { return { used: hintsUsed, state: hintState }; }, currentPuzzle: () => currentPuzzle(), openPadlock, tryPadlock, dials, get gameTime() { return gameTime; }, get colliders() { return colliders(); }, collection, photo, halluc, get tutorial() { return tutorial; },
 };
 
 // ---------- multiplayer (src/net/) ----------
