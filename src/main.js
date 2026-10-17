@@ -22,6 +22,7 @@ import { createFlashlight, batteryMesh } from './flashlight.js';
 import { createLantern, lanternMesh } from './lantern.js';
 import { loadSettings, saveSettings, loadSave, writeSave, clearSave } from './storage.js';
 import { startHomeBackdrop } from './homeScreen.js';
+import { createAtticPlay } from './atticPlay.js';
 
 const $ = id => document.getElementById(id);
 const canvas = $('game');
@@ -229,6 +230,13 @@ const catPlay = createCatacombsPlay({
   toChapel: () => transition(() => { player.place(ROOM_ORIGIN.x + CELLAR.stairE.x, ROOM_ORIGIN.z + CELLAR.stairE.z - 0.3, 0); playThud(); }),
   toFirstFloor: () => transition(() => { player.place(ROOM_ORIGIN.x + FIRST.spawn.x, ROOM_ORIGIN.z + FIRST.spawn.z, Math.PI); playThud(); if (!visited.first) { visited.first = true; save('firstfloor'); say('The first floor. Silk everywhere, on the walls, in the corners, over the shapes on the trestles.', 7000); } }),
 });
+// ---------- the attic (see atticPlay.js, world/attic.js) ----------
+const atticPlay = createAtticPlay({
+  ground, room, origin: ROOM_ORIGIN, firstLadder: FIRST.ladderD, player, camera, say, save, transition, updateHeld, openPadlock,
+  sfx: { thud: playThud, creak: playCreak, grind: playGrind, clicks: playSoftClicks },
+  modal: { open() { state = 'overlay'; player.enabled = false; if (document.pointerLockElement) document.exitPointerLock(); }, close() { state = 'playing'; player.enabled = true; lock(); } },
+  visited: () => visited,
+});
 const interactables = [
   ...catPlay.interactables,
   ...LANTERNS.map(l => ({
@@ -314,7 +322,7 @@ const interactables = [
   })),
   // ground floor doors
   ...Object.values(ground.doors).map(d => ({
-    zone: 'room', pos: d.pos.clone().add(ROOM_ORIGIN), r: 1.3, when: () => !d.isOpen,
+    zone: 'room', pos: d.pos.clone().add(ROOM_ORIGIN), r: 1.3, when: () => !d.isOpen && !d.custom,
     prompt: () => d.boarded ? 'E  examine the boarded door' : d.id === 'stairC' && d.locked && ground.dinner.solved ? 'E  try the padlock' : d.locked ? 'E  try the door' : 'E  open the door',
     act: () => {
       if (d.id === 'stairC' && d.locked && ground.dinner.solved) { openPadlock(); return; }
@@ -374,8 +382,8 @@ const interactables = [
       if (!ground.lu.stairEOpen) { playCreak(); say('Steps go on down, below the cellar, behind a locked grille. The air coming up smells of earth and something sweet. Not yet.', 6000); return; }
       transition(() => { player.place(ROOM_ORIGIN.x + CATA.spawn.x, ROOM_ORIGIN.z + CATA.spawn.z, Math.PI); playThud(); if (!visited.catacombs) { visited.catacombs = true; save('catacombs'); say('The catacombs. Bones, stacked like firewood, as far as the light goes. The air is wet and very still.', 7000); } });
     } },
-  { zone: 'room', pos: W(FIRST.ladderD), r: 1.2, prompt: 'E  try the ladder',
-    act: () => { playCreak(); say('The ladder goes up to a hatch in the ceiling, chained and padlocked. Above it, something heavy shifts, and is still.', 6000); } },
+  { zone: 'room', pos: W(FIRST.ladderD), r: 1.2, prompt: () => ground.lu.deskOpen ? 'E  climb the ladder' : 'E  try the ladder',
+    act: () => atticPlay.climbLadderD() },
   { zone: 'room', pos: W(FIRST.stairA), r: 1.3, prompt: 'E  look down the main stair',
     act: () => say('The main stair, choked with the fallen landing. Far below, the Grand Hall. No way down here.', 5000) },
   // ---- cellar ----
@@ -397,6 +405,7 @@ const interactables = [
     act: () => say('Numbers scratched into the plaster with something sharp, counting down: sixty-six, sixty-five… each one struck through. The last, forty-eight, is circled again and again. Underneath: until I wake.', 10000) },
   { zone: 'room', pos: W(ground.lu.desk.pos), r: 1.2, prompt: () => ground.lu.deskOpen ? 'An empty drawer.' : 'E  try the desk',
     act: () => { if (ground.lu.deskOpen) return; openPadlock('desk'); } },
+  ...atticPlay.interactables,
 ];
 function W(v) { return new THREE.Vector3(v.x, 0, v.z).add(ROOM_ORIGIN); }
 const visited = {};
@@ -499,6 +508,7 @@ function currentPuzzle() {
 }
 const extraPuzzle = (x, z) => {
   const cp = catPlay.puzzleAt(x, z); if (cp) return cp;
+  const ap = atticPlay.puzzleAt(x, z); if (ap) return ap;
   const dining = x > 34.2 && x < 44 && z > 1 && z < 10, kitchen = x > 34.2 && x < 44 && z > -10 && z < -2.9;
   if ((dining || kitchen) && !ground.dinner.solved) return 'dinner';
   if ((dining || kitchen) && ground.doors.stairC.locked) return 'padlock';
@@ -510,6 +520,7 @@ const extraPuzzle = (x, z) => {
 // head has had enough. The count is kept in the save.
 const HINT_GROUP = { room: 'drawing+study', study: 'drawing+study', dinner: 'dining+kitchen', padlock: 'dining+kitchen', altar: 'boiler+chapel', desk: 'library+leader' };
 Object.assign(HINT_GROUP, catPlay.hintGroups);
+Object.assign(HINTS, atticPlay.hints); Object.assign(HINT_GROUP, atticPlay.hintGroups);
 const HINT_LIMIT = 3;
 let hintsUsed = {};
 function showHint() {
@@ -542,11 +553,13 @@ function checkDinner() {
   }
 }
 // ---------- the cellar padlock: four brass dials ----------
-const dials = [0, 0, 0, 0]; let dialSel = 0;
-function drawDials() { document.querySelectorAll('#padlock .dial').forEach((el, i) => { el.querySelector('span').textContent = dials[i]; el.classList.toggle('sel', i === dialSel); }); }
+const dials = [0, 0, 0, 0]; let dialSel = 0, dialBase = 10;
+function drawDials() { document.querySelectorAll('#padlock .dial').forEach((el, i) => { el.querySelector('span').textContent = dialBase === 26 ? String.fromCharCode(65 + dials[i]) : dials[i]; el.classList.toggle('sel', i === dialSel); }); }
 let padTarget = 'cellar';
 function openPadlock(target = 'cellar') {
-  padTarget = target; document.querySelector('#padlock h2').textContent = catPlay.locks[target] ? catPlay.locks[target].title : target === 'desk' ? 'A brass letter-lock on the desk drawer' : 'A brass padlock';
+  const info = atticPlay.lockInfo(target), base = info ? info.base : 10;
+  dialBase = base; dials.fill(0); dialSel = 0; $('padlockMsg').textContent = '';
+  padTarget = target; document.querySelector('#padlock h2').textContent = info ? info.title : catPlay.locks[target] ? catPlay.locks[target].title : target === 'desk' ? 'A brass letter-lock on the desk drawer' : 'A brass padlock';
   state = 'padlock'; player.enabled = false; show('padlock', true); drawDials();
   if (document.pointerLockElement) document.exitPointerLock();
 }
@@ -554,6 +567,8 @@ function closePadlock() { show('padlock', false); state = 'playing'; player.enab
 function tryPadlock() {
   const xl = catPlay.locks[padTarget];
   if (xl) { if (dials.join('') === xl.code) { playThud(); closePadlock(); xl.onOpen(); } else { playCreak(); $('padlockMsg').textContent = xl.fail; } return; }
+  const res = atticPlay.tryLock(padTarget, dials);
+  if (res) { if (res.ok) closePadlock(); else { playCreak(); $('padlockMsg').textContent = res.msg; } return; }
   if (padTarget === 'desk') {
     if (dials.join('') === DESK_CODE) {
       ground.lu.openDesk(); playThud(); closePadlock();
@@ -569,15 +584,16 @@ function tryPadlock() {
   } else { playCreak(); $('padlockMsg').textContent = 'The shackle does not move.'; }
 }
 document.querySelectorAll('#padlock .dial').forEach((el, i) => {
-  el.querySelector('.up').onclick = () => { dials[i] = (dials[i] + 1) % 10; dialSel = i; drawDials(); };
-  el.querySelector('.down').onclick = () => { dials[i] = (dials[i] + 9) % 10; dialSel = i; drawDials(); };
+  el.querySelector('.up').onclick = () => { dials[i] = (dials[i] + 1) % dialBase; dialSel = i; drawDials(); };
+  el.querySelector('.down').onclick = () => { dials[i] = (dials[i] + dialBase - 1) % dialBase; dialSel = i; drawDials(); };
 });
 $('padlockTry').onclick = tryPadlock; $('padlockClose').onclick = closePadlock;
 addEventListener('keydown', e => {
   if (state !== 'padlock') return;
   if (e.code === 'ArrowLeft') dialSel = (dialSel + 3) % 4; if (e.code === 'ArrowRight') dialSel = (dialSel + 1) % 4;
-  if (e.code === 'ArrowUp') dials[dialSel] = (dials[dialSel] + 1) % 10; if (e.code === 'ArrowDown') dials[dialSel] = (dials[dialSel] + 9) % 10;
-  if (/^Digit\d$/.test(e.code)) { dials[dialSel] = +e.code.slice(5); dialSel = Math.min(3, dialSel + 1); }
+  if (e.code === 'ArrowUp') dials[dialSel] = (dials[dialSel] + 1) % dialBase; if (e.code === 'ArrowDown') dials[dialSel] = (dials[dialSel] + dialBase - 1) % dialBase;
+  if (dialBase === 10 && /^Digit\d$/.test(e.code)) { dials[dialSel] = +e.code.slice(5); dialSel = Math.min(3, dialSel + 1); }
+  if (dialBase === 26 && /^Key[A-Z]$/.test(e.code)) { dials[dialSel] = e.code.charCodeAt(3) - 65; dialSel = Math.min(3, dialSel + 1); }
   if (e.code === 'Enter') tryPadlock(); if (e.code === 'Escape') closePadlock();
   if (e.code !== 'Enter') $('padlockMsg').textContent = ''; drawDials();
 });
@@ -602,6 +618,7 @@ function checkSequence() {
 }
 function findInteractable() {
   const ca = catPlay.aim(); if (ca) return ca;
+  const ar = atticPlay.aim(); if (ar) return ar;
   const lb = lifespanInteraction(); if (lb) return lb;
   const cab = cabinetInteraction(); if (cab) return cab;
   let best = null, bd = Infinity;
@@ -633,7 +650,7 @@ function transition(mid) {
 }
 
 let lastCheckpoint = null;
-function save(checkpoint) { writeSave({ checkpoint, lampLit: room.lampOn, solved: room.puzzle.solved, studySolved: ground.lifespan.solved, dinnerSolved: ground.dinner.solved, plates: ground.dinner.seats.filter(st => st.flipped).map(st => st.id), doorsOpen: Object.values(ground.doors).filter(d => d.isOpen).map(d => d.id), battery: +flashlight.battery.toFixed(3), batteries: [...batteriesTaken], lantern: lantern.have ? +lantern.fuel.toFixed(3) : null, lanterns: [...lanternsTaken], altarSolved: ground.lu.altarSolved, deskOpen: ground.lu.deskOpen, wardOpen: ground.lu.wardOpen, visited: { ...visited }, hintsUsed: { ...hintsUsed }, hintState: { ...hintState }, moths: [...mothsTaken], cat: catPlay.state() }); lastCheckpoint = checkpoint; }
+function save(checkpoint) { writeSave({ checkpoint, lampLit: room.lampOn, solved: room.puzzle.solved, studySolved: ground.lifespan.solved, dinnerSolved: ground.dinner.solved, plates: ground.dinner.seats.filter(st => st.flipped).map(st => st.id), doorsOpen: Object.values(ground.doors).filter(d => d.isOpen).map(d => d.id), battery: +flashlight.battery.toFixed(3), batteries: [...batteriesTaken], lantern: lantern.have ? +lantern.fuel.toFixed(3) : null, lanternOn: !!lantern.on, torchOn: !!flashlight.on, lanterns: [...lanternsTaken], altarSolved: ground.lu.altarSolved, deskOpen: ground.lu.deskOpen, wardOpen: ground.lu.wardOpen, visited: { ...visited }, hintsUsed: { ...hintsUsed }, hintState: { ...hintState }, moths: [...mothsTaken], cat: catPlay.state(), attic: ground.attic.serialize() }); lastCheckpoint = checkpoint; }
 let grandHallSaved = false;
 function spawnAt(checkpoint, saved = {}) {
   room.resetPuzzle(); room.setLamp(!!saved.lampLit);
@@ -641,6 +658,7 @@ function spawnAt(checkpoint, saved = {}) {
   batteriesTaken = new Set(saved.batteries || []);
   lanternsTaken = new Set(saved.lanterns || []); for (const l of LANTERNS) l.mesh.visible = !lanternsTaken.has(l.id);
   lantern.have = saved.lantern != null; lantern.fuel = saved.lantern || 0; lantern.lower();
+  restoreHeld = { lantern: !!saved.lanternOn && lantern.have && lantern.fuel > 0, torch: !!saved.torchOn && flashlight.battery > 0 };
   hintState = { ...(saved.hintState || {}) }; hintsUsed = { ...(saved.hintsUsed || {}) }; stuckTime = 0; lastCheckpoint = checkpoint;
   mothsTaken = [...(saved.moths || [])]; mothNotes.reset(new Set(mothsTaken));
   for (const b of BATTERIES) b.mesh.visible = !batteriesTaken.has(b.id);
@@ -656,9 +674,11 @@ function spawnAt(checkpoint, saved = {}) {
   if (saved.altarSolved) ground.lu.solveAltar();
   if (saved.deskOpen) ground.lu.openDesk();
   if (saved.wardOpen) ground.lu.openWardrobe();
+  ground.attic.restore(saved.attic);
   for (const k of Object.keys(visited)) delete visited[k]; Object.assign(visited, saved.visited || {});
   catPlay.load(saved.cat); catPlay.closeUI();
   const at = (v, yaw) => { setZone('room'); player.place(ROOM_ORIGIN.x + v.x, ROOM_ORIGIN.z + v.z, yaw); };
+  const as = atticPlay.spawnFor(checkpoint); if (as) { at(as, as.yaw); return; }
   if (checkpoint === 'cellar') { at(CELLAR.spawn, Math.PI); return; }
   if (checkpoint === 'catacombs') { at(CATA.spawn, Math.PI); return; }
   if (checkpoint === 'chapel') { at({ x: 53.65, z: 43.2 }, 0); return; }
@@ -722,12 +742,13 @@ function lock() { try { const p = canvas.requestPointerLock(); if (p && p.catch)
 
 function startGame(checkpoint, saved = {}) {
   spawnAt(checkpoint, saved);
+  if (restoreHeld) { if (restoreHeld.lantern) raiseLantern(); else if (restoreHeld.torch && !flashlight.on) { flashlight.toggle(); updateBatteryHud(); } restoreHeld = null; }
   show('home', false); show('hud', true); backdrop.stop();
   state = 'playing'; player.enabled = true;
   startAudio(settings.volume);
   lock();
   if (!checkpoint) say('The Pale Wing house. Everyone at school says it’s haunted. Find a way past the fence.', 6000);
-  else say(checkpoint === 'cellar' ? 'You are back in the cellar, at the foot of the stairs.' : checkpoint === 'catacombs' ? 'You are back in the catacombs, at the foot of the chapel steps.' : checkpoint === 'chapel' ? 'You are back in the chapel.' : checkpoint === 'firstfloor' ? 'You are back on the first floor.' : checkpoint === 'leader' ? 'You are back in the leader’s bedroom.' : checkpoint === 'dining' ? 'You are back in the dining room.' : checkpoint === 'kitchen' ? 'You are back in the kitchen, by the cellar door.' : checkpoint === 'study' ? 'You are back in the Specimen Study.' : checkpoint === 'grandhall' ? 'You are back in the Grand Hall.' : checkpoint === 'hallway' ? 'You are back in the hallway.' : checkpoint === 'room' ? 'You are back in the drawing room.' : 'You are back on the grounds.');
+  else say(atticPlay.backMessage(checkpoint) || (checkpoint === 'cellar' ? 'You are back in the cellar, at the foot of the stairs.' : checkpoint === 'catacombs' ? 'You are back in the catacombs, at the foot of the chapel steps.' : checkpoint === 'chapel' ? 'You are back in the chapel.' : checkpoint === 'firstfloor' ? 'You are back on the first floor.' : checkpoint === 'leader' ? 'You are back in the leader’s bedroom.' : checkpoint === 'dining' ? 'You are back in the dining room.' : checkpoint === 'kitchen' ? 'You are back in the kitchen, by the cellar door.' : checkpoint === 'study' ? 'You are back in the Specimen Study.' : checkpoint === 'grandhall' ? 'You are back in the Grand Hall.' : checkpoint === 'hallway' ? 'You are back in the hallway.' : checkpoint === 'room' ? 'You are back in the drawing room.' : 'You are back on the grounds.'));
 }
 function pause() {
   if (state !== 'playing') return;
@@ -738,7 +759,9 @@ function pause() {
 function resume() {
   show('pause', false); state = 'playing'; player.enabled = true; lock();
 }
+let restoreHeld = null;
 function quitHome() {
+  if (state !== 'home' && lastCheckpoint !== undefined && !(window.__mp && window.__mp.guest)) save(lastCheckpoint); // keep what you were holding
   show('pause', false); show('hud', false); show('home', true);
   state = 'home'; player.enabled = false; backdrop.start(); refreshHome();
 }
@@ -824,6 +847,7 @@ function loop() {
   if (state === 'playing' && flashlight.on) updateBatteryHud();
   if (zone === 'room') {
     room.update(t, dt, camera);
+    if (state === 'playing') atticPlay.tick();
     if (state === 'playing' && !grandHallSaved && player.pos.x > ROOM_ORIGIN.x + 20.6 && player.pos.z < ROOM_ORIGIN.z + 12) { grandHallSaved = true; save('grandhall'); say('The Grand Hall. Somewhere above, wings stir in the dark.', 5000); }
   }
   else if (curtain) { curtain.rotation.x = -0.25 - Math.sin(t * 1.3) * 0.12 + Math.sin(t * 3.1) * 0.05; }

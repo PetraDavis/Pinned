@@ -429,7 +429,9 @@ export function buildLowerUpper(ctx) {
   }
 }
 
+
 // ---------- textures ----------
+export const silkTexture = () => silkTex();
 export function silkTex() {
   // fibrous silk: a dense felt of fine fibres, wrapped bands crossing it, darker stained
   // patches and thin gaps where the weave shows through

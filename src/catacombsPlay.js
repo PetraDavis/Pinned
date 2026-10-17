@@ -165,7 +165,7 @@ export function createCatacombsPlay(ctx) {
 
   // ---------- per frame ----------
   function update(dt, t, playing) {
-    const inCat = ctx.zone() === 'room' && player.pos.z - ROOM_ORIGIN.z > 112;
+    const inCat = ctx.zone() === 'room' && player.pos.z - ROOM_ORIGIN.z > 112 && player.pos.z - ROOM_ORIGIN.z < 165;
     if (poisoned) {
       // the worst passes in a few minutes; the flag stays (she can still smell it on you)
       poisonK = Math.max(0, poisonK - dt / 360);

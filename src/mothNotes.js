@@ -49,6 +49,15 @@ export const MOTH_NOTES = [
     text: 'A Luna moth, pale green, its long tails curled. A child’s writing on the label: “When the Luna comes out of its cocoon it has no mouth. It cannot eat. It only lives a little while. I have fourteen days, and no mouth to tell anyone.”' },
   { id: 'n-stellatarum', key: 'stellatarum', kind: 'wall', pos: [55.6, 1.8, 88.97], ry: Math.PI,
     text: 'A Hummingbird hawk-moth in the linen room. “Every mirror in the house shows you a little further along. She likes to watch you change.”' },
+  // ---- attic ----
+  { id: 'n-mi', key: 'mi', kind: 'wall', pos: [57.93, 1.6, 180.6], ry: -Math.PI / 2,
+    text: 'A Mother Shipton, an old woman’s face drawn in cream on each wing. Under it, in the leader’s hand: “They all climbed the ladder in the end, one by one, singing. I sat at the foot of it and listened until the singing stopped.”' },
+  { id: 'n-antiqua', key: 'antiqua', kind: 'pinned', pos: [56.0, 1.6, 178.28], ry: Math.PI,
+    text: 'A Vapourer. Its card: “The female has no wings. She never leaves the cocoon she was born in: the males come to her, and she lays her eggs on its silk. The Mother has not left this attic in eleven years. She tells me she is tired of it.”' },
+  { id: 'n-fagi', key: 'fagi', kind: 'jar', pos: [47.62, 0.82, 185.08], ry: 0.3,
+    text: 'A Lobster moth in a jar. Its caterpillar is all legs, and rears up like a crab when it is touched. Scratched into the lid: “Luna went up on the forty-eighth day. She did not cry. She said she could hear the Mother humming through the boards.”' },
+  { id: 'n-versicolora', key: 'versicolora', kind: 'wall', pos: [42.0, 0.95, 171.43], ry: 0,
+    text: 'A Kentish glory, the colour of rust. Beneath it, the newest ink in the house: “I am the last of the Order. She says she cannot leave until the one from outside comes up the ladder to her. So I will not go up. I will wait below, where they will have to pass me.”' },
 ];
 
 // The Moth Journal's story, one passage unlocked per moth collected (in collection order).
@@ -72,6 +81,10 @@ export const STORY = [
   'If the house is letting you further in, it is not because you are clever. It is because it wants you to reach her.',
   'You could still leave. Your reflection is less sure of that than you are.',
   'Whatever you decide at the top of the house, the Order will have its ending. The question is whether you will be in it as a guest, or as the next course.',
+  'The attic is where the Order ended. One by one the members climbed the ladder, singing, and the leader sat at the foot of it until the singing stopped.',
+  'Luna went up on the forty-eighth day. She was not afraid. She said she could hear the Mother humming.',
+  'Not every cocoon up here is still. Some of them twitch when you are not looking. Some have begun to split.',
+  'The leader did not go up. The Mother told him she could not leave until the one from outside climbed to her, and he is still somewhere in the house, waiting for you to pass.',
 ];
 
 // ---- build the specimens into the room group ----

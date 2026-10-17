@@ -71,21 +71,21 @@ export const CATACOMB_SPECIES = {
     body: { thorax: [2.6, 3.2], abdomen: [2.2, 8], fur: '#ece4d8', furHi: '#ffffff', head: 2.2, paint(g) { blob(g, 0, -17.2, 2.4, 1.8, 0, '#f4ecde'); } },
     antenna: { type: 'thin', len: 9, color: '#8a7e70' },
   },
-  mi: {
-    latin: 'Euclidia mi', common: 'Mother Shipton', span: 32,
-    fore: [[2, -4], [14, -9], [26, -12], [32, -11], [31, -5], [24, 2], [12, 5], [3, 3]],
-    hind: [[3, 2], [12, 4], [22, 7], [25, 12], [20, 17], [10, 17], [3, 11], [2, 6]],
-    foreAngle: 0.04, hindAngle: 0.12,
-    paintFore(g) {
-      g.fillStyle = '#5a4a3a'; g.fillRect(-5, -16, 42, 24);
-      // the old woman's profile, outlined in cream: brow, hooked nose, chin, and an eye
-      band(g, [[8, 3], [9, -3], [12, -7], [15, -8], [17, -6], [21, -5], [17, -3], [18, 0], [15, 2], [12, 3]], 1.1, '#efe2c2');
-      blob(g, 15, -5.5, 1.3, 1.0, 0, '#efe2c2'); blob(g, 15, -5.5, 0.6, 0.5, 0, '#2a2018');
-      band(g, [[24, -10], [26, -4], [24, 2]], 1.0, '#e6d6b2'); band(g, [[29, -9], [30, -4]], 0.8, 'rgba(230,214,178,0.7)');
+  aprilina: {
+    latin: 'Griposia aprilina', common: 'Merveille du jour', span: 45,
+    fore: [[2, -4], [16, -9], [32, -13], [44, -12], [43, -6], [34, 2], [16, 6], [3, 3]],
+    hind: [[3, 2], [14, 4], [26, 7], [30, 13], [24, 18], [12, 17], [3, 11], [2, 6]],
+    foreAngle: 0.05, hindAngle: 0.14,
+    paintFore(g, r) {
+      g.fillStyle = '#9cc4a0'; g.fillRect(-5, -18, 55, 28);
+      // black and white lichen blotches and wavy cross-lines
+      for (let k = 0; k < 26; k++) blob(g, 4 + r() * 40, -12 + r() * 16, 1 + r() * 3, 0.8 + r() * 2, r() * 3, r() < 0.6 ? '#1a1e1a' : '#eef2ea');
+      band(g, [[10, 5], [12, -2], [10, -9], [13, -13]], 1.4, '#141814'); band(g, [[28, 3], [30, -4], [27, -10], [30, -13]], 1.4, '#141814');
+      blob(g, 20, -6, 2.4, 1.8, 0, '#eef2ea'); blob(g, 20, -6, 1.2, 0.9, 0, '#2a302a');
     },
-    paintHind(g) { g.fillStyle = '#4a3a2c'; g.fillRect(-5, -5, 32, 25); band(g, [[4, 8], [14, 9], [22, 10]], 1.3, '#e8d8b0'); band(g, [[4, 13], [12, 14], [20, 15]], 1.1, '#e8d8b0'); },
-    body: { thorax: [4, 5.5], abdomen: [3.4, 14], fur: '#5a4a3a', furHi: '#9a8462', head: 3.2, paint() {} },
-    antenna: { type: 'thin', len: 11, color: '#3a2e22' },
+    paintHind(g) { g.fillStyle = '#6a6a64'; g.fillRect(-5, -5, 40, 30); band(g, [[4, 10], [16, 12], [28, 12]], 1.2, '#4a4a46'); },
+    body: { thorax: [4.4, 6], abdomen: [3.6, 15], fur: '#9cc4a0', furHi: '#e4f0e0', head: 3.4, paint() {} },
+    antenna: { type: 'thin', len: 12, color: '#3a3e38' },
   },
   // ---------- the apothecary's poison drawers, mildest first ----------
   poodle: {
@@ -182,8 +182,8 @@ export const CATACOMB_NOTES = [
     text: 'A Tissue, rose and grey, the moth that sleeps out the winter in caves. Chalked beside it: “She goes down into the dark every winter and comes up in the spring as if nothing had happened. The ones we laid in the water were promised the same.”' },
   { id: 'n-tapetzella', key: 'tapetzella', kind: 'pinned', pos: [44.6, 0.922, 151.6], ry: 0.3, flat: true,
     text: 'A Tapestry moth in a pill box on the counter. Its grubs eat what other moths will not: fur, feathers, hair. The label, in a shaking hand: “Nothing down here goes to waste. Father said that about the moths. I think he meant the members.”' },
-  { id: 'n-mi', key: 'mi', kind: 'wall', pos: [57.87, 1.7, 154.0], ry: -Math.PI / 2,
-    text: 'A Mother Shipton, named for the old prophetess, because each wing carries an old woman’s face in profile. Scratched under it: “She has a face too, under the dust. I saw it once, at the hatch. She was smiling the way he does.”' },
+  { id: 'n-aprilina', key: 'aprilina', kind: 'wall', pos: [57.87, 1.7, 154.0], ry: -Math.PI / 2,
+    text: 'A Merveille du jour, green and black like lichen on a gravestone, and almost invisible against the stone. Scratched under it: “She has a face too, under the dust. I saw it once, at the hatch. She was smiling the way he does.”' },
 ];
 MOTH_NOTES.push(...CATACOMB_NOTES);
 
@@ -194,4 +194,4 @@ export const CATACOMB_STORY = [
   'The Order had its own apothecary. He knew which moths could kill, and kept them in order, mildest first. Some of the members who doubted were cured by him, and never doubted again.',
   'There is a tunnel out of the catacombs that the Order bricked up and chained. Someone on the other side once tried very hard to get through it. The scratches go both ways.',
 ];
-STORY.push(...CATACOMB_STORY);
+STORY.splice(19, 0, ...CATACOMB_STORY); // the route reaches the catacombs before the attic
