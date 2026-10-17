@@ -117,3 +117,23 @@ export function playSoftClicks(n) {
     o.connect(g).connect(master); o.start(t); o.stop(t + 0.08);
   }
 }
+
+// The Mother's wings: a dry, papery flutter (band-passed noise in quick pulses).
+export function playFlutter(level = 1) {
+  if (!ctx || level <= 0.02) return;
+  const t = ctx.currentTime, len = 0.5, buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * len), ctx.sampleRate), d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) { const k = i / ctx.sampleRate; d[i] = (Math.random() * 2 - 1) * Math.max(0, Math.sin(k * 2 * Math.PI * 22)) * (1 - k / len); }
+  const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+  s.buffer = buf; f.type = 'bandpass'; f.frequency.value = 900; f.Q.value = 0.8; g.gain.value = 0.35 * Math.min(1, level);
+  s.connect(f).connect(g).connect(master); s.start(t);
+}
+// her clicks, quieter with distance
+export function playClicksAt(level = 1, n = 2) {
+  if (!ctx || level <= 0.02) return;
+  for (let i = 0; i < n; i++) {
+    const t = ctx.currentTime + i * (0.04 + Math.random() * 0.05), o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = 'square'; o.frequency.value = 2200 + Math.random() * 900;
+    g.gain.setValueAtTime(0.05 * Math.min(1, level), t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.025);
+    o.connect(g).connect(master); o.start(t); o.stop(t + 0.03);
+  }
+}
