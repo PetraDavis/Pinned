@@ -1,5 +1,5 @@
 <!doctype html><meta charset="utf-8"><title>The Mother preview</title>
-<!-- Preview renders of The Mother in her attic chamber. Not part of the game. -->
+<!-- Preview renders of The Mother, lit the way the game lights things: torch and lantern only. Not part of the game. -->
 <body style="margin:0;background:#000">
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }</script>
 <script type="module">
@@ -7,23 +7,48 @@ import * as THREE from 'three';
 import { buildTextures, tex } from './src/textures.js';
 import { buildMother, buildAttic } from './src/characters/mother.js';
 buildTextures('medium');
-const r = new THREE.WebGLRenderer({ antialias: true }); r.setPixelRatio(1); r.setSize(innerWidth, innerHeight); document.body.appendChild(r.domElement);
+const r = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }); r.setPixelRatio(1); r.setSize(innerWidth, innerHeight); document.body.appendChild(r.domElement);
 r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 1.1; r.outputColorSpace = THREE.SRGBColorSpace; r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
-const s = new THREE.Scene(); s.background = new THREE.Color(0x07070a); s.fog = new THREE.FogExp2(0x0a0a10, 0.06);
-s.add(buildAttic(tex.mosaicFloor));
-const m = buildMother(); s.add(m);
-// a soft key on her face from the candles below, and a cool rim from the window
-const key = new THREE.SpotLight(0xbcc8e8, 9, 9, 0.6, 0.8, 1.2); key.position.set(-1.2, 3.6, 2.6); key.target.position.set(0, 2.0, 0); s.add(key, key.target);
-const warm = new THREE.PointLight(0xffa860, 3.5, 4, 1.5); warm.position.set(0.5, 0.6, 1.3); s.add(warm);
-const cam = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 0.02, 40); s.add(cam);
+const s = new THREE.Scene(); s.background = new THREE.Color(0x000000); s.fog = new THREE.FogExp2(0x000000, 0.09);
+const attic = buildAttic(null); s.add(attic);
+const atticLights = []; attic.traverse(o => { if (o.isLight) atticLights.push(o); if (o.material && o.material.isMeshBasicMaterial && o.material.color.getHex() === 0x5a6a9a) o.material.color.set(0x161c2c); });
+// a long dark corridor, off to the side, for the far shot
+const corridor = new THREE.Group(); corridor.position.set(30, 0, 0); s.add(corridor);
+{ const wall = new THREE.MeshStandardMaterial({ color: 0x3a3028, roughness: 0.9 }), floor = new THREE.MeshStandardMaterial({ color: 0x2a1e16, roughness: 0.8 });
+  const f = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 20), floor); f.rotation.x = -Math.PI / 2; f.position.z = -8; f.receiveShadow = true; corridor.add(f);
+  const c = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 20), wall); c.rotation.x = Math.PI / 2; c.position.set(0, 3, -8); corridor.add(c);
+  for (const sx of [-1, 1]) { const w = new THREE.Mesh(new THREE.PlaneGeometry(20, 3), wall); w.rotation.y = -sx * Math.PI / 2; w.position.set(sx * 1.2, 1.5, -8); w.receiveShadow = true; corridor.add(w);
+    for (let z = -1; z > -18; z -= 3) { const d = new THREE.Mesh(new THREE.BoxGeometry(0.06, 2.2, 1), new THREE.MeshStandardMaterial({ color: 0x1e1610 })); d.position.set(sx * 1.17, 1.1, z); corridor.add(d); } }
+  const end = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 3), wall); end.position.set(0, 1.5, -18); corridor.add(end); }
+const mother = buildMother(); s.add(mother); const api = mother.userData.api;
+const cam = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.02, 60); s.add(cam);
+// the player's torch: a spot on the camera; and a lantern held low
+const torch = new THREE.SpotLight(0xfff0d8, 40, 18, 0.36, 0.55, 1.6); torch.castShadow = true; torch.shadow.mapSize.set(2048, 2048); torch.shadow.bias = -0.0004; torch.shadow.camera.near = 0.1;
+cam.add(torch); torch.position.set(0.12, -0.15, 0); torch.target.position.set(0, 0, -1); cam.add(torch.target);
+const lantern = new THREE.PointLight(0xffa860, 2.2, 5, 1.6); lantern.castShadow = true; cam.add(lantern); lantern.position.set(-0.25, -0.45, -0.3);
+const ref = new THREE.Group(); s.add(ref);
+ref.add(new THREE.HemisphereLight(0xd8dce8, 0x3a3028, 1.2)); const key = new THREE.DirectionalLight(0xffffff, 2.2); key.position.set(2, 4, 3); ref.add(key);
+// each view: mother position/rotation, wing pose, camera, lights, torch aim
 const VIEWS = {
-  front: [[0, 2.0, 4.6], [0, 1.85, 0]],
-  threequarter: [[2.6, 2.2, 3.4], [0, 1.9, 0]],
-  side: [[2.1, 2.0, 1.0], [0, 1.85, 0]],
-  low: [[0.6, 0.5, 2.6], [0, 2.1, 0]],
-  face: [[0.22, 2.4, 0.9], [0, 2.32, 0.05]],
-  back: [[-1.6, 2.4, -2.6], [0, 1.8, 0]],
+  corridor: { at: [30, 0, -10], cam: [30.3, 1.62, 0], look: [30, 1.7, -10], torch: 40, lantern: false, open: 0, fog: 0.06, aim: [30.6, 1.0, -6], headX: 0.05 },
+  flashlight: { at: [0, 0, 0], cam: [0.6, 1.62, 4.6], look: [0, 1.7, 0], torch: 40, lantern: false, open: 0, aim: [0.1, 1.9, 0] },
+  face: { at: [0, 0, 0], cam: [0.3, 2.22, 0.75], look: [0, 2.25, 0.04], torch: 1.2, lantern: false, open: 0, aim: [0.06, 2.24, 0.05], headY: 0.12, headX: 0.05 },
+  reveal: { at: [0, 0, 0], cam: [0.3, 1.62, 3.2], look: [0, 2.0, 0], torch: 40, lantern: true, open: 1, aim: [0, 2.0, 0], headX: -0.05 },
+  reference: { at: [0, 0, 0], cam: [2.2, 1.8, 4.2], look: [0, 1.4, 0], torch: 0, lantern: false, open: 0, ref: true, fog: 0.0 },
+  referenceopen: { at: [0, 0, 0], cam: [0, 1.8, 5.2], look: [0, 1.7, 0], torch: 0, lantern: false, open: 1, ref: true, fog: 0.0 },
 };
-window.render = name => { const [p, t] = VIEWS[name]; cam.position.set(...p); cam.lookAt(...t); r.render(s, cam); return true; };
+let V = null;
+window.setView = name => {
+  V = VIEWS[name]; mother.position.set(...V.at); api.setOpen(V.open);
+  api.head.rotation.set(V.headX ?? 0.18, V.headY ?? 0, -0.06);
+  cam.position.set(...V.cam); cam.lookAt(...V.look); cam.updateMatrixWorld();
+  torch.intensity = V.torch; lantern.visible = !!V.lantern; ref.visible = !!V.ref;
+  for (const l of atticLights) l.visible = false; s.fog.density = V.fog ?? 0.09;
+  if (V.aim) { const w = new THREE.Vector3(...V.aim); cam.worldToLocal(w); torch.target.position.copy(w); } else torch.target.position.set(0, 0, -1);
+  s.background.set(V.ref ? 0x1a1a1e : 0x000000);
+};
+window.render = name => { setView(name); r.render(s, cam); return true; };
+// animation: still, then twitching; t in seconds
+window.step = dt => { api.update(dt); r.render(s, cam); };
 window.ready = true;
 </script>
