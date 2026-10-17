@@ -203,7 +203,7 @@ export function buildLowerUpper(ctx) {
   rect(local, 55.2, 57.3, 53.0, 56.6);
   // a glow from below once the grille lifts, so the way down is plain to see
   const stairGlow = new THREE.PointLight(0xffb070, 0, 5, 1.4); stairGlow.position.set(56.25, 0.3, 54.6); stairGlow.userData.noLimit = true; group.add(stairGlow);
-  addMirror({ id: 'M4', pos: new THREE.Vector3(CX1 - 0.02, 1.8, 47.7), ry: -Math.PI / 2, w: 1.0, h: 1.8, stage: 4 });
+  addMirror({ id: 'M4', pos: new THREE.Vector3(CX1 - 0.02, 1.8, 47.0), ry: -Math.PI / 2, w: 1.0, h: 1.8, stage: 4 });
   cocoon(50.0, 55.9, 1.5, true); cocoon(57.4, 41.0, 1.2, true); cocoon(50.2, 41.2, 0.9, false);
 
   // ======================= FIRST FLOOR: x 30..58, z 80..96.8 =======================
