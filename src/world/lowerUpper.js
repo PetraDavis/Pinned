@@ -4,12 +4,10 @@
 // Stairs between floors are transitions (fade, then place the player).
 //
 // Cellar: Wine Cellar (mirror M3, stair C up, the B shaft), Boiler Room (the clothes-moth
-// wardrobe), Egg Room, Ritual Chapel (mirror M4, the life-cycle altar puzzle, stair E down,
-// locked for now). Solving the altar unbolts the gate to the back stair B.
-// TEMPORARY LINK: the blueprint route is Cellar > stair E > Catacombs > passage to stair B >
-// First Floor. Until the Catacombs are built, the altar opens the B shaft gate here instead.
-// When they are: the altar should open stair E's grille, and stair B should be reachable only
-// from the Catacombs (remove the shaft gate interaction in main.js and keep this gate shut).
+// wardrobe), Egg Room, Ritual Chapel (mirror M4, the life-cycle altar puzzle, stair E down
+// behind a grille). Solving the altar lifts stair E's grille, down into the Catacombs
+// (catacombs.js); the back stair B is reached only from there. The B shaft gate in the wine
+// cellar stays shut.
 // First Floor: Cocoon Room (stair B arrives here; silkworm note, wrapped bodies), Nursery,
 // Gallery Landing (open over the Grand Hall; stair A's head buried in rubble), Library
 // (peppered moth note), Luna Bedroom (countdown wall, M6 vanity), Leader's Bedroom
@@ -18,6 +16,7 @@ import * as THREE from 'three';
 import { tex } from '../textures.js';
 import { mat, box, rect, rep, rand } from './build.js';
 import { gasLampFixture } from './fixtures.js';
+import { spunCocoon } from './cocoon.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 export const CELLAR = { spawn: new THREE.Vector3(31.75, 0, 46.7), shaftFoot: new THREE.Vector3(34.45, 0, 46.2), stairC: new THREE.Vector3(31.75, 0, 45.6), shaft: new THREE.Vector3(34.45, 0, 45.6), stairE: new THREE.Vector3(56.25, 0, 52.4) };
@@ -369,12 +368,13 @@ export function buildLowerUpper(ctx) {
   }
 
   // ---------- state ----------
-  const shaftOpen = { v: false }, deskOpen = { v: false }, altar = { seq: [], solved: false, shake: 0 };
+  const shaftOpen = { v: false }, stairEOpen = { v: false }, deskOpen = { v: false }, altar = { seq: [], solved: false, shake: 0 };
   let wardOpen = false, wardAnim = 0;
   const api = {
     tiles, wardrobe: { pos: new THREE.Vector3(41.2, 0, 41.5) }, desk: { pos: new THREE.Vector3(51.4, 0, 81.4) }, countdown: { pos: new THREE.Vector3(57.0, 0, 92.3) },
     get wardOpen() { return wardOpen; },
     get shaftOpen() { return shaftOpen.v; },
+    get stairEOpen() { return stairEOpen.v; },
     get deskOpen() { return deskOpen.v; },
     get altarSolved() { return altar.solved; },
     openWardrobe() { wardOpen = true; },
@@ -386,16 +386,17 @@ export function buildLowerUpper(ctx) {
       if (ok) { api.solveAltar(); return 'solved'; }
       altar.seq = []; altar.shake = 0.8; setTimeout(() => tiles.forEach(x => { x.pressed = false; }), 900); return 'wrong';
     },
-    solveAltar() { altar.solved = true; altar.seq = [...ALTAR_ORDER]; tiles.forEach(x => { x.pressed = true; }); shaftOpen.v = true; removeLocal(gateCol); ctx.doors.cWineEgg.locked = false; },
+    solveAltar() { altar.solved = true; altar.seq = [...ALTAR_ORDER]; tiles.forEach(x => { x.pressed = true; }); stairEOpen.v = true; ctx.doors.cWineEgg.locked = false; },
     openDesk() { deskOpen.v = true; keyTag.visible = true; ctx.doors.fLeaderLinen.locked = false; },
     reset() {
-      altar.seq = []; altar.solved = false; tiles.forEach(x => { x.pressed = false; }); shaftOpen.v = false; addLocal(gateCol);
+      altar.seq = []; altar.solved = false; tiles.forEach(x => { x.pressed = false; }); shaftOpen.v = false; stairEOpen.v = false; addLocal(gateCol);
       deskOpen.v = false; keyTag.visible = false; wardOpen = false; wardAnim = 0;
     },
     update(t, dt) {
       tiles.forEach((x, i) => { const target = x.pressed ? 41.08 : 41.12; x.mesh.position.z += (target - x.mesh.position.z) * Math.min(1, dt * 8); if (altar.shake > 0) x.mesh.position.x = 52.4 + i * 0.83 + Math.sin(t * 60 + i) * 0.006 * altar.shake; });
       if (altar.shake > 0) altar.shake -= dt;
       const gt = shaftOpen.v ? 1.55 : 0; shaftG.position.y += (Math.min(gt, 2.4) - shaftG.position.y) * Math.min(1, dt * 1.5);
+      const ge = stairEOpen.v ? 1.3 : 0; grille.position.y += (ge - grille.position.y) * Math.min(1, dt * 1.5);
       if (wardOpen && wardAnim < 1) wardAnim = Math.min(1, wardAnim + dt * 1.4);
       for (const w of wDoors) w.piv.rotation.y = w.s * 1.9 * (1 - Math.pow(1 - wardAnim, 3));
       drawer.position.z = 0.42 + (deskOpen.v ? 0.3 : 0);
@@ -409,29 +410,7 @@ export function buildLowerUpper(ctx) {
   // Spun cocoons: a fibrous silk body wrapped in criss-crossing strands, with anchor threads
   // fanning out to the ceiling (or the floor). All cocoons and threads are merged into one
   // mesh and one line set when the floors are finished, so they cost two draw calls.
-  function cocoon(x, z, h, hanging) {
-    const top = z > 70 ? FH : CH, cr = rand(Math.floor(x * 31 + z * 17));
-    const prof = []; for (let i = 0; i <= 14; i++) { const t = i / 14; prof.push(new THREE.Vector2(Math.max(0.004, Math.sin(Math.pow(t, 0.85) * Math.PI) * 0.21 * h * (1 + 0.08 * Math.sin(t * 13 + x))), t * h)); }
-    const shell = new THREE.LatheGeometry(prof, 16);
-    const mtx = new THREE.Matrix4();
-    const place = (g) => { if (hanging) { g.rotateX(Math.PI); g.translate(x, top - 0.22, z); } else { g.rotateZ(Math.PI / 2 * 0.92); g.translate(x + h * 0.45, 0.17, z); } return g; };
-    silkGeos.push(place(shell));
-    // wrapped strands: helices around the body, a little loose
-    for (let k = 0; k < 3; k++) {
-      const pts = [], turns = 3 + k, ph = cr() * 6.28, tilt = (cr() - 0.5) * 0.6;
-      for (let i = 0; i <= 60; i++) { const t = 0.06 + i / 60 * 0.88, rr = Math.sin(Math.pow(t, 0.85) * Math.PI) * 0.21 * h * 1.04 + 0.004, a2 = ph + t * turns * Math.PI * 2; pts.push(new THREE.Vector3(Math.cos(a2) * rr, t * h + Math.cos(a2) * rr * tilt, Math.sin(a2) * rr)); }
-      silkGeos.push(place(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 60, 0.0035, 3, false)));
-    }
-    // anchor threads
-    const anchor = hanging ? new THREE.Vector3(x, top - 0.22, z) : new THREE.Vector3(x + h * 0.9, 0.3, z);
-    const n = 5 + Math.floor(cr() * 4);
-    for (let i = 0; i < n; i++) {
-      const a2 = cr() * 6.28, d = 0.15 + cr() * (i < 2 ? 1.6 : 0.5);
-      const end = hanging ? new THREE.Vector3(x + Math.cos(a2) * d, top - 0.005, z + Math.sin(a2) * d) : new THREE.Vector3(anchor.x + Math.cos(a2) * d, i < 2 ? 0.005 : 0.3 + cr() * 1.2, anchor.z + Math.sin(a2) * d);
-      const from = anchor.clone().add(new THREE.Vector3((cr() - 0.5) * 0.06, hanging ? 0 : (cr() - 0.5) * 0.1, (cr() - 0.5) * 0.06));
-      threadPts.push(from.x, from.y, from.z, end.x, end.y, end.z);
-    }
-  }
+  function cocoon(x, z, h, hanging) { spunCocoon(x, z, h, hanging, z > 70 ? FH : CH, silkGeos, threadPts); }
   function wrapped(x, z, ry) {
     // a body bound in silk, lying on a low trestle
     const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = ry; group.add(g);
@@ -451,7 +430,7 @@ export function buildLowerUpper(ctx) {
 }
 
 // ---------- textures ----------
-function silkTex() {
+export function silkTex() {
   // fibrous silk: a dense felt of fine fibres, wrapped bands crossing it, darker stained
   // patches and thin gaps where the weave shows through
   const S = 512, c = document.createElement('canvas'); c.width = c.height = S; const g = c.getContext('2d');
