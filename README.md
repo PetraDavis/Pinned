@@ -44,6 +44,28 @@ screen resumes from the last save point.
 
 The story is carried by moths, not paper. Twenty-three specimens, each a different species (four of them in the catacombs), are pinned in boxes, sealed in jars or resting on the walls of every built room. Pick one up (E) to read its message; it goes into the **Moth Journal** (pause menu or home screen), which shows every moth collected with its picture, name and message, and writes out the story in plain words, one passage per moth, in the order you find them. Two of them carry puzzle clues: the Herald above the boiler (the altar) and the Peppered moth in the library (the desk). The journal is kept in the save.
 
+## Multiplayer
+
+Explore the house together, peer to peer. There is no game server: the **host's browser is the server**, and everyone else connects to the host over WebRTC.
+
+- **Host:** home screen -> **Multiplayer** -> **Host a new game** (or **Host from my save**). The game starts and the HUD shows a five-character **room code**; share it with your friends. The host's progress saves to the host's normal save slot.
+- **Join:** home screen -> **Multiplayer**, type the code, **Join**. You appear next to the host. A guest's progress lives in the host's game; joining never touches your own save.
+- **No code / signaling down:** open *No code? Connect by copy-paste*. The host opens the pause menu -> *Invite a player by copy-paste* -> **Make an invite** and sends the text to the player (any chat app); the player pastes it, presses **Make my reply** and sends the reply back; the host pastes it and presses **Connect**. One invite per player. If the signaling server is unreachable, the host can start with **Host with copy-paste invites only**.
+
+Room codes use the free public [PeerJS](https://peerjs.com/) cloud broker only to introduce the browsers; game data, chat and voice then go directly between players (STUN only, no TURN relay, so a few strict corporate or mobile networks may not connect). To use your own PeerJS server, add `?peer=host:port` to the game URL.
+
+What is shared: player positions, facing, crouch and torch (other players appear as a plain teenager in a hoodie with their name over their head, and you see their torch beam); puzzles, doors, the drawing-room lamp, moths and pickups. The host owns the world: anything a guest solves or opens is merged into the host's world and sent to everyone. Moths are shared: when anyone takes one it goes into everybody's Moth Journal. Pausing in multiplayer only opens your menu; the house carries on around you.
+
+| Key | Action |
+| --- | --- |
+| T or Enter | Text chat (Enter sends, Esc closes) |
+| V (hold) | Push to talk, when enabled |
+| M | Mute or unmute your microphone |
+
+**Voice chat:** pause menu -> **Join voice**. The browser asks for the microphone only then. Options there: mute, push to talk (hold V), and *Voices fade with distance* (proximity voice: close voices are clear, distant ones thin to a whisper, and through the house's walls into another zone you barely hear them). The host forwards each voice to the other players. On iPhone and iPad Safari the per-voice volume cannot be changed by the page, so proximity fading does not apply there.
+
+Not shared (yet): half-finished puzzle moves (specimens in hand, partly rearranged cases or seats; only the solved result is shared) and the hint counter. Mirrors show only your own reflection.
+
 ## Run it locally
 
 ES modules need to be served over HTTP (opening `index.html` as a file will not work):
@@ -84,3 +106,4 @@ Any static server works (`npx serve`, etc.). An internet connection is needed to
 - `src/homeScreen.js` - animated home screen (the pinned moth)
 - `src/audio.js` - Web Audio wind and creaks
 - `src/storage.js` - settings and save data
+- `src/net/` - multiplayer: `link.js` (PeerJS and copy-paste WebRTC links), `multiplayer.js` (host/guest session, world merge, chat, UI), `voice.js` (voice peer connections and playback), `remotes.js` (other players' avatars), `net.css`

@@ -23,6 +23,8 @@ import { createLantern, lanternMesh } from './lantern.js';
 import { loadSettings, saveSettings, loadSave, writeSave, clearSave } from './storage.js';
 import { startHomeBackdrop } from './homeScreen.js';
 import { createAtticPlay } from './atticPlay.js';
+import { initMultiplayer } from './net/multiplayer.js';
+let mp = null; // multiplayer session (src/net/), set up at the end of this file
 
 const $ = id => document.getElementById(id);
 const canvas = $('game');
@@ -285,7 +287,7 @@ const interactables = [
     act: () => {
       room.setLamp(!room.lampOn);
       if (room.lampOn) say('The wick catches. Warm light crawls up the walls, and every pinned moth seems to lean towards it.');
-      const sv = loadSave(); if (sv) writeSave({ ...sv, lampLit: room.lampOn });
+      const sv = loadSave(); if (sv && !(mp && mp.isClient)) writeSave({ ...sv, lampLit: room.lampOn });
     },
   },
   {
@@ -655,7 +657,7 @@ function transition(mid) {
 }
 
 let lastCheckpoint = null;
-function save(checkpoint) { writeSave({ checkpoint, lampLit: room.lampOn, solved: room.puzzle.solved, studySolved: ground.lifespan.solved, dinnerSolved: ground.dinner.solved, plates: ground.dinner.seats.filter(st => st.flipped).map(st => st.id), doorsOpen: Object.values(ground.doors).filter(d => d.isOpen).map(d => d.id), battery: +flashlight.battery.toFixed(3), batteries: [...batteriesTaken], lantern: lantern.have ? +lantern.fuel.toFixed(3) : null, lanternOn: !!lantern.on, torchOn: !!flashlight.on, lanterns: [...lanternsTaken], altarSolved: ground.lu.altarSolved, deskOpen: ground.lu.deskOpen, wardOpen: ground.lu.wardOpen, visited: { ...visited }, hintsUsed: { ...hintsUsed }, hintState: { ...hintState }, moths: [...mothsTaken], cat: catPlay.state(), attic: ground.attic.serialize() }); lastCheckpoint = checkpoint; }
+function save(checkpoint) { if (mp && mp.isClient) return; /* a guest's progress lives in the host's game */ writeSave({ checkpoint, lampLit: room.lampOn, solved: room.puzzle.solved, studySolved: ground.lifespan.solved, dinnerSolved: ground.dinner.solved, plates: ground.dinner.seats.filter(st => st.flipped).map(st => st.id), doorsOpen: Object.values(ground.doors).filter(d => d.isOpen).map(d => d.id), battery: +flashlight.battery.toFixed(3), batteries: [...batteriesTaken], lantern: lantern.have ? +lantern.fuel.toFixed(3) : null, lanternOn: !!lantern.on, torchOn: !!flashlight.on, lanterns: [...lanternsTaken], altarSolved: ground.lu.altarSolved, deskOpen: ground.lu.deskOpen, wardOpen: ground.lu.wardOpen, visited: { ...visited }, hintsUsed: { ...hintsUsed }, hintState: { ...hintState }, moths: [...mothsTaken], cat: catPlay.state(), attic: ground.attic.serialize() }); lastCheckpoint = checkpoint; }
 let grandHallSaved = false;
 function spawnAt(checkpoint, saved = {}) {
   room.resetPuzzle(); room.setLamp(!!saved.lampLit);
@@ -766,7 +768,7 @@ function resume() {
 }
 let restoreHeld = null;
 function quitHome() {
-  if (state !== 'home' && lastCheckpoint !== undefined && !(window.__mp && window.__mp.guest)) save(lastCheckpoint); // keep what you were holding
+  if (state !== 'home' && lastCheckpoint !== undefined && !(mp && mp.isClient)) save(lastCheckpoint); // keep what you were holding
   show('pause', false); show('hud', false); show('home', true);
   state = 'home'; player.enabled = false; backdrop.start(); refreshHome();
 }
@@ -777,7 +779,7 @@ try { if (sessionStorage.getItem('pinned.autoContinue')) { sessionStorage.remove
 $('btnRestart').onclick = () => { if (loadSave()) show('confirm', true); else startGame(null); };
 $('btnConfirmYes').onclick = () => { show('confirm', false); clearSave(); startGame(null); };
 $('btnConfirmNo').onclick = () => show('confirm', false);
-$('btnMulti').onclick = () => { $('homeNote').textContent = 'Multiplayer: coming soon.'; };
+$('btnMulti').onclick = () => mp && mp.openMenu();
 $('btnSettingsHome').onclick = () => openSettings('home');
 $('btnSettingsPause').onclick = () => openSettings('pause');
 $('btnSettingsBack').onclick = () => { show('settings', false); show(settingsReturn, true); };
@@ -794,7 +796,7 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) pause
 addEventListener('blur', () => pause());
 document.addEventListener('pointerlockchange', () => {
   // Esc releases pointer lock in the browser; treat that as pause.
-  if (!document.pointerLockElement && state === 'playing') pause();
+  if (!document.pointerLockElement && state === 'playing' && !(mp && mp.chatOpen)) pause();
 });
 canvas.addEventListener('click', () => { if (state === 'playing' && !document.pointerLockElement) lock(); });
 addEventListener('keydown', e => {
@@ -822,7 +824,8 @@ const lurePos = new THREE.Vector3();
 // home screen, or while the tab is hidden, so moths, flickering lights, battery and fuel
 // drain, animations, hint timers (and later The Mother) all freeze together.
 let gameTime = 0;
-const frozen = () => state === 'paused' || state === 'home' || document.hidden;
+// In multiplayer the shared world never stops: pausing only opens the menu for you.
+const frozen = () => (state === 'paused' && !(mp && mp.active)) || state === 'home' || document.hidden;
 let shadowLights = null, frameNo = 0; const tmpShadowV = new THREE.Vector3();
 function loop() {
   const realDt = Math.min(clock.getDelta(), 0.05);
@@ -872,3 +875,38 @@ window.__pinned = {
   caps: CAPS, get state() { return state; }, get zone() { return zone; }, get prompt() { return current && (typeof current.prompt === 'function' ? current.prompt() : current.prompt); }, room,
   renderer, scene, camera, flashlight, lantern, catacombs: catPlay, ground, get hints() { return { used: hintsUsed, state: hintState }; }, currentPuzzle: () => currentPuzzle(), openPadlock, tryPadlock, dials, get gameTime() { return gameTime; }, get colliders() { return colliders(); },
 };
+
+// ---------- multiplayer (src/net/) ----------
+// The host owns the shared world. worldSnapshot() is what is shared; applyWorld() merges a
+// snapshot in. Progress only ever moves forward, so merging is a union (the lamp is the one
+// on/off exception). Returns the names of moths newly taken, and whether a puzzle opened.
+function worldSnapshot() {
+  return { lamp: room.lampOn, solved: room.puzzle.solved, study: ground.lifespan.solved, dinner: ground.dinner.solved,
+    plates: ground.dinner.seats.filter(st => st.flipped).map(st => st.id), doors: Object.values(ground.doors).filter(d => d.isOpen).map(d => d.id),
+    altar: ground.lu.altarSolved, desk: ground.lu.deskOpen, ward: ground.lu.wardOpen,
+    moths: [...mothsTaken], batteries: [...batteriesTaken], lanterns: [...lanternsTaken],
+    cat: catPlay.state(), attic: ground.attic.serialize() };
+}
+// catacomb and attic puzzle state: take the other side's when it has got further (more solved/open flags)
+const progress = o => o ? Object.values(o).filter(v => v === true).length : 0;
+function applyWorld(w) {
+  const res = { moths: [], solved: false };
+  if (typeof w.lamp === 'boolean' && w.lamp !== room.lampOn) room.setLamp(w.lamp);
+  if (w.solved && !room.puzzle.solved) { room.puzzle.solveInstantly(); room.openPanel(); updateHeld(); res.solved = true; }
+  if (w.study && !ground.lifespan.solved) { ground.solveLifespan(); res.solved = true; }
+  if (w.dinner && !ground.dinner.solved) { ground.dinner.solve(); res.solved = true; }
+  for (const st of ground.dinner.seats) if ((w.plates || []).includes(st.id)) st.flipped = true;
+  for (const id of w.doors || []) { const d = ground.doors[id]; if (d && !d.isOpen) { d.locked = false; d.open(); } }
+  if (w.altar && !ground.lu.altarSolved) { ground.lu.solveAltar(); res.solved = true; }
+  if (w.desk && !ground.lu.deskOpen) { ground.lu.openDesk(); res.solved = true; }
+  if (w.ward && !ground.lu.wardOpen) ground.lu.openWardrobe();
+  for (const id of w.moths || []) if (!mothsTaken.includes(id) && NOTE_BY_ID[id]) { mothsTaken.push(id); mothNotes.take(id); res.moths.push(SPECIES[NOTE_BY_ID[id].key].common); }
+  for (const b of BATTERIES) if ((w.batteries || []).includes(b.id)) { batteriesTaken.add(b.id); b.mesh.visible = false; }
+  for (const l of LANTERNS) if ((w.lanterns || []).includes(l.id)) { lanternsTaken.add(l.id); l.mesh.visible = false; }
+  if (w.cat && progress(w.cat) > progress(catPlay.state())) { catPlay.load(w.cat); res.solved = true; }
+  if (w.attic && progress(w.attic) > progress(ground.attic.serialize())) { ground.attic.restore(w.attic); res.solved = true; }
+  return res;
+}
+mp = initMultiplayer({ scene, camera, player, flashlight, say, lock, setZone, startGame, worldSnapshot, applyWorld,
+  get zone() { return zone; }, get state() { return state; } });
+window.__pinned.mp = mp;
