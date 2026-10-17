@@ -20,8 +20,8 @@ function ensure() {
 
 export function setCaptionSettings(s) { settings = s; if (!s.captions) clearCaptions(); }
 
-export function caption(text, duration = 3, { kind = 'voice' } = {}) {
-  if (kind === 'sound' ? !settings.soundCaptions : settings.captions === false) return;
+export function caption(text, duration = 3, { kind = 'voice', force = false } = {}) {
+  if (!force && (kind === 'sound' ? !settings.soundCaptions : settings.captions === false)) return;
   const box = ensure();
   // the same sound caption again just refreshes the existing one
   const dup = lines.find(l => l.text === text);
@@ -37,6 +37,9 @@ export function caption(text, duration = 3, { kind = 'voice' } = {}) {
   while (lines.length > 3) lines.shift().node.remove();
 }
 export const captionSound = (text, duration = 2) => caption(text, duration, { kind: 'sound' });
+
+// fade one line out early (e.g. a tutorial prompt once its action is done)
+export function dismissCaption(text) { const l = lines.find(l => l.text === text); if (l) l.left = Math.min(l.left, 0.4); }
 
 export function clearCaptions() { while (lines.length) lines.pop().node.remove(); }
 

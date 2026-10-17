@@ -36,6 +36,7 @@ import { createHallucinations, initAccessibilitySettings } from './hallucinate.j
 import { captionSound } from './captions.js';
 import { initMultiplayer } from './net/multiplayer.js';
 import { createEscape } from './escape.js';
+import { createTutorial } from './tutorial.js';
 import { createEnding } from './ending.js';
 import { createCredits } from './credits.js';
 let mp = null; // multiplayer session (src/net/), set up at the end of this file
@@ -212,6 +213,8 @@ function applyQuality(q) {
     if (o.material) for (const m of [].concat(o.material)) { m.dithering = true; m.needsUpdate = true; }
   });
 }
+$('sTutorial').checked = settings.tutorial !== false;
+$('sTutorial').addEventListener('change', e => { settings.tutorial = e.target.checked; saveSettings(settings); });
 $('sCrouchToggle').addEventListener('change', e => { settings.crouchToggle = e.target.checked; saveSettings(settings); applySettings(); });
 $('sQuality').addEventListener('change', e => {
   settings.quality = e.target.value; saveSettings(settings);
@@ -746,7 +749,7 @@ function transition(mid) {
 }
 
 let lastCheckpoint = null;
-function save(checkpoint) { if (mp && mp.isClient) return; catPlay.settle(); /* a guest's progress lives in the host's game */ writeSave({ checkpoint, lampLit: room.lampOn, solved: room.puzzle.solved, studySolved: ground.lifespan.solved, dinnerSolved: ground.dinner.solved, plates: ground.dinner.seats.filter(st => st.flipped).map(st => st.id), doorsOpen: Object.values(ground.doors).filter(d => d.isOpen).map(d => d.id), battery: +flashlight.battery.toFixed(3), batteries: [...batteriesTaken], lantern: lantern.have ? +lantern.fuel.toFixed(3) : null, lanternOn: !!lantern.on, torchOn: !!flashlight.on, lanterns: [...lanternsTaken], altarSolved: ground.lu.altarSolved, deskOpen: ground.lu.deskOpen, wardOpen: ground.lu.wardOpen, visited: { ...visited }, hintsUsed: { ...hintsUsed }, hintState: { ...hintState }, moths: [...mothsTaken], cat: catPlay.state(), attic: ground.attic.serialize() }); lastCheckpoint = checkpoint; }
+function save(checkpoint) { if (mp && mp.isClient) return; catPlay.settle(); /* a guest's progress lives in the host's game */ writeSave({ checkpoint, lampLit: room.lampOn, solved: room.puzzle.solved, studySolved: ground.lifespan.solved, dinnerSolved: ground.dinner.solved, plates: ground.dinner.seats.filter(st => st.flipped).map(st => st.id), doorsOpen: Object.values(ground.doors).filter(d => d.isOpen).map(d => d.id), battery: +flashlight.battery.toFixed(3), batteries: [...batteriesTaken], lantern: lantern.have ? +lantern.fuel.toFixed(3) : null, lanternOn: !!lantern.on, torchOn: !!flashlight.on, lanterns: [...lanternsTaken], altarSolved: ground.lu.altarSolved, deskOpen: ground.lu.deskOpen, wardOpen: ground.lu.wardOpen, visited: { ...visited }, hintsUsed: { ...hintsUsed }, hintState: { ...hintState }, moths: [...mothsTaken], tutorial: tutorial.state(), cat: catPlay.state(), attic: ground.attic.serialize() }); lastCheckpoint = checkpoint; }
 let grandHallSaved = false;
 function spawnAt(checkpoint, saved = {}) {
   room.resetPuzzle(); room.setLamp(!!saved.lampLit);
@@ -756,6 +759,7 @@ function spawnAt(checkpoint, saved = {}) {
   lantern.have = saved.lantern != null; lantern.fuel = saved.lantern || 0; lantern.lower();
   restoreHeld = { lantern: !!saved.lanternOn && lantern.have && lantern.fuel > 0, torch: !!saved.torchOn && flashlight.battery > 0 };
   hintState = { ...(saved.hintState || {}) }; hintsUsed = { ...(saved.hintsUsed || {}) }; stuckTime = 0; lastCheckpoint = checkpoint;
+  tutorial.merge(saved.tutorial);
   mothsTaken = [...(saved.moths || [])]; mothNotes.reset(new Set(mothsTaken));
   for (const b of BATTERIES) b.mesh.visible = !batteriesTaken.has(b.id);
   updateBatteryHud();
@@ -796,6 +800,7 @@ function spawnAt(checkpoint, saved = {}) {
 const mothNotes = buildMothNotes(room.group);
 const halluc = createHallucinations({ scene, camera, room, ground, settings, saveSettings, volume: () => settings.volume });
 let mothsTaken = [];
+const tutorial = createTutorial({ player, enabled: () => settings.tutorial !== false, zone: () => zone, state: () => state, lampOn: () => room.lampOn, torchOn: () => flashlight.on, hidden: () => motherPlay.hidden, moths: () => mothsTaken.length });
 const NOTE_BY_ID = Object.fromEntries(MOTH_NOTES.map(n => [n.id, n]));
 const imgCache = {}; const imgOf = (k) => imgCache[k] || (imgCache[k] = mothImage(k));
 function takeMoth(n) {
@@ -971,6 +976,7 @@ function loop() {
   setHiss(state === 'playing' && zone === 'room' ? ground.hiss : 0);
   updateAudio({ dt, realDt, state, frozen: frozen(), zone, player, camera, origin: ROOM_ORIGIN, mother: motherPlay });
   if (state === 'playing') hintTick(dt);
+  tutorial.tick(dt);
   catPlay.update(dt, t, state === 'playing');
   if (state === 'playing' && flashlight.on) updateBatteryHud();
   if (zone === 'room') {
@@ -993,7 +999,7 @@ $('loading').classList.add('hidden');
 loop();
 
 // Hook for automated tests / debugging.
-window.__pinned = {
+window.__pinned = { tutorial,
   start: startGame, pause, resume, quitHome, player, setZone, interactables, interact: () => current && current.act(), refresh: () => { current = findInteractable(); },
   caps: CAPS, get state() { return state; }, get zone() { return zone; }, get prompt() { return current && (typeof current.prompt === 'function' ? current.prompt() : current.prompt); }, room,
   renderer, scene, camera, flashlight, lantern, catacombs: catPlay, ground, mother: motherPlay, escape, ending, credits, save: (cp) => save(cp), visited, get hints() { return { used: hintsUsed, state: hintState }; }, currentPuzzle: () => currentPuzzle(), openPadlock, tryPadlock, dials, get gameTime() { return gameTime; }, get colliders() { return colliders(); }, collection, photo, halluc,
