@@ -57,7 +57,8 @@ function buildMoth(span = 0.3) {
   const thorax = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), fur); thorax.scale.set(W * 0.09, W * 0.14, W * 0.09); thorax.position.y = W * 0.02; m.add(thorax);
   const abdomen = new THREE.Mesh(new THREE.CapsuleGeometry(W * 0.065, W * 0.3, 6, 12), fur); abdomen.position.y = -W * 0.26; m.add(abdomen);
   const head = new THREE.Mesh(new THREE.SphereGeometry(W * 0.07, 14, 10), fur); head.position.y = W * 0.17; m.add(head);
-  const eyeMat = new THREE.MeshStandardMaterial({ color: 0x1a1210, roughness: 0.2, metalness: 0.2 });
+  const eyeMat = new THREE.MeshStandardMaterial({ color: 0x1a1210, roughness: 0.2, metalness: 0.2, emissive: 0xffe0a0, emissiveIntensity: 0 });
+  m.userData.eyes = eyeMat;
   for (const s of [-1, 1]) { const e = new THREE.Mesh(new THREE.SphereGeometry(W * 0.035, 10, 8), eyeMat); e.position.set(s * W * 0.05, W * 0.19, W * 0.03); m.add(e);
     const ant = new THREE.Mesh(new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(new THREE.Vector3(s * W * 0.03, W * 0.22, 0), new THREE.Vector3(s * W * 0.12, W * 0.4, 0.004), new THREE.Vector3(s * W * 0.26, W * 0.5, 0)), 10, W * 0.008, 4), fur); m.add(ant); }
   m.userData.wings = wings;
@@ -76,17 +77,17 @@ function buildHand() {
   const seg = (len, r) => new THREE.CapsuleGeometry(r, len, 4, 10).translate(0, -len / 2 - r * 0.2, 0);
   // fingers along -z from the knuckles, bending down (-y); the index and the thumb pinch at the tip
   const finger = (x, curl, lens, r, splay = 0) => {
-    let parent = new THREE.Group(); parent.position.set(x, 0, -0.05); parent.rotation.set(-Math.PI / 2 + 0.25, splay, 0); h.add(parent);
+    let parent = new THREE.Group(); parent.position.set(x, 0, -0.05); parent.rotation.set(Math.PI / 2 - 0.12, splay, 0); h.add(parent);
     const root = parent;
     lens.forEach((len, i) => { const m = new THREE.Mesh(seg(len, r * (1 - i * 0.08)), glove); parent.add(m); const j = new THREE.Group(); j.position.y = -len - r * 0.2; j.rotation.x = -curl[i]; parent.add(j); parent = j; });
     return { root, tip: parent };
   };
-  const index = finger(-0.026, [0.5, 0.6, 0.4], [0.03, 0.022, 0.016], 0.0095, 0.12);
+  const index = finger(-0.026, [0.35, 0.3, 0.2], [0.03, 0.022, 0.016], 0.0095, 0.12);
   finger(-0.008, [1.0, 1.1, 0.7], [0.032, 0.022, 0.016], 0.0098, 0.02);
   finger(0.012, [1.15, 1.1, 0.7], [0.03, 0.02, 0.015], 0.0094, -0.06);
   finger(0.03, [1.25, 1.0, 0.6], [0.024, 0.017, 0.013], 0.0085, -0.16);
   // the thumb, from the inside of the palm, reaching across to the index tip
-  const tg = new THREE.Group(); tg.position.set(-0.04, -0.012, 0.0); tg.rotation.set(-1.2, 0.9, 0.3); h.add(tg);
+  const tg = new THREE.Group(); tg.position.set(-0.04, -0.012, -0.01); tg.rotation.set(Math.PI / 2 - 0.5, 0.75, 0.2); h.add(tg);
   { let p = tg; [[0.028, 0.35], [0.022, 0.35]].forEach(([len, c]) => { const m = new THREE.Mesh(seg(len, 0.011), glove); p.add(m); const j = new THREE.Group(); j.position.y = -len; j.rotation.x = -c; p.add(j); p = j; }); }
   // the pin: long, fine, black-headed
   const pin = new THREE.Group();
@@ -183,14 +184,14 @@ function buildBedroom(q) {
   R.glow = new THREE.PointLight(0x7a9ad0, 0.6, 2.2, 2); R.glow.position.set(1.5, 0.95, ZN + 0.45); s.add(R.glow);
   R.onMoth = new THREE.PointLight(0xffd0a0, 0.25, 1.6, 2); R.onMoth.position.set(0.7, 1.55, ZN + 0.7); s.add(R.onMoth);
   // the moth, on the outside of the glass
-  R.moth = buildMoth(0.3); R.moth.position.set(0.68, 1.5, ZN - 0.035); R.moth.rotation.z = 0.12; s.add(R.moth);
+  R.moth = buildMoth(0.34); R.moth.position.set(0.66, 1.72, ZN - 0.035); R.moth.rotation.z = 0.12; s.add(R.moth);
   // the cocoon, in the north-west corner: as tall as you, hung from the ceiling, split down the front and empty
   {
     const silk = silkTex();
     const prof = []; for (let i = 0; i <= 24; i++) { const t = i / 24; prof.push(new THREE.Vector2(0.03 + Math.sin(Math.pow(t, 0.9) * Math.PI) * 0.34 * (1 - 0.18 * t), t * 1.9)); }
-    const gap = 0.9, outer = new THREE.LatheGeometry(prof, 36, Math.PI / 2 + gap / 2, Math.PI * 2 - gap);
+    const gap = 1.25, outer = new THREE.LatheGeometry(prof, 36, Math.PI / 2 + gap / 2, Math.PI * 2 - gap);
     { const p = outer.attributes.position, r = rand(41); for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i), z = p.getZ(i), a = Math.atan2(x, z); const n = 1 + 0.06 * Math.sin(y * 13 + a * 3) + 0.03 * Math.sin(a * 11 + y * 31); p.setXYZ(i, x * n, y, z * n); } outer.computeVertexNormals(); }
-    const cocoon = new THREE.Group(); cocoon.position.set(-W / 2 + 0.42, 0.42, ZN + 0.42); cocoon.rotation.y = 0.65 + Math.PI;
+    const cocoon = new THREE.Group(); cocoon.position.set(-W / 2 + 0.42, 0.42, ZN + 0.42); cocoon.rotation.y = -0.76;
     const silkMat = new THREE.MeshStandardMaterial({ map: silk, color: 0xe0d8c8, roughness: 0.95, side: THREE.FrontSide });
     const insideMat = new THREE.MeshStandardMaterial({ map: silk, color: 0x4a4030, roughness: 1, side: THREE.BackSide });
     cocoon.add(new THREE.Mesh(outer, silkMat), new THREE.Mesh(outer, insideMat));
@@ -199,7 +200,7 @@ function buildBedroom(q) {
       alphaMap: ctex(cv(64, 128, (g) => { g.fillStyle = '#fff'; g.beginPath(); g.moveTo(0, 0); for (let y = 0; y <= 128; y += 8) g.lineTo(30 + Math.sin(y) * 20 + (y % 16) * 1.5, y); g.lineTo(0, 128); g.fill(); }), false) });
     for (const s2 of [-1, 1]) for (const [y, h] of [[0.6, 0.7], [1.15, 0.5]]) { const f = new THREE.Mesh(new THREE.PlaneGeometry(0.16, h), flapMat); const a = Math.PI / 2 + s2 * gap / 2; f.position.set(Math.sin(a + Math.PI / 2 - Math.PI / 2) * 0.33, y, Math.cos(a) * 0.33); f.rotation.y = a + s2 * 0.9; cocoon.add(f); }
     // silk threads holding it into the corner
-    const pts = []; const r = rand(77); for (let i = 0; i < 40; i++) { const y = 0.4 + r() * 1.6; pts.push(-W / 2 + 0.42 + (r() - 0.5) * 0.4, y, ZN + 0.42 + (r() - 0.5) * 0.4, r() < 0.5 ? -W / 2 : -W / 2 + r() * 0.8, y + (r() - 0.3) * 0.5, r() < 0.5 ? ZN + r() * 0.8 : ZN); }
+    const pts = []; const r = rand(77); for (let i = 0; i < 40; i++) { const a = r() * 6.28, y = 2.0 + r() * 0.3, cx = -W / 2 + 0.42 + Math.cos(a) * 0.06, cz = ZN + 0.42 + Math.sin(a) * 0.06; const wall = r(); pts.push(cx, y, cz, wall < 0.33 ? -W / 2 : cx + (r() - 0.5) * 0.6, wall < 0.66 && wall >= 0.33 ? y + (r() - 0.5) * 0.4 : H, wall >= 0.33 && wall < 0.66 ? ZN : cz + (r() - 0.5) * 0.6); }
     const tg = new THREE.BufferGeometry(); tg.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
     const threads = new THREE.LineSegments(tg, new THREE.LineBasicMaterial({ color: 0xd8d0c0, transparent: true, opacity: 0.4 }));
     // something left in the hollow at its foot: a scrap of dark grey knit, and the dust of wing scales
@@ -213,14 +214,14 @@ function buildBedroom(q) {
     R.moth.visible = night; R.cocoon.visible = !night; R.powder.visible = !night;
     R.sky.material.map = night ? R.skyNight : R.skyDawn; R.sky.material.needsUpdate = true;
     R.fairy.intensity = night ? 1.6 : 0; R.bulbs.visible = night; R.glow.intensity = night ? 0.6 : 0; R.screen.material.color.set(night ? 0x5a7aa8 : 0x0a0a0c); R.onMoth.intensity = night ? 0.35 : 0;
-    R.moon.color.set(night ? 0x9aa8d0 : 0xb8bcc8); R.moon.intensity = night ? 0.9 : 1.4; R.amb.intensity = night ? 0.45 : 0.9; R.amb.color.set(night ? 0x6a7090 : 0x9aa0b0);
+    R.moon.color.set(night ? 0x9aa8d0 : 0xb8bcc8); R.moon.intensity = night ? 0.9 : 2.2; R.amb.intensity = night ? 0.45 : 1.5; R.amb.color.set(night ? 0x6a7090 : 0x9aa0b0);
     R.rightPivot.rotation.y = night ? 0 : 0.85;
   };
   return R;
 }
 
 // ---------- the collector's table ----------
-function buildCollector(q) {
+function buildCollector(q, label = null) {
   const s = new THREE.Scene(); s.background = new THREE.Color(0x030202);
   const C = { scene: s };
   const add = (geo, m, x, y, z) => { const me = new THREE.Mesh(geo, m); me.position.set(x, y, z); s.add(me); return me; };
@@ -232,7 +233,8 @@ function buildCollector(q) {
   for (const [w, d, x, z] of [[CW + 0.04, 0.02, 0, -CD / 2], [CW + 0.04, 0.02, 0, CD / 2], [0.02, CD, -CW / 2, 0], [0.02, CD, CW / 2, 0]]) add(new THREE.BoxGeometry(w, CH, d), frameMat, x, CH / 2, z);
   const others = ['atropos', 'betularia', 'caja', 'nupta', 'io', 'luna', 'pavonia', 'bucephala', 'elpenor', 'quercifolia', 'polyphemus', 'vinula'];
   const PX = 1600, PY = Math.round(PX * CD / CW);
-  const paper = ctex(cv(PX, PY, (g, w, h) => {
+  const paperCanvas = document.createElement('canvas'); paperCanvas.width = PX; paperCanvas.height = PY;
+  const drawPaper = (label) => { const g = paperCanvas.getContext('2d'), w = PX, h = PY;
     g.fillStyle = '#e8dfca'; g.fillRect(0, 0, w, h); const r = rand(4); for (let i = 0; i < 3000; i++) { g.fillStyle = `rgba(120,100,70,${r() * 0.05})`; g.fillRect(r() * w, r() * h, 2, 2); }
     const slots = [[0.12, 0.17], [0.31, 0.17], [0.5, 0.15], [0.69, 0.17], [0.88, 0.17], [0.12, 0.5], [0.88, 0.5], [0.12, 0.82], [0.31, 0.84], [0.5, 0.86], [0.69, 0.84], [0.88, 0.82]];
     slots.forEach(([u, v], i) => { const k = others[i]; drawMoth(g, k, u * w, v * h - 30, 200, { pin: true, seed: i + 11 }); drawLabel(g, k, u * w, v * h + 62, 150); });
@@ -240,9 +242,15 @@ function buildCollector(q) {
     const lx = w / 2, ly = h * 0.5 + 150, lw = 190, lh = lw * 0.46;
     g.fillStyle = 'rgba(40,30,20,0.25)'; g.fillRect(lx - lw / 2 + 2, ly + 2, lw, lh); g.fillStyle = '#f2ead6'; g.fillRect(lx - lw / 2, ly, lw, lh);
     g.strokeStyle = 'rgba(60,40,20,0.5)'; g.strokeRect(lx - lw / 2 + 6, ly + 4, lw - 12, lh - 8);
-    g.fillStyle = '#2a1c10'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = 'italic 26px "Segoe Script", "Lucida Handwriting", Georgia, cursive'; g.fillText('species unknown', lx, ly + lh / 2);
-  }));
-  const floor = add(new THREE.PlaneGeometry(CW - 0.02, CD - 0.02), new THREE.MeshStandardMaterial({ map: paper, roughness: 0.95 }), 0, 0.012, 0); floor.rotation.x = -Math.PI / 2;
+    g.fillStyle = '#2a1c10'; g.textAlign = 'center'; g.textBaseline = 'middle'; if (label) { // the secret ending: the collector knew your name
+      let px = 30; const f = n => `italic ${n}px "Brush Script MT", "Segoe Script", "Lucida Handwriting", Georgia, cursive`; g.font = f(px);
+      while (g.measureText(label).width > lw - 24 && px > 10) g.font = f(--px);
+      g.fillText(label, lx, ly + lh * 0.42); g.font = '13px Georgia, serif'; g.fillText('Coll. Ord. P.W.', lx, ly + lh * 0.76);
+    } else { g.font = 'italic 26px "Segoe Script", "Lucida Handwriting", Georgia, cursive'; g.fillText('species unknown', lx, ly + lh / 2); }
+  };
+  drawPaper(label); const paper = ctex(paperCanvas);
+  C.setLabel = (text) => { drawPaper(text); paper.needsUpdate = true; };
+  const floor = add(new THREE.PlaneGeometry(CW - 0.02, CD - 0.02), new THREE.MeshStandardMaterial({ map: paper, roughness: 0.95 }), 0, 0.016, 0); floor.rotation.x = -Math.PI / 2;
   add(new THREE.BoxGeometry(CW, 0.012, CD), frameMat, 0, 0.006, 0);
   // the glass lid, hinged along the back
   C.lid = new THREE.Group(); C.lid.position.set(0, CH, -CD / 2); s.add(C.lid);
@@ -276,10 +284,29 @@ export function createEnding({ renderer, quality, sfx = {}, onDone }) {
   const skipNote = document.createElement('div'); skipNote.style.cssText = 'position:fixed;right:16px;bottom:12px;z-index:10;color:#6a6458;font:13px Georgia,serif;display:none;pointer-events:none';
   skipNote.textContent = 'Esc';
   document.body.append(veil, title, skipNote);
-  addEventListener('keydown', (e) => { if (!running || e.code !== 'Escape') return; e.preventDefault(); e.stopImmediatePropagation(); if (canSkip) finish(); }, true);
-  function build() { if (built) return; built = { room: buildBedroom(quality), col: buildCollector(quality) }; }
+  addEventListener('keydown', (e) => { if (!running || e.code !== 'Escape' || (asking && !canSkip)) return; e.preventDefault(); e.stopImmediatePropagation(); if (canSkip) finish(); }, true);
+  let secret = null;
+  function build() { if (built && built.secret === !!secret) return; built = { room: buildBedroom(quality), col: buildCollector(quality, secret ? ' ' : null), secret: !!secret }; }
+  // the secret ending asks what you would like to be called, then writes it on the label
+  const ask = document.createElement('div'); ask.className = 'screen'; ask.id = 'endingName';
+  ask.style.cssText = 'display:none;z-index:11;background:radial-gradient(ellipse at center,rgba(0,0,0,.25),rgba(0,0,0,.7))';
+  ask.innerHTML = `<form class="menu" style="width:min(380px,calc(100vw - 32px));padding:22px 20px;background:#efe6cf;color:#2a1c10;border:1px solid #6a5030;box-shadow:0 0 0 6px #2a1a0e,0 0 0 7px #8a6a40,0 10px 40px #000">
+    <label for="endingNameIn" style="font:italic 22px 'Segoe Script','Lucida Handwriting',Georgia,cursive">What would you like to be called?</label>
+    <input id="endingNameIn" maxlength="24" autocomplete="off" spellcheck="false" style="font:italic 24px 'Segoe Script','Lucida Handwriting',Georgia,cursive;text-align:center;color:#2a1c10;background:transparent;border:none;border-bottom:1px solid #6a5030;padding:6px 4px;outline:none">
+    <p class="endingNameNote" style="margin:0;min-height:1.2em;font:13px Georgia,serif;color:#7a5a3a"></p>
+    <button type="submit" style="color:#efe6cf;background:#3a2214;border-color:#6a5030">Write it on the label</button></form>`;
+  document.body.appendChild(ask);
+  const askIn = ask.querySelector('input'), askNote = ask.querySelector('.endingNameNote');
+  const cleanName = (v) => String(v || '').replace(/[\u0000-\u001f\u007f<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 24);
+  let asking = false, named = false;
+  ask.querySelector('form').addEventListener('submit', (e) => {
+    e.preventDefault(); const n = cleanName(askIn.value);
+    if (!n) { askNote.textContent = 'The label is still blank.'; askIn.focus(); return; }
+    asking = false; named = true; ask.style.display = 'none'; built.col.setLabel(n); secret.name = n; secret.onName && secret.onName(n);
+  });
+  askIn.addEventListener('keydown', (e) => e.stopPropagation());
   function finish() {
-    running = false; veil.style.display = title.style.display = skipNote.style.display = 'none'; markSeen();
+    running = false; asking = false; ask.style.display = 'none'; veil.style.display = title.style.display = skipNote.style.display = 'none'; markSeen();
     if (built) { built.room.scene.traverse(o => { if (o.isMesh) o.geometry.dispose(); }); built.col.scene.traverse(o => { if (o.isMesh) o.geometry.dispose(); }); built = null; }
     onDone && onDone();
   }
@@ -287,13 +314,13 @@ export function createEnding({ renderer, quality, sfx = {}, onDone }) {
   const fadeFor = (a, b) => 1 - Math.min(smooth((t - a) / 1.2), smooth((b - t) / 1.2));
   function frame(dt) {
     if (!running) return;
-    t += dt;
+    if (!asking) t += dt;
     cam.aspect = innerWidth / innerHeight; cam.updateProjectionMatrix();
     let scene = null, black = 1;
     if (t < T.aOut + 0.5) {
       const R = built.room; if (R.cur !== 'a') { R.set('a'); R.cur = 'a'; }
       const k = smooth((t - T.aIn) / (T.aOut - T.aIn));
-      cam.fov = 52 - 10 * k; cam.position.set(lerp(-0.2, 0.35, k), lerp(1.3, 1.45, k), lerp(1.1, -0.4, k)); cam.lookAt(lerp(0.6, 0.68, k), 1.48, -1.7);
+      cam.fov = 52 - 10 * k; cam.position.set(lerp(-0.2, 0.35, k), lerp(1.3, 1.45, k), lerp(1.1, -0.4, k)); cam.lookAt(lerp(0.55, 0.66, k), lerp(1.5, 1.7, k), -1.7);
       // the moth breathes its wings, and once, shivers
       const sh = t > 8.5 && t < 9.4 ? Math.sin((t - 8.5) * 40) * 0.25 : 0;
       R.moth.userData.setOpen(0.88 + Math.sin(t * 0.9) * 0.08 + sh);
@@ -314,12 +341,22 @@ export function createEnding({ renderer, quality, sfx = {}, onDone }) {
       const pin = C.hand.userData.pin, released = lt > 5.5;
       if (!released) { pin.position.set(pinX + (1 - down) * 0.35, tipY + 0.038, pinZ + (1 - down) * 0.1); }
       else { pin.position.set(pinX, 0.07 - 0.032 + 0.038, pinZ); }
-      C.hand.position.set(pinX + (1 - down) * 0.35 + lift * 0.5 + 0.012, (released ? 0.075 - 0.032 + 0.038 : tipY + 0.038) + 0.012 + lift * 0.3, pinZ + 0.045 + (1 - down) * 0.1 + lift * 0.2);
-      C.hand.rotation.set(0.5, -0.5, 0.15);
+      const headY = released ? 0.07 - 0.032 + 0.038 : tipY + 0.038;
+      C.hand.position.set(pinX + (1 - down) * 0.35 + lift * 0.5 + 0.118, headY + 0.03 + lift * 0.3, pinZ + 0.012 + (1 - down) * 0.1 + lift * 0.2);
+      C.hand.rotation.order = 'YXZ'; C.hand.rotation.set(-0.3, Math.PI / 2, -0.25);
       if (push > 0.5 && !C.clicked) { C.clicked = true; sfx.click && sfx.click(); }
+      // the secret ending pauses at the label: what would you like to be called?
+      if (secret && !named && lt >= 8.2) { t = T.cIn + 8.2; if (!asking) { asking = true; askIn.value = secret.name || ''; askNote.textContent = ''; ask.style.display = 'flex'; setTimeout(() => { askIn.focus(); askIn.select(); }, 50); } }
       // the lid comes down
       C.lid.rotation.x = lerp(-1.35, 0, smooth((lt - 8.4) / 2.2));
-      const k = smooth(lt / (T.cOut - T.cIn));
+      // the secret ending's extra beat: under the closed glass, the pinned wings shiver once, and its eyes catch the lamp
+      if (secret) {
+        const b = lt - 10.7, on = b > 0 && b < 1.6;
+        C.moth.userData.setOpen(on ? 1 - Math.abs(Math.sin(b * 38)) * 0.12 * (1 - b / 1.6) : 1);
+        C.moth.userData.eyes.emissiveIntensity = b > 0.3 ? Math.min(1.6, (b - 0.3) * 2) * (b < 1.7 ? 1 : Math.max(0, 1 - (b - 1.7) * 1.5)) : 0;
+        if (b > 0 && !C.shivered) { C.shivered = true; sfx.flutter && sfx.flutter(0.35); }
+      }
+      const k = smooth(lt / (T.cOut - T.cIn)) * (secret ? 1 - 0.35 * smooth((lt - 10.4) / 1.4) : 1); // secret: the camera leans back in
       cam.fov = lerp(30, 40, k); cam.position.set(lerp(0.12, 0.05, k), lerp(0.48, 0.95, k), lerp(0.42, 0.75, k)); cam.lookAt(0, 0.02, lerp(-0.01, 0.02, k));
       scene = C.scene; black = fadeFor(T.cIn, T.cOut);
     } else {
@@ -336,7 +373,12 @@ export function createEnding({ renderer, quality, sfx = {}, onDone }) {
     get running() { return running; },
     get time() { return t; },
     get canSkip() { return canSkip; },
-    start() {
+    get secret() { return secret; }, get asking() { return asking; },
+    // tests: answer the name question
+    answer(n) { askIn.value = n; ask.querySelector('form').requestSubmit(); },
+    // opts.secret: { name (pre-filled), onName(name) } when every moth note was collected, else null
+    start(opts = {}) {
+      secret = opts.secret ? { ...opts.secret } : null; named = false; asking = false;
       build(); t = 0; running = true; canSkip = seen();
       veil.style.display = 'block'; veil.style.opacity = 1; title.style.display = 'none'; title.style.opacity = 0;
       skipNote.style.display = canSkip ? 'block' : 'none';

@@ -274,6 +274,8 @@ export function createEscape(G) {
     get ownsMother() { return S.on || !!G.visited().escape; },
     get debug() { return { mode: S.mode, floor: S.floor, x: S.pos.x, z: S.pos.y, dist, knows: S.knows, crumbs: S.crumbs.length, ci: S.ci, beats: { ...S.beats }, tunnel: tunnelAnim, stun: S.stun }; },
     begin, openTunnel,
+    // tests / debugging: straight to the ending
+    endNow() { ended = true; S.on = false; if (model) model.visible = false; G.onEnd(); },
     spawn() { return LADDER_TOP; },
     // from spawnAt(): every load resets the chase; the 'escape' save restarts it at the ladder
     reset(checkpoint, visited) {

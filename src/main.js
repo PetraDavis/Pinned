@@ -272,10 +272,17 @@ const escape = createEscape({
     state = 'ending'; player.enabled = false; show('hud', false); promptEl.textContent = '';
     if (document.pointerLockElement) document.exitPointerLock();
     if (flashlight.on) flashlight.toggle(); if (lantern.on) lantern.lower();
-    ending.start();
+    // the secret ending: every moth note in the house collected (counted from MOTH_NOTES, so new ones count too)
+    const allNotes = MOTH_NOTES.length, have = new Set(mothsTaken.filter(id => NOTE_BY_ID[id])).size;
+    const sv = loadSave() || {}, slotName = (sv.name || '').trim();
+    let remembered = sv.collectedName; try { remembered = remembered || localStorage.getItem('pinned.collectedName'); } catch {}
+    ending.start({ secret: allNotes > 0 && have >= allNotes ? {
+      name: remembered || (slotName && !/^Save \d+$/.test(slotName) ? slotName : ''),
+      onName: (n) => { try { localStorage.setItem('pinned.collectedName', n); } catch {} const cur = loadSave(); if (cur && !(mp && mp.isClient)) writeSave({ ...cur, collectedName: n }); },
+    } : null });
   },
 });
-const ending = createEnding({ renderer, quality: settings.quality, sfx: { click: playClick },
+const ending = createEnding({ renderer, quality: settings.quality, sfx: { click: playClick, flutter: playFlutter },
   onDone: () => { show('hud', false); show('home', true); state = 'home'; player.enabled = false; backdrop.start(); refreshHome(); } });
 const interactables = [
   ...escape.interactables,
