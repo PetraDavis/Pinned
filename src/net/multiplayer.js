@@ -18,7 +18,7 @@ const el = (tag, props = {}, kids = []) => { const e = Object.assign(document.cr
 const sortKey = w => JSON.stringify(Object.fromEntries(Object.entries(w).filter(([k]) => k !== 'lamp').map(([k, v]) => [k, Array.isArray(v) ? [...v].sort() : v])));
 
 export function initMultiplayer(G) {
-  document.head.appendChild(el('link', { rel: 'stylesheet', href: new URL('./net.css', import.meta.url).href }));
+  try { if (!document.getElementById('netCss')) document.head.appendChild(el('link', { id: 'netCss', rel: 'stylesheet', href: new URL('./net.css', import.meta.url).href })); } catch { /* bundled: the styles are inlined */ }
   const remotes = createRemotes(G.scene);
 
   const S = {

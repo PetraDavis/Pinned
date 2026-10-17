@@ -376,7 +376,7 @@ const interactables = [
     act: () => transition(() => player.place(ROOM_ORIGIN.x + 36.6, ROOM_ORIGIN.z - 9.3, Math.PI)) },
   // the old back stair B: its cellar gate stays shut; the stair is reached from the Catacombs
   { zone: 'room', pos: W(CELLAR.shaft), r: 1.2, prompt: 'E  try the gate',
-    act: () => { playCreak(); say('An iron gate across the old back stair, padlocked, the lock rusted into one lump. Somewhere above, the stair goes on into the dark.', 6000); } },
+    act: () => { playCreak(); say('An iron gate across the old back stair. It is bolted from the other side, the bolts rusted solid. This stair must be reached from somewhere else, somewhere deeper.', 7000); } },
   { zone: 'room', pos: W(FIRST.stairB), r: 1.1, prompt: 'E  go down the back stair',
     act: () => transition(() => player.place(ROOM_ORIGIN.x + CATA.stairBFoot.x, ROOM_ORIGIN.z + CATA.stairBFoot.z, Math.PI)) },
   { zone: 'room', pos: W(CELLAR.stairE), r: 1.5, prompt: () => ground.lu.stairEOpen ? 'E  go down into the catacombs' : 'E  look down the steps',
@@ -400,7 +400,8 @@ const interactables = [
       const res = ground.lu.pressTile(t); playThud();
       if (res === 'pressed') say(`The stone sinks into the altar with a grinding click.`, 2500);
       if (res === 'wrong') { playCreak(); say('The stones grind back out, one after another. Wrong. The altar wants her life in its proper order.', 5000); }
-      if (res === 'solved') { playSoftClicks(4); playGrind(); say('The last stone sinks home. Deep in the walls, iron moves: behind the pews, the grille over the steps down rattles and lifts.', 8000); save('chapel'); }
+      if (res === 'solved') { playSoftClicks(4); playGrind(); say('The last stone sinks home. Somewhere below, a grate scrapes open. At the far end of the chapel, past the pews in the right-hand corner, light comes up from the steps going down.', 9000); save('chapel');
+        let k = 0; const quake = setInterval(() => { player.pitch += (k % 2 ? -1 : 1) * 0.012; if (++k > 12) clearInterval(quake); }, 45); setTimeout(() => playGrind(), 900); }
     } })),
   // ---- first floor ----
   { zone: 'room', pos: W(ground.lu.countdown.pos), r: 2.0, prompt: 'E  look at the wall',

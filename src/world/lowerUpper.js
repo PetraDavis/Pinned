@@ -201,6 +201,8 @@ export function buildLowerUpper(ctx) {
   for (let i = 0; i < 8; i++) { const b = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 1.2, 6), iron); b.position.set(-0.9 + i * 0.26, 0.6, 0); grille.add(b); }
   for (const y of [0.1, 1.15]) { const b = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.05, 0.04), iron); b.position.y = y; grille.add(b); }
   rect(local, 55.2, 57.3, 53.0, 56.6);
+  // a glow from below once the grille lifts, so the way down is plain to see
+  const stairGlow = new THREE.PointLight(0xffb070, 0, 5, 1.4); stairGlow.position.set(56.25, 0.3, 54.6); stairGlow.userData.noLimit = true; group.add(stairGlow);
   addMirror({ id: 'M4', pos: new THREE.Vector3(CX1 - 0.02, 1.8, 47.7), ry: -Math.PI / 2, w: 1.0, h: 1.8, stage: 4 });
   cocoon(50.0, 55.9, 1.5, true); cocoon(57.4, 41.0, 1.2, true); cocoon(50.2, 41.2, 0.9, false);
 
@@ -397,6 +399,7 @@ export function buildLowerUpper(ctx) {
       if (altar.shake > 0) altar.shake -= dt;
       const gt = shaftOpen.v ? 1.55 : 0; shaftG.position.y += (Math.min(gt, 2.4) - shaftG.position.y) * Math.min(1, dt * 1.5);
       const ge = stairEOpen.v ? 1.3 : 0; grille.position.y += (ge - grille.position.y) * Math.min(1, dt * 1.5);
+      stairGlow.intensity = stairEOpen.v ? 3.5 * (0.9 + 0.1 * Math.sin(t * 7)) : 0;
       if (wardOpen && wardAnim < 1) wardAnim = Math.min(1, wardAnim + dt * 1.4);
       for (const w of wDoors) w.piv.rotation.y = w.s * 1.9 * (1 - Math.pow(1 - wardAnim, 3));
       drawer.position.z = 0.42 + (deskOpen.v ? 0.3 : 0);
