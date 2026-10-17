@@ -19,6 +19,7 @@ all geometry and textures are generated in code.
 | F | Flashlight (battery runs down; batteries can be found) |
 | L | Raise or lower a paraffin lantern once you have found one (it shares the torch hand; its light draws moths) |
 | H | Hint for the current puzzle (each more direct; also in the pause menu) |
+| B | Torch burst: a blinding flash that costs battery and drives The Mother back for a moment |
 | Q | Close a drawer while holding a specimen |
 | Esc / P | Pause menu (or the II button, top right) |
 
