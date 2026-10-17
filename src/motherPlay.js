@@ -24,7 +24,8 @@ const HIDE_SPOTS = [
   { name: 'bed', under: [47.9, 80.95], out: [48.8, 80.95], yaw: -Math.PI / 2 },                             // first floor: child's bed
   { name: 'four-poster', under: [55.2, 81.7], out: [55.2, 83.0], yaw: Math.PI },                            // Leader's Bedroom
   { name: 'table', under: [34.6, 92.6], out: [34.6, 93.8], yaw: Math.PI },                                  // library table
-  ...[51.3, 55.9].map(x => ({ name: 'pew', under: [x, 49.4], out: [x, 48.75], yaw: 0 })),                  // cellar chapel, back row
+  // cellar chapel: every pew (2 columns x 4 rows, seat 0.48 m up, room to lie beneath); in from the aisle in front
+  ...[0, 1, 2, 3].flatMap(k => [51.3, 55.9].map(x => ({ name: 'pew', under: [x, 44.6 + k * 1.6], out: [x, 43.95 + k * 1.6], yaw: 0 }))),
 ];
 export { HIDE_SPOTS };
 const inAttic = z => z > 170.5 && z < 186.5;
