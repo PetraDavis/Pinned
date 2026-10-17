@@ -21,6 +21,7 @@ all geometry and textures are generated in code.
 | H | Hint for the current puzzle (each more direct; also in the pause menu) |
 | B | Torch burst: a blinding flash that costs battery and drives The Mother back for a moment |
 | Q | Close a drawer while holding a specimen |
+| K | Photo mode (also in the pause menu): the game freezes and the camera floats within a short reach of you, never through walls. Drag to look, WASD and R/F to move, adjust field of view, exposure, sepia / black and white, grain, vignette and hide-HUD, then save a PNG. V hides the panel, Esc returns to the game. |
 | Esc / P | Pause menu (or the II button, top right) |
 
 Settings also has **Graphics quality** (Low / Medium / High, default High). High renders at up to 2x pixel ratio with 2048px textures, generated normal/roughness maps and 4096px soft shadows; use Medium or Low on weaker computers. Changing it reloads the game.
@@ -124,3 +125,7 @@ All sound is generated live with the Web Audio API (`src/audio/`); there are no 
 - **Settings:** Master, Music, Effects and Voice-chat volume sliders, saved with the other settings.
 
 All game audio stops with the game clock (pause menu, hidden tab) by suspending the audio context.
+
+## The Collection
+
+**Collection** on the home screen opens a glass-fronted specimen cabinet with a drawer for every moth in the game. Moths you have ever picked up, in any save slot (kept even if the save is deleted), are pinned with a handwritten label; the rest are an empty pin over a faint outline. Click a drawer to read its journal entry.

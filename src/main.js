@@ -24,6 +24,9 @@ import { createFlashlight, batteryMesh } from './flashlight.js';
 import { createLantern, lanternMesh } from './lantern.js';
 import { loadSettings, saveSettings, loadSave, writeSave, clearSave, setActiveSlot, setPlaytimeSource, latestSlot, readSlot } from './storage.js';
 import { createSlotScreen, placeOf } from './slots.js';
+import { addEverMoth } from './storage.js';
+import { createCollection } from './collection.js';
+import { createPhotoMode } from './photoMode.js';
 import { startHomeBackdrop } from './homeScreen.js';
 import { createAtticPlay } from './atticPlay.js';
 import { createMotherPlay } from './motherPlay.js';
@@ -726,7 +729,7 @@ let mothsTaken = [];
 const NOTE_BY_ID = Object.fromEntries(MOTH_NOTES.map(n => [n.id, n]));
 const imgCache = {}; const imgOf = (k) => imgCache[k] || (imgCache[k] = mothImage(k));
 function takeMoth(n) {
-  mothsTaken.push(n.id); mothNotes.take(n.id); playChime();
+  mothsTaken.push(n.id); mothNotes.take(n.id); addEverMoth(n.id); playChime();
   const sp = SPECIES[n.key], i = mothsTaken.length - 1;
   $('mothCardImg').src = imgOf(n.key); $('mothCardName').textContent = sp.common; $('mothCardLatin').textContent = sp.latin;
   $('mothCardText').textContent = n.text;
@@ -816,6 +819,15 @@ $('btnJournalPause').onclick = () => openJournal('pause');
 $('btnJournalHome').onclick = () => openJournal('home');
 $('journalBack').onclick = () => { show('journal', false); show(journalReturn, true); };
 $('mothCardClose').onclick = closeMothCard;
+// the Collection cabinet (src/collection.js) and photo mode (src/photoMode.js)
+const collection = createCollection();
+$('btnCollection').onclick = () => { show('home', false); collection.open(() => show('home', true)); };
+const photo = createPhotoMode({ renderer, scene, camera,
+  render: () => { if (currentQ.post && composer) composer.render(0); else renderer.render(scene, camera); },
+  enter: () => { if (state !== 'playing' && state !== 'paused') return false; if (mp && mp.active) { say('Photo mode is not available in multiplayer.', 3000); return false; } show('pause', false); state = 'photo'; player.enabled = false; if (document.pointerLockElement) document.exitPointerLock(); },
+  exit: () => { state = 'playing'; player.enabled = true; lock(); } });
+$('btnPhoto').onclick = () => photo.start();
+addEventListener('keydown', e => { if (e.code === 'KeyK' && state === 'playing' && !e.repeat) photo.start(); });
 
 // leaving the tab or window pauses too
 document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
@@ -852,7 +864,7 @@ const lurePos = new THREE.Vector3();
 // drain, animations, hint timers (and later The Mother) all freeze together.
 let gameTime = 0;
 // In multiplayer the shared world never stops: pausing only opens the menu for you.
-const frozen = () => (state === 'paused' && !(mp && mp.active)) || state === 'home' || document.hidden;
+const frozen = () => ((state === 'paused' || state === 'photo') && !(mp && mp.active)) || state === 'home' || document.hidden;
 let shadowLights = null, frameNo = 0; const tmpShadowV = new THREE.Vector3();
 function loop() {
   const realDt = Math.min(clock.getDelta(), 0.05);
@@ -904,7 +916,7 @@ loop();
 window.__pinned = {
   start: startGame, pause, resume, quitHome, player, setZone, interactables, interact: () => current && current.act(), refresh: () => { current = findInteractable(); },
   caps: CAPS, get state() { return state; }, get zone() { return zone; }, get prompt() { return current && (typeof current.prompt === 'function' ? current.prompt() : current.prompt); }, room,
-  renderer, scene, camera, flashlight, lantern, catacombs: catPlay, ground, mother: motherPlay, get hints() { return { used: hintsUsed, state: hintState }; }, currentPuzzle: () => currentPuzzle(), openPadlock, tryPadlock, dials, get gameTime() { return gameTime; }, get colliders() { return colliders(); },
+  renderer, scene, camera, flashlight, lantern, catacombs: catPlay, ground, mother: motherPlay, get hints() { return { used: hintsUsed, state: hintState }; }, currentPuzzle: () => currentPuzzle(), openPadlock, tryPadlock, dials, get gameTime() { return gameTime; }, get colliders() { return colliders(); }, collection, photo,
 };
 
 // ---------- multiplayer (src/net/) ----------
@@ -931,7 +943,7 @@ function applyWorld(w) {
   if (w.altar && !ground.lu.altarSolved) { ground.lu.solveAltar(); res.solved = true; }
   if (w.desk && !ground.lu.deskOpen) { ground.lu.openDesk(); res.solved = true; }
   if (w.ward && !ground.lu.wardOpen) ground.lu.openWardrobe();
-  for (const id of w.moths || []) if (!mothsTaken.includes(id) && NOTE_BY_ID[id]) { mothsTaken.push(id); mothNotes.take(id); res.moths.push(SPECIES[NOTE_BY_ID[id].key].common); }
+  for (const id of w.moths || []) if (!mothsTaken.includes(id) && NOTE_BY_ID[id]) { mothsTaken.push(id); mothNotes.take(id); addEverMoth(id); res.moths.push(SPECIES[NOTE_BY_ID[id].key].common); }
   for (const b of BATTERIES) if ((w.batteries || []).includes(b.id)) { batteriesTaken.add(b.id); b.mesh.visible = false; }
   for (const l of LANTERNS) if ((w.lanterns || []).includes(l.id)) { lanternsTaken.add(l.id); l.mesh.visible = false; }
   if (w.cat && progress(w.cat) > progress(catPlay.state())) { catPlay.load(w.cat); res.solved = true; }
