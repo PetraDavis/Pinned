@@ -91,3 +91,18 @@ select { grid-column: 1 / -1; font: inherit; color: var(--ink); background: #141
 .gear:focus-visible { outline: 2px solid #d8b870; outline-offset: 3px; }
 .gear:active svg { transform: rotate(90deg); }
 @media (prefers-reduced-motion: reduce) { .gear svg { transition: none; } .gear:hover svg, .gear:active svg { transform: none; } }
+/* end credits (src/credits.js) */
+#credits { position: fixed; inset: 0; z-index: 20; overflow: hidden; cursor: default;
+  background: radial-gradient(ellipse at center, #120d09 0%, #060504 70%); color: #e8dcc0; }
+#credits.hidden { display: none; }
+#credits .cr-moths { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+#credits .cr-roll { position: absolute; left: 50%; top: 0; width: min(560px, calc(100vw - 32px)); text-align: center; will-change: transform; padding-bottom: 20px; }
+#credits .cr-title { font: 900 clamp(44px, 10vw, 96px) 'Cinzel Decorative', Georgia, serif; letter-spacing: .14em; color: #e8dcc0; text-shadow: 0 0 18px rgba(255,220,170,.15); margin-bottom: 8px; }
+#credits .cr-rule { color: #8a6a40; font-size: 26px; margin: 34px 0; }
+#credits .cr-role { font: italic 16px Georgia, serif; color: #a8987a; letter-spacing: .08em; margin-top: 46px; }
+#credits .cr-name { font: 28px Georgia, 'Times New Roman', serif; margin-top: 6px; }
+#credits .cr-small { font: 14px Georgia, serif; color: #8a7e68; margin: 8px auto 0; max-width: 420px; line-height: 1.5; }
+#credits .cr-thanks { font: italic clamp(24px, 5vw, 34px) Georgia, serif; color: #f2d79a; line-height: 1.4; margin: 70px 0; text-shadow: 0 0 22px rgba(240,200,120,.25); }
+#credits .cr-card { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; opacity: 0; pointer-events: none; }
+#credits .cr-fin { font: 700 22px 'Cinzel Decorative', Georgia, serif; letter-spacing: .3em; color: #a8987a; }
+#credits .cr-skip { position: absolute; right: 16px; bottom: 12px; font: 13px Georgia, serif; color: #6a6458; opacity: 0; transition: opacity .6s; }
