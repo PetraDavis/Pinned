@@ -30,6 +30,8 @@ import { createPhotoMode } from './photoMode.js';
 import { startHomeBackdrop } from './homeScreen.js';
 import { createAtticPlay } from './atticPlay.js';
 import { createMotherPlay } from './motherPlay.js';
+import { createHallucinations, initAccessibilitySettings } from './hallucinate.js';
+import { captionSound } from './captions.js';
 import { initMultiplayer } from './net/multiplayer.js';
 let mp = null; // multiplayer session (src/net/), set up at the end of this file
 
@@ -217,6 +219,7 @@ $('sQuality').addEventListener('change', e => {
 $('btnReloadTex').onclick = () => { try { sessionStorage.setItem('pinned.autoContinue', '1'); } catch {} location.reload(); };
 applySettings();
 applyQuality(settings.quality);
+initAccessibilitySettings({ settings, saveSettings });
 
 // ---------- interactions ----------
 const msgEl = $('message'), promptEl = $('prompt');
@@ -250,7 +253,7 @@ const atticPlay = createAtticPlay({
 // ---------- The Mother (motherPlay.js) ----------
 const motherPlay = createMotherPlay({
   ground, origin: ROOM_ORIGIN, player, camera, flashlight, lantern, say, colliders: () => colliders(),
-  sfx: { flutter: playFlutter, clicks: playClicksAt }, detectScale: () => catPlay.detectScale,
+  sfx: { flutter: (l) => { captionSound('[wings fluttering]'); playFlutter(l); }, clicks: (l, n) => { captionSound('[clicking nearby]'); playClicksAt(l, n); } }, detectScale: () => catPlay.detectScale,
   active: () => state === 'playing' && zone === 'room',
   caught: () => {
     state = 'cutscene'; player.enabled = false; playFlutter(1); playClicksAt(1, 6);
@@ -456,7 +459,7 @@ function cabinetInteraction() {
   const P = room.puzzle, d = hit.object.userData.drawer, item = d.userData.item;
   const open = d.userData.target > 0;
   if (!open) return { prompt: 'E  open the drawer', act: () => { d.userData.target = 1; playDrawer(true); if (!item) say(FLAVOUR_EMPTY); } };
-  if (item && !P.held) return { prompt: `E  take the ${SPECIES[item].common}`, act: () => { P.takeFromDrawer(d); updateHeld(); } };
+  if (item && !P.held) return { prompt: `E  take the ${SPECIES[item].common}`, act: () => { P.takeFromDrawer(d); updateHeld(); halluc.addDust(0.1); } };
   if (!item && P.held) return { prompt: `E  put the ${SPECIES[P.held].common} in the drawer   ·   Q  close it`, act: () => { P.putIntoDrawer(d); updateHeld(); }, alt: () => { d.userData.target = 0; } };
   return { prompt: 'E  close the drawer', act: () => { d.userData.target = 0; playDrawer(false); } };
 }
@@ -725,11 +728,12 @@ function spawnAt(checkpoint, saved = {}) {
 
 // ---------- moth specimens & the Moth Journal ----------
 const mothNotes = buildMothNotes(room.group);
+const halluc = createHallucinations({ scene, camera, room, ground, settings, saveSettings, volume: () => settings.volume });
 let mothsTaken = [];
 const NOTE_BY_ID = Object.fromEntries(MOTH_NOTES.map(n => [n.id, n]));
 const imgCache = {}; const imgOf = (k) => imgCache[k] || (imgCache[k] = mothImage(k));
 function takeMoth(n) {
-  mothsTaken.push(n.id); mothNotes.take(n.id); addEverMoth(n.id); playChime();
+  mothsTaken.push(n.id); mothNotes.take(n.id); addEverMoth(n.id); playChime(); halluc.addDust(0.25);
   const sp = SPECIES[n.key], i = mothsTaken.length - 1;
   $('mothCardImg').src = imgOf(n.key); $('mothCardName').textContent = sp.common; $('mothCardLatin').textContent = sp.latin;
   $('mothCardText').textContent = n.text;
@@ -902,6 +906,7 @@ function loop() {
   }
   else if (curtain) { curtain.rotation.x = -0.25 - Math.sin(t * 1.3) * 0.12 + Math.sin(t * 3.1) * 0.05; }
   tickSilk(t);
+  halluc.update(dt, state === 'playing', zone === 'room');
   lightLimiter.fade(realDt);
   if (state !== 'home') { if (currentQ.post && composer) composer.render(dt); else renderer.render(scene, camera); }
   requestAnimationFrame(loop);
@@ -916,7 +921,7 @@ loop();
 window.__pinned = {
   start: startGame, pause, resume, quitHome, player, setZone, interactables, interact: () => current && current.act(), refresh: () => { current = findInteractable(); },
   caps: CAPS, get state() { return state; }, get zone() { return zone; }, get prompt() { return current && (typeof current.prompt === 'function' ? current.prompt() : current.prompt); }, room,
-  renderer, scene, camera, flashlight, lantern, catacombs: catPlay, ground, mother: motherPlay, get hints() { return { used: hintsUsed, state: hintState }; }, currentPuzzle: () => currentPuzzle(), openPadlock, tryPadlock, dials, get gameTime() { return gameTime; }, get colliders() { return colliders(); }, collection, photo,
+  renderer, scene, camera, flashlight, lantern, catacombs: catPlay, ground, mother: motherPlay, get hints() { return { used: hintsUsed, state: hintState }; }, currentPuzzle: () => currentPuzzle(), openPadlock, tryPadlock, dials, get gameTime() { return gameTime; }, get colliders() { return colliders(); }, collection, photo, halluc,
 };
 
 // ---------- multiplayer (src/net/) ----------
