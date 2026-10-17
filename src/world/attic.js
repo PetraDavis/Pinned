@@ -39,10 +39,10 @@ export const ATTIC = {
 };
 // ---- 1. Wingspan Rack: smallest to largest, left to right as you face the wall ----
 // wingspans in mm (typical adult): Small magpie ~26, Lappet ~75, Privet hawk-moth ~110,
-// Owl moth (Brahmaea wallichii) ~150, White witch (Thysania agrippina) up to ~280.
-export const RACK_ORDER = ['hortulata', 'quercifolia', 'ligustri', 'wallichii', 'agrippina'];
-export const RACK_START = ['ligustri', 'agrippina', 'hortulata', 'wallichii', 'quercifolia'];
-export const SPAN_MM = { hortulata: 26, quercifolia: 75, ligustri: 110, wallichii: 150, agrippina: 280 };
+// Giant peacock moth (Saturnia pyri) ~150-200, White witch (Thysania agrippina) up to ~280.
+export const RACK_ORDER = ['hortulata', 'quercifolia', 'ligustri', 'pyri', 'agrippina'];
+export const RACK_START = ['ligustri', 'agrippina', 'hortulata', 'pyri', 'quercifolia'];
+export const SPAN_MM = { hortulata: 26, quercifolia: 75, ligustri: 110, pyri: 175, agrippina: 280 };
 // ---- 2. Egg Ledger: eggs laid by one female; fewest to most, first figure of each ----
 export const EGG_JARS = [ // left to right on the table (not in order)
   { key: 'zea', eggs: 1000 }, { key: 'atripalpis', eggs: 29100 }, { key: 'pomonella', eggs: 50 }, { key: 'cunea', eggs: 400 },
@@ -487,7 +487,8 @@ export function buildAttic(ctx) {
     serialize() { return { jars: S.jars.map(k => k || S.jarHeld), jarsSolved: S.jarsSolved, rack: [...S.rack], rackSolved: S.rackSolved, eggsOpen: S.eggsOpen, boxOpen: S.boxOpen, clock: [...S.clock], clockSolved: S.clockSolved, wheel: S.wheel, sawRafters: S.sawRafters }; },
     restore(s) {
       if (!s) return;
-      if (Array.isArray(s.rack) && s.rack.length === 5) { S.rack = [...s.rack]; placeRack(); }
+      if (Array.isArray(s.rack) && s.rack.length === 5) { S.rack = s.rack.map(k => k === 'wallichii' ? 'pyri' : k); // older saves had the Owl moth here
+        placeRack(); }
       if (s.rackSolved) api.solveRack(true);
       S.jarHeld = null; if (Array.isArray(s.jars) && s.jars.length === 4 && s.jars.every(k => jars[k])) { S.jars = [...s.jars]; placeJars(); }
       if (s.jarsSolved) api.solveJars();
