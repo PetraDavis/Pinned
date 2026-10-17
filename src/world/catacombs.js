@@ -285,7 +285,7 @@ export function buildCatacombs(ctx) {
 
   // ======================= TOMB HALL: x 38..52, z 142..148 =======================
   floor(38, 52, 142, 148); ceil(38, 52, 142, 148);
-  wallX(142, 38, 43.3); wallX(142, 46.9, 52);
+  wallX(142, 38, 43.3, [[42.1, 1.1]]); wallX(142, 46.9, 52, [[50.6, 1.2]]); // ways into the Burial Niches and the Bogong Cave (extraRooms.js)
   wallX(148, 38, 52, [[45.0, 1.2, 2.3]]);
   wallZ(38, 142, 148); wallZ(52, 142, 148);
   boneWall('z', 38, 142.3, 147.7, 1);

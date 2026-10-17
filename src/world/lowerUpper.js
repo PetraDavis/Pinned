@@ -219,7 +219,7 @@ export function buildLowerUpper(ctx) {
   plane(FX1 - FX0, FZ1 - FZ0, (FX0 + FX1) / 2, FH, (FZ0 + FZ1) / 2, plaster, false);
   wall('x', FZ0 - 0.1, FX0 - 0.2, FX1 + 0.2, FH, wp);
   wall('x', FZ1 + 0.1, FX0 - 0.2, FX1 + 0.2, FH, wp);
-  wall('z', FX0 - 0.1, FZ0, FZ1, FH, wp);
+  wall('z', FX0 - 0.1, FZ0, FZ1, FH, wp, [[90.9, 1.0]]); // a door west, into the corridor (extraRooms.js)
   wall('z', FX1 + 0.1, FZ0, FZ1, FH, wp);
   wall('z', 39.1, FZ0, FZ1, FH, wp, [[82.1, 1.2], [91.9, 1.2]]);
   wall('z', 49.25, FZ0, FZ1, FH, wp, [[81.0, 1.2], [85.3, 1.2], [90.2, 1.2]]);
@@ -308,7 +308,7 @@ export function buildLowerUpper(ctx) {
       const cx = alongX ? x0 + p + w / 2 : x0 + (x0 < 34 ? 0.2 : -0.2), cz = alongX ? z0 + (z0 > 92 ? -0.2 : 0.2) : z0 + p + w / 2;
       m4.compose(v.set(cx, 0.2 + s * 0.45 + h / 2, cz), q.identity(), sc.set(alongX ? w : 0.28, h, alongX ? 0.28 : w)); books.setMatrixAt(nbk, m4); books.setColorAt(nbk, col.setHex(bookCols[Math.floor(r() * bookCols.length)]).multiplyScalar(0.7 + r() * 0.5)); nbk++; p += w + 0.004; } }
   };
-  shelf(30.2, 88.6, 8.0, false);
+  shelf(30.2, 88.6, 1.6, false); shelf(30.2, 91.6, 5.0, false); // a gap for the corridor door
   shelf(30.4, 96.6, 8.4, true);
   books.count = nbk; books.instanceColor.needsUpdate = true; group.add(books);
   box(group, 1.8, 0.06, 1.0, 34.6, 0.78, 92.6, wood, null); for (const [dx, dz] of [[-0.8, -0.4], [0.8, -0.4], [-0.8, 0.4], [0.8, 0.4]]) box(group, 0.06, 0.78, 0.06, 34.6 + dx, 0.39, 92.6 + dz, wood, null, { cast: false });
