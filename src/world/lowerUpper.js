@@ -25,6 +25,33 @@ export const FIRST = { spawn: new THREE.Vector3(34.45, 0, 86.9), stairB: new THR
 export const ALTAR_TILES = ['cocoon', 'egg', 'wings', 'larva'];
 export const ALTAR_ORDER = ['egg', 'larva', 'cocoon', 'wings'];
 export const DESK_CODE = '1848';
+// First Floor places to hide from the Mother (she hunts this floor most). kind: wardrobe (step in),
+// bed / table / desk (get under), curtain (stand behind, in a shallow alcove). x, z: where you
+// hide; wall: the side the wall is on ('n' -z, 's' +z, 'w' -x, 'e' +x); you come out the other way.
+export const FIRST_HIDES = [
+  { kind: 'wardrobe', x: 38.8, z: 85.0, wall: 'e' },  // Cocoon Room
+  { kind: 'curtain', x: 30.25, z: 86.1, wall: 'w' },
+  { kind: 'wardrobe', x: 41.5, z: 80.3, wall: 'n' },  // Nursery
+  { kind: 'table', x: 46.2, z: 83.2, wall: null, out: 'n' },
+  { kind: 'curtain', x: 39.35, z: 89.0, wall: 'w' },  // Gallery Landing
+  { kind: 'table', x: 39.4, z: 95.6, wall: 'w' },
+  { kind: 'curtain', x: 49.05, z: 87.7, wall: 'e', reach: 0.55 }, // (the well's rail is close)
+  { kind: 'desk', x: 37.6, z: 88.75, wall: 'n' },     // Library
+  { kind: 'curtain', x: 38.85, z: 94.0, wall: 'e' },
+  { kind: 'wardrobe', x: 27.8, z: 93.5, wall: 'w' },  // West Corridor
+  { kind: 'curtain', x: 27.75, z: 88.5, wall: 'w' },
+  { kind: 'wardrobe', x: 57.7, z: 84.5, wall: 'e' },  // Leader's Bedroom
+  { kind: 'curtain', x: 49.5, z: 83.2, wall: 'w' },
+  { kind: 'wardrobe', x: 54.5, z: 89.4, wall: 'n' },  // Luna's Bedroom
+  { kind: 'desk', x: 57.65, z: 95.0, wall: 'e' },
+];
+const HIDE_DIR = { n: [0, -1], s: [0, 1], w: [-1, 0], e: [1, 0] };
+// where you stand to get in (and come out), and which way you look from inside
+export function firstHideSpot(h) {
+  const [wx, wz] = HIDE_DIR[h.wall || 's'], k = h.out ? -1 : 1, o = h.out ? HIDE_DIR[h.out] : null;
+  const dx = o ? o[0] : -wx * k, dz = o ? o[1] : -wz * k, reach = h.reach || (h.kind === 'curtain' ? 0.8 : h.kind === 'wardrobe' ? 0.75 : 1.1);
+  return { out: [h.x + dx * reach, h.z + dz * reach], yaw: Math.atan2(-dx, -dz) };
+}
 
 export const WARDROBE_VERSE = [
   'Scratched inside the wardrobe door, under the eaten coats:',
@@ -360,6 +387,31 @@ export function buildLowerUpper(ctx) {
   light(53.6, 2.9, 93.0, 0xc8e0c0, 3.5, 9, { pendant: FH }).userData.creepy = true;
   light(55.4, 1.4, 96.5, 0xffd0a0, 1.5, 4, 'candle');
   cocoon(57.4, 89.8, 1.2, true); cocoon(49.8, 96.2, 0.9, false);
+
+  // ---- places to hide on the First Floor (FIRST_HIDES): wardrobes, low tables, desks, curtained alcoves ----
+  { const curtainM = new THREE.MeshStandardMaterial({ map: lacyTex(11), color: 0x4a2226, transparent: true, alphaTest: 0.2, side: THREE.DoubleSide, roughness: 0.95 });
+    const heavyM = mat({ color: 0x3a1c1e, roughness: 0.98 });
+    for (const h of FIRST_HIDES) {
+      const g = new THREE.Group(); g.position.set(h.x, 0, h.z); group.add(g);
+      const [wx, wz] = HIDE_DIR[h.wall || 's'], along = wx !== 0 ? 'z' : 'x'; // the long side runs along the wall
+      g.rotation.y = along === 'z' ? Math.PI / 2 : 0;
+      if (h.kind === 'wardrobe') {
+        box(g, 1.0, 2.1, 0.6, 0, 1.05, 0, darkWood); box(g, 1.06, 0.08, 0.66, 0, 2.14, 0, darkWood);
+        for (const s of [-1, 1]) { const d = box(g, 0.47, 1.9, 0.03, s * 0.245, 1.05, (wx || wz) && (wx > 0 || wz > 0) ? -0.31 : 0.31, wood); d.castShadow = false; }
+        rect(local, h.x - (along === 'x' ? 0.5 : 0.3), h.x + (along === 'x' ? 0.5 : 0.3), h.z - (along === 'x' ? 0.3 : 0.5), h.z + (along === 'x' ? 0.3 : 0.5));
+      } else if (h.kind === 'table' || h.kind === 'desk') {
+        const W = h.kind === 'desk' ? 1.4 : 1.2, D = h.kind === 'desk' ? 0.7 : 0.8, Hh = h.kind === 'desk' ? 0.76 : 0.7;
+        box(g, W, 0.05, D, 0, Hh, 0, h.kind === 'desk' ? darkWood : wood);
+        for (const [a, b] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) box(g, 0.05, Hh, 0.05, a * (W / 2 - 0.05), Hh / 2, b * (D / 2 - 0.05), wood, null, { cast: false });
+        if (h.kind === 'table') { const cloth = new THREE.Mesh(new THREE.PlaneGeometry(W + 0.1, 0.45), curtainM); cloth.position.set(0, Hh - 0.22, D / 2 + 0.01); g.add(cloth); const c2 = cloth.clone(); c2.position.z = -D / 2 - 0.01; g.add(c2); }
+        rect(local, h.x - (along === 'x' ? W / 2 : D / 2), h.x + (along === 'x' ? W / 2 : D / 2), h.z - (along === 'x' ? D / 2 : W / 2), h.z + (along === 'x' ? D / 2 : W / 2));
+      } else { // curtain: a rod and two heavy drapes across a shallow alcove, no collider (you push through)
+        const off = -0.25; // in front of the hiding place, toward the room
+        const rod = box(g, 1.3, 0.03, 0.03, 0, 2.5, (wx > 0 || wz > 0) ? off : -off, brass); rod.castShadow = false;
+        for (const s of [-1, 1]) { const c = new THREE.Mesh(new THREE.PlaneGeometry(0.68, 2.45), s < 0 ? heavyM : curtainM); c.position.set(s * 0.3, 1.25, (wx > 0 || wz > 0) ? off : -off); c.rotation.y = s * 0.08; g.add(c); }
+      }
+    }
+  }
 
   // ---------- merge all spun silk into one mesh, all anchor threads into one line set ----------
   {

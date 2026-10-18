@@ -9,7 +9,10 @@
 import * as THREE from 'three';
 import { buildMother } from './characters/mother.js';
 import { burstHits, STUN_TIME } from './flashlight.js';
+import { flickerEvery, flickerStep, seesHer } from './lightsFlicker.js';
 import { ATTIC } from './world/attic.js';
+import { CATA_BIERS } from './world/catacombs.js';
+import { FIRST_HIDES, firstHideSpot } from './world/lowerUpper.js';
 
 // her paths through the attic (room-zone local x, z): chamber > hatch > clock room > egg store >
 // shadow door > landing > the loft
@@ -19,14 +22,18 @@ const NB = WP.map(() => []); for (const [a, b] of EDGES) { NB[a].push(b); NB[b].
 const COTS = [0, 1, 2, 3].map(k => [49.6 + k * 2.1, 172.45]);
 // Places to hide under (room-local): under = where you lie, out = where you stand to get in and
 // where you come out, yaw = which way you look while under (towards the room). Every floor she
-// can hunt on; the catacombs have nothing to get under. Furniture stays where it is.
+// can hunt on; in the catacombs, the low stone biers. Furniture stays where it is.
 const HIDE_SPOTS = [
   ...COTS.map(([x, z]) => ({ name: 'cot', under: [x, z + 0.25], out: [x, z + 1.4], yaw: Math.PI })),        // attic
   { name: 'bed', under: [47.9, 80.95], out: [48.8, 80.95], yaw: -Math.PI / 2 },                             // first floor: child's bed
   { name: 'four-poster', under: [55.2, 81.7], out: [55.2, 83.0], yaw: Math.PI },                            // Leader's Bedroom
   { name: 'table', under: [34.6, 92.6], out: [34.6, 93.8], yaw: Math.PI },                                  // library table
+  // and the rest of the First Floor (she hunts there most): wardrobes, tables, desks, curtained alcoves
+  ...FIRST_HIDES.map(h => { const o = firstHideSpot(h); return { name: h.kind, under: [h.x, h.z], out: o.out, yaw: o.yaw, stand: h.kind === 'wardrobe' || h.kind === 'curtain' }; }),
   // cellar chapel: every pew (2 columns x 4 rows, seat 0.48 m up, room to lie beneath); in from the aisle in front
   ...[0, 1, 2, 3].flatMap(k => [51.3, 55.9].map(x => ({ name: 'pew', under: [x, 44.6 + k * 1.6], out: [x, 43.95 + k * 1.6], yaw: 0 }))),
+  // catacombs: the biers (Bone Gallery and Burial Niches: in from the room side, -z; Tomb Hall: from the east)
+  ...CATA_BIERS.map(([x, z, alongX]) => alongX ? { name: 'bier', under: [x, z], out: [x, z - 1.15], yaw: 0 } : { name: 'bier', under: [x, z], out: [x + 1.15, z], yaw: -Math.PI / 2 }),
 ];
 export { HIDE_SPOTS };
 const inAttic = z => z > 170.5 && z < 186.5;
@@ -54,7 +61,7 @@ export function createMotherPlay(G) {
 
   // hiding: E on furniture to get under it (low view, vignette); E or any move key to come out
   function hideIn(h) {
-    S.hidden = h.under; veil.style.opacity = 1; player.enabled = false; player.place(O.x + h.under[0], O.z + h.under[1], h.yaw); player.lowView = 1.3; // eye ~0.3 m off the floor
+    S.hidden = h.under; veil.style.opacity = 1; player.enabled = false; player.place(O.x + h.under[0], O.z + h.under[1], h.yaw); player.lowView = h.stand ? 0.1 : 1.3; // under: eye ~0.3 m off the floor
     S.hideOut = h.out;
     if (!inAttic(h.under[1])) return; // the escape chase decides for itself whether she saw you go in
     if (isClient()) return; // the host decides what she does about it
@@ -168,6 +175,20 @@ export function createMotherPlay(G) {
     moth.style.opacity = near ? 1 : 0;
   }
 
+  // the lights fail and, while it is dark, she is suddenly a step nearer along her path
+  const camDir = new THREE.Vector3();
+  function leap(D) {
+    while (D > 0 && S.path.length) { const d = S.path[0].clone().sub(pos), L = d.length(); if (L <= D) { pos.copy(S.path.shift()); D -= L; } else { pos.addScaledVector(d.normalize(), D); S.yaw = Math.atan2(d.x, d.y); D = 0; } }
+  }
+  function flick() { const p = P(); if (G.flicker && inAttic(p.y) && pos.distanceTo(p) < 16) G.flicker.pulse(); if (net()) ops.push('fl'); }
+  // advancing on T, who can see her: every so often the lights gutter and she lunges in the dark
+  function flickerApproach(dt, T, tdist) {
+    S.flT = (S.flT ?? 0.6) - dt;
+    if (S.flT > 0 || !T || T.hidden || tdist < 2.4) return;
+    const clear = los(T.pos, pos), sees = T.local ? seesHer(camera.getWorldDirection(camDir), T.pos, pos, clear) : clear && tdist < 14;
+    if (!sees) return;
+    S.flT = flickerEvery(crowd()); flick(); leap(Math.min(flickerStep(crowd()), tdist - 1.7));
+  }
   function step(dt, speed) { // twitchy: bursts of motion and dead stops
     if (!S.path.length) return true;
     S.phase += dt; const moving = (S.phase % 0.55) < 0.36;
@@ -190,7 +211,7 @@ export function createMotherPlay(G) {
     unhide() { if (S.hidden) { S.hidden = null; veil.style.opacity = 0; player.lowView = 0; } },
     interactables: HIDE_SPOTS.map(h => ({
       zone: 'room', pos: new THREE.Vector3(O.x + h.out[0], 0, O.z + h.out[1]), r: 1.1, when: () => !S.hidden,
-      prompt: `E  hide under the ${h.name}`,
+      prompt: h.name === 'wardrobe' ? 'E  hide in the wardrobe' : h.name === 'curtain' ? 'E  hide behind the curtain' : `E  hide under the ${h.name}`,
       act: () => hideIn(h),
     })),
     // {t:'esc', mo:1} messages. from: 'h' (the host) or a guest's id
@@ -201,7 +222,7 @@ export function createMotherPlay(G) {
           /* she wakes: no caption, the moths will tell you */
           if (!R.s && m.s && here && pos.distanceTo(p) < 15) say(STUN_MSG, 4000);
           Object.assign(R, { x: m.x, z: m.z, yaw: m.yaw, m: m.m, s: m.s, have: true });
-          for (const op of m.op || []) if (op === 'spread' || op === 'fold' || op === 'twitch') api[op]();
+          for (const op of m.op || []) if (op === 'spread' || op === 'fold' || op === 'twitch') api[op](); else if (op === 'fl' && here && G.flicker && new THREE.Vector2(m.x, m.z).distanceTo(p) < 16) G.flicker.pulse();
         } else if (m.ev === 'caught') { if (G.state && (G.state() === 'playing' || G.state() === 'paused')) G.caughtMP(); }
         return;
       }
@@ -243,6 +264,7 @@ export function createMotherPlay(G) {
         else if (!T.hidden && los(pos, p) && tdist < sightRange(T) + 3) { S.lastSeen = p.clone(); S.path = [p.clone()]; S.lost = 0; }
         else { S.lost += dt; if (!S.path.length || S.lost < dt * 1.5) S.path = route(S.lastSeen); if (S.lost > 5 * (1 - 0.4 * crowd())) { S.mode = 'search'; S.tid = null; anim('fold'); } }
         step(dt, 3.1 * (1 + 0.18 * crowd()));
+        if (S.mode === 'chase') flickerApproach(dt, T, pos.distanceTo(p));
         if (T && tdist < 0.85 && !T.hidden) return catchQ(T);
       } else {
         const done = step(dt, (S.mode === 'lured' ? 2.2 : 1.1) * (1 + 0.18 * crowd()));

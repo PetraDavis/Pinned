@@ -37,6 +37,8 @@ export const CATA = {
   stairBFoot: V(55.0, 151.8),
   lantern: V(38.6, 126.9),
 };
+// biers to hide under (x, z, long side along x): Bone Gallery, Burial Niches, Tomb Hall
+export const CATA_BIERS = [[33.0, 127.1, true], [35.8, 141.35, true], [38.85, 144.8, false]];
 // the ossuary lock: in each bay, the niche whose skull carries a resting moth
 export const OSS_DIGITS = [7, 2, 9, 4];
 export const OSSUARY_CODE = OSS_DIGITS.join('');
@@ -420,6 +422,16 @@ export function buildCatacombs(ctx) {
   // once the cabinet opens: lamplight from the stair room shows the way
   const stairBGlow = new THREE.PointLight(0xffb070, 0, 6, 1.4); stairBGlow.position.set(53.2, 1.6, 153.5); stairBGlow.userData.noLimit = true; group.add(stairBGlow);
   door('catStairB', 'z', 52, 153.5, { locked: true, swing: -1, msg: 'An iron-bound door with no handle on this side. Something inside the wall is holding it: you can hear a bolt rest in its keeper when you push.', openMsg: 'A narrow room beyond, and a stair going up into the dark.' });
+
+  // ======================= BIERS: low stone shelves against the walls, room to lie beneath =======================
+  // (the catacombs' hiding places from the Mother: motherPlay.js HIDE_SPOTS)
+  for (const [x, z, alongX] of CATA_BIERS) {
+    const w = alongX ? 1.9 : 0.8, d = alongX ? 0.8 : 1.9;
+    B(stone, w, 0.1, d, x, 0.55, z);
+    for (const s of [-1, 1]) B(stone, alongX ? 0.14 : 0.7, 0.5, alongX ? 0.7 : 0.14, x + (alongX ? s * 0.85 : 0), 0.25, z + (alongX ? 0 : s * 0.85));
+    B(silk, alongX ? 1.5 : 0.5, 0.04, alongX ? 0.5 : 1.5, x, 0.62, z); // a silk shroud over whatever lies on top
+    rect(local, x - w / 2, x + w / 2, z - d / 2, z + d / 2);
+  }
 
   // ======================= BACK STAIR B: x 52..58, z 148..157 =======================
   floor(52, 58, 148, 157); ceil(52, 58, 148, 157);

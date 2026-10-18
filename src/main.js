@@ -23,6 +23,7 @@ import { Player } from './player.js';
 import { startAudio, setVolume, playThud, playGlass, playCreak, playGrind, playClick, setHiss, playSoftClicks, playFlutter, playClicksAt, playShriek } from './audio.js';
 import { updateAudio, initAudioSettings, playDoor, playDrawer, playDial, playLamp, playLantern, playChime } from './audio/index.js';
 import { createFlashlight, batteryMesh } from './flashlight.js';
+import { createLightsFlicker } from './lightsFlicker.js';
 import { createLantern, lanternMesh } from './lantern.js';
 import { loadSettings, saveSettings, loadSave, writeSave, clearSave, setActiveSlot, setPlaytimeSource, latestSlot, readSlot } from './storage.js';
 import { createSlotScreen, placeOf } from './slots.js';
@@ -33,6 +34,7 @@ import { startHomeBackdrop } from './homeScreen.js';
 import { createAtticPlay } from './atticPlay.js';
 import { SPAN_MM, rackPlateCanvas } from './world/attic.js';
 import { createMotherPlay } from './motherPlay.js';
+import { createMotherRoam } from './motherRoam.js';
 import { createHallucinations, initAccessibilitySettings } from './hallucinate.js';
 import { captionSound } from './captions.js';
 import { initMultiplayer } from './net/multiplayer.js';
@@ -97,6 +99,8 @@ const player = new Player(camera, canvas);
 // flashlight (F): held in the right hand, battery-limited (see flashlight.js)
 scene.add(camera);
 const flashlight = createFlashlight(camera, scene, { playClick });
+// the lights gutter as the Mother comes (src/lightsFlicker.js): applied around each render
+const flicker = createLightsFlicker({ scene, renderer, camera, flashlight });
 // battery pickups: one in the grounds, one in the first room, one in the hallway
 const BATTERIES = [
   { id: 'b1', zone: 'exterior', pos: new THREE.Vector3(CLIMB_SPOT.x + 1.6, 0, FENCE.front - 3.2), parent: () => exterior.group },
@@ -277,7 +281,7 @@ const atticPlay = createAtticPlay({
 const roomsPlay = createRoomsPlay({ origin: ROOM_ORIGIN, player, say, transition, sfx: { thud: playThud, creak: playCreak } });
 // ---------- The Mother (motherPlay.js) ----------
 const motherPlay = createMotherPlay({
-  ground, origin: ROOM_ORIGIN, player, camera, flashlight, lantern, say, colliders: () => colliders(), escapeOwns: () => escape.ownsMother,
+  ground, origin: ROOM_ORIGIN, player, camera, flashlight, lantern, say, colliders: () => colliders(), escapeOwns: () => escape.ownsMother, flicker,
   sfx: { flutter: (l) => { captionSound('[wings fluttering]'); playFlutter(l); }, clicks: (l, n) => { captionSound('[clicking nearby]'); playClicksAt(l, n); }, shriek: (l) => { captionSound('[a thin, rising shriek]'); playShriek(l); } }, detectScale: () => catPlay.detectScale,
   active: () => state === 'playing' && zone === 'room', playerCount: () => playerCount(),
   // together: the host runs her (like the escape); a caught player wakes at the top of the ladder
@@ -314,7 +318,7 @@ function wakeTogether({ spot = escape.spawn(), line = 'The top of the ladder. Be
 }
 // ---------- the escape: the finale chase (escape.js) and the ending (ending.js) ----------
 const escape = createEscape({
-  room, ground, origin: ROOM_ORIGIN, player, camera, flashlight, lantern, say, motherPlay,
+  room, ground, origin: ROOM_ORIGIN, player, camera, flashlight, lantern, say, motherPlay, flicker,
   sfx: { flutter: playFlutter, clicks: playClicksAt, shriek: (l) => { captionSound('[a thin, rising shriek]'); playShriek(l); }, thud: playThud, creak: playCreak, grind: playGrind, glass: playGlass, softClicks: playSoftClicks },
   colliders: () => colliders(), active: () => state === 'playing' && zone === 'room', visited: () => visited, save: (cp) => save(cp),
   mpClient: () => !!(mp && mp.isClient),
@@ -787,7 +791,7 @@ function spawnAt(checkpoint, saved = {}) {
   for (const b of BATTERIES) b.mesh.visible = !batteriesTaken.has(b.id);
   updateBatteryHud();
   if (saved.solved) { room.puzzle.solveInstantly(); room.openPanel(true); }
-  ground.reset(); motherPlay.reset(); grandHallSaved = !!checkpoint && !['grounds', 'room', 'hallway', 'study'].includes(checkpoint);
+  ground.reset(); motherPlay.reset(); motherRoam.reset(); grandHallSaved = !!checkpoint && !['grounds', 'room', 'hallway', 'study'].includes(checkpoint);
   if (saved.studySolved) ground.solveLifespan();
   if (saved.dinnerSolved) ground.dinner.solve();
   for (const st of ground.dinner.seats) if ((saved.plates || []).includes(st.id)) { st.flipped = true; st.flip = 0; }
@@ -985,9 +989,11 @@ function loop() {
   lantern.update(dt, t, player.moving);
   lampMoths.update(t, camera);
   lightLimiter.update(camera);
+  flicker.update(dt);
   if (!escape.ownsMother) motherPlay.update(dt);
+  motherRoam.update(dt);
   escape.update(dt, t);
-  { const d = escape.ownsMother ? escape.warnDist : motherPlay.warnDist; motherMoths.update(dt, t, d, motherPlay.hidden || state !== 'playing'); }
+  { const d = Math.min(escape.ownsMother ? escape.warnDist : motherPlay.warnDist, motherRoam.warnDist); motherMoths.update(dt, t, d, motherPlay.hidden || state !== 'playing'); }
   // shadow maps: only for shadow-casting lamps near the player, refreshed every other frame
   if (!shadowLights) { shadowLights = []; scene.traverse(o => { if (o.isLight && o.shadow && !o.isDirectionalLight && o.userData.shadowOn) shadowLights.push(o); }); }
   frameNo++;
@@ -1013,10 +1019,26 @@ function loop() {
   halluc.update(dt, state === 'playing', zone === 'room');
   lightLimiter.fade(realDt);
   if (state === 'ending') ending.frame(document.hidden ? 0 : realDt);
-  else if (state !== 'home') { if (currentQ.post && composer) composer.render(dt); else renderer.render(scene, camera); }
+  else if (state !== 'home') { flicker.apply(); if (currentQ.post && composer) composer.render(dt); else renderer.render(scene, camera); flicker.restore(); }
   requestAnimationFrame(loop);
 }
 
+// ---------- The Mother below the attic (motherRoam.js): First Floor, cellar, catacombs; never the ground floor ----------
+const motherRoam = createMotherRoam({
+  room, origin: ROOM_ORIGIN, player, camera, flashlight, lantern, say, motherPlay, flicker, colliders: () => colliders(),
+  sfx: { flutter: (l) => { captionSound('[wings fluttering]'); playFlutter(l); }, clicks: (l, n) => { captionSound('[clicking nearby]'); playClicksAt(l, n); }, shriek: (l) => { captionSound('[a thin, rising shriek]'); playShriek(l); } },
+  detectScale: () => catPlay.detectScale, playerCount: () => playerCount(), state: () => state, zone: () => zone,
+  escapeOwns: () => escape.ownsMother, mpClient: () => !!(mp && mp.isClient),
+  net: { active: () => !!(mp && mp.active), players: () => mp.players, toAll: (m) => mp.escSend(m), toOne: (id, m) => mp.escSend(m, null, id), toHost: (m) => mp.escSend(m) },
+  localAlive: () => !escDead && zone === 'room' && ['playing', 'paused', 'modal', 'overlay'].includes(state),
+  caughtMP: () => wakeTogether({ line: 'Dark, and then nothing. Somewhere below you, a dry click.' }),
+  caught: () => {
+    state = 'cutscene'; player.enabled = false; playFlutter(1); playClicksAt(1, 6);
+    say('Wings close over you, soft and enormous, and the light goes out.', 3000);
+    setTimeout(() => { $('fade').style.opacity = 1; }, 600);
+    setTimeout(() => { const s = loadSave(); spawnAt(s ? s.checkpoint : null, s || {}); $('fade').style.opacity = 0; state = 'playing'; player.enabled = true; say('Dark, and then nothing. You are back where you last saved.', 6000); }, 3400);
+  },
+});
 spawnAt(null);
 refreshHome();
 $('loading').classList.add('hidden');
@@ -1026,7 +1048,7 @@ loop();
 window.__pinned = { tutorial,
   start: startGame, pause, resume, quitHome, player, setZone, interactables, interact: () => current && current.act(), refresh: () => { current = findInteractable(); },
   caps: CAPS, get state() { return state; }, get zone() { return zone; }, get prompt() { return current && (typeof current.prompt === 'function' ? current.prompt() : current.prompt); }, room,
-  renderer, scene, camera, flashlight, lantern, motherMoths, catacombs: catPlay, ground, mother: motherPlay, escape, ending, credits, save: (cp) => save(cp), visited, get hints() { return { used: hintsUsed, state: hintState }; }, currentPuzzle: () => currentPuzzle(), openPadlock, tryPadlock, dials, get gameTime() { return gameTime; }, get colliders() { return colliders(); }, collection, photo, halluc, get tutorial() { return tutorial; },
+  renderer, scene, camera, flashlight, lantern, motherMoths, catacombs: catPlay, ground, mother: motherPlay, roam: motherRoam, flicker, escape, ending, credits, save: (cp) => save(cp), visited, get hints() { return { used: hintsUsed, state: hintState }; }, currentPuzzle: () => currentPuzzle(), openPadlock, tryPadlock, dials, get gameTime() { return gameTime; }, get colliders() { return colliders(); }, collection, photo, halluc, get tutorial() { return tutorial; },
 };
 
 // ---------- multiplayer (src/net/) ----------
@@ -1061,7 +1083,7 @@ function applyWorld(w) {
   return res;
 }
 mp = initMultiplayer({ chooseSlot: cb => slotsUI.open('host', n => { setActiveSlot(n); const s = loadSave(); cb(!!s && !s.completed); }),
-  onEsc: (from, m) => (m.mo ? motherPlay.onNet(from, m) : escape.onNet(from, m)),
-  extraState: () => ({ ln: lantern.on ? 1 : 0, hd: motherPlay.hidden ? 1 : 0, mv: player.moving ? 1 : 0, sp: player.moving && !player.crouching && player.keys && (player.keys.ShiftLeft || player.keys.ShiftRight) ? 1 : 0, dd: escDead ? 1 : 0 }), scene, camera, player, flashlight, say, lock, setZone, startGame, worldSnapshot, applyWorld,
+  onEsc: (from, m) => (m.mo === 2 ? motherRoam.onNet(from, m) : m.mo ? motherPlay.onNet(from, m) : escape.onNet(from, m)),
+  extraState: () => ({ ln: lantern.on ? 1 : 0, hd: motherPlay.hidden ? 1 : 0, mv: player.moving ? 1 : 0, sp: player.moving && !player.crouching && player.keys && (player.keys.ShiftLeft || player.keys.ShiftRight) ? 1 : 0, dd: escDead ? 1 : 0, ui: ['modal', 'overlay', 'mothcard'].includes(state) ? 1 : 0 }), scene, camera, player, flashlight, say, lock, setZone, startGame, worldSnapshot, applyWorld,
   get zone() { return zone; }, get state() { return state; } });
 window.__pinned.mp = mp;

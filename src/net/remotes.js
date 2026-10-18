@@ -49,7 +49,7 @@ export function createRemotes(scene) {
     const p = players.get(id); if (!p) return;
     p.target.set(s.x, s.y || 0, s.z); p.yaw = s.yaw; p.pitch = s.pitch || 0; p.crouch = s.c || 0;
     p.zone = s.zn; p.flash = !!s.f; p.paused = !!s.p;
-    p.extra = { ln: s.ln || 0, hd: s.hd || 0, mv: s.mv || 0, sp: s.sp || 0, dd: s.dd || 0 }; // for the escape chase
+    p.extra = { ln: s.ln || 0, hd: s.hd || 0, mv: s.mv || 0, sp: s.sp || 0, dd: s.dd || 0, ui: s.ui || 0 }; // for the escape chase and the Mother
     if (!p.have) { p.root.position.copy(p.target); p.root.rotation.y = p.yaw; p.have = true; }
   }
 

@@ -23,6 +23,7 @@
 import * as THREE from 'three';
 import { buildMother } from './characters/mother.js';
 import { burstHits, STUN_TIME } from './flashlight.js';
+import { flickerEvery, flickerStep, seesHer } from './lightsFlicker.js';
 import { ATTIC } from './world/attic.js';
 import { CATA } from './world/catacombs.js';
 import { FIRST } from './world/lowerUpper.js';
@@ -87,7 +88,7 @@ function createSwarms(parent) {
 // G: { room, ground, origin, player, camera, flashlight, lantern, say, sfx: {flutter, clicks, thud, creak, grind, glass, softClicks},
 //      colliders(), active(), visited(), save(cp), caught(), motherPlay, mpClient(), onEnd() }
 export function createEscape(G) {
-  const { room, ground, origin: O, player, flashlight, lantern, say, sfx } = G;
+  const { room, ground, origin: O, player, camera, flashlight, lantern, say, sfx } = G;
   const cat = ground.cat, group = room.group;
   const local = () => new THREE.Vector2(player.pos.x - O.x, player.pos.z - O.z);
 
@@ -395,6 +396,9 @@ export function createEscape(G) {
     if (tunnelAnim > 0.9 && p.x < TUNNEL_END_X && Math.abs(p.y - 125) < 1.2 && !R.asked && G.net) { R.asked = true; G.net.toHost({ req: 'end' }); }
   }
 
+  const camDir = new THREE.Vector3();
+  function flickHere() { const me = local(); if (G.flicker && floorOf(me.y) === S.floor && S.pos.distanceTo(me) < 16) G.flicker.pulse(); }
+
   // torch burst from a point (room-local): she rears back and folds her wings over her face
   function flashAt(d, from) {
     if (!S.on || !model || !model.visible || S.mode === 'away' || S.mode === 'gone' || S.stun > 0) return false;
@@ -441,6 +445,7 @@ export function createEscape(G) {
           if (m.floor !== myFloor()) return;
           if (m.k === 'slam') { sfx.thud(); setTimeout(() => sfx.thud(), 90); sfx.creak(); shake = 0.5; }
           else if (m.k === 'cocoon') { sfx.softClicks(6); sfx.flutter(0.8); sfx.glass && sfx.glass(); }
+          else if (m.k === 'fl') { if (G.flicker && local().distanceTo(new THREE.Vector2(...m.at)) < 16) G.flicker.pulse(); }
           else if (m.k === 'burst') swarms.burst(new THREE.Vector3(...m.at), m.n, m.to ? new THREE.Vector3(...m.to) : null);
         }
         else if (m.ev === 'tunnel') openTunnelHere();
@@ -565,6 +570,16 @@ export function createEscape(G) {
         if (L > 0.01) { S.pos.addScaledVector(d.normalize(), Math.min(L, speed / STEP_DUTY * dt)); S.yaw = Math.atan2(d.x, d.y); }
         if (see && dist < 9 * sense) pushOut(S.pos);
       } else if (Math.random() < dt * 2) api.twitch();
+      // the lights gutter while she comes at someone who can see her; in the dark she is a step nearer
+      if (S.mode === 'hunt' && see && G.flicker) {
+        S.flT = (S.flT ?? 0.6) - dt;
+        if (S.flT <= 0 && dist > 2.4 && (!tq.local || seesHer(camera.getWorldDirection(camDir), p, S.pos, true))) {
+          S.flT = flickerEvery(k);
+          const to = p.clone().sub(S.pos).setLength(Math.min(flickerStep(k), dist - 1.7)).add(S.pos);
+          if (freeAt(to, 0.35) && los(S.pos, to)) { S.pos.copy(to); S.yaw = Math.atan2(p.x - S.pos.x, p.y - S.pos.y); }
+          flickHere(); fx({ k: 'fl', at: [+S.pos.x.toFixed(2), +S.pos.y.toFixed(2)] });
+        }
+      }
       // she never sets foot on the ground floor: at the cellar stair she stops, and withdraws
       if (floorOf(S.pos.y) === 'ground') { S.pos.y = 25.05; S.mode = 'gone'; S.goneT = (8 + Math.random() * 4) * (1 - 0.4 * k); show(false); return; }
       placeModel();
