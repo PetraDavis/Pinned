@@ -34,3 +34,4 @@ details.mp-manual[open] { display: flex; flex-direction: column; gap: 8px; }
 .mp-pausebox label.check { display: flex; justify-content: space-between; align-items: center; }
 .mp-pausebox label.check input { width: auto; grid-column: auto; }
 #pause .menu { max-height: calc(100vh - 24px); overflow-y: auto; padding: 4px; }
+#mpChatLog .mpDot { display: inline-block; width: .6em; height: .6em; border-radius: 50%; margin-right: .4em; vertical-align: .05em; box-shadow: 0 0 0 1px rgba(216,200,160,.45); }

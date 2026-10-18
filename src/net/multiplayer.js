@@ -4,13 +4,14 @@
 //
 // Messages (JSON):
 //  player -> host: hello{name} s{state} w{world, lamp?} chat{text} rtc{...}
-//  host -> player: welcome{id, players, world, at} join{id,name} leave{id} ps{l:[state]}
-//                  w{world} chat{from,text,sys?} rtc{...} vmap{s,id} bye
+//  host -> player: welcome{id, slot, players[{id,name,slot}], world, at} join{id,name,slot} leave{id} ps{l:[state]}
+//                  w{world} chat{from,text,sys?,slot?} rtc{...} vmap{s,id} bye
 //  both ways:      esc{...} the escape chase (host -> player: her state and events; player -> host: requests)
 import { hostPeer, joinPeer, manualOffer, manualAnswer, cleanCode } from './link.js';
 import { VoicePeer, VoiceOut, getMic } from './voice.js';
 import { createRemotes } from './remotes.js';
 import { loadSave } from '../storage.js';
+import { PLAYER_COLORS, setSelfClothes } from '../world/avatar.js';
 
 const STATE_HZ = 15, WORLD_MS = 300, MAX_PLAYERS = 4; // host + 3
 const NAME_KEY = 'pinned.mpName', PREF_KEY = 'pinned.mpVoice';
@@ -82,10 +83,11 @@ export function initMultiplayer(G) {
   const btnInvite = el('button', { className: 'mp-small', id: 'mpInviteMake', textContent: 'Make an invite' });
   const btnInvCopy = el('button', { className: 'mp-small', textContent: 'Copy invite' });
   const btnInvAccept = el('button', { className: 'mp-small', id: 'mpInviteAccept', textContent: 'Connect' });
+  const btnLink = el('button', { className: 'mp-small hidden', id: 'mpCopyLink', textContent: 'Copy invite link' });
   const invBox = el('details', { className: 'mp-manual' }, [el('summary', { textContent: 'Invite a player by copy-paste' }), btnInvite, invOut, btnInvCopy, invIn, btnInvAccept, invNote]);
   const pauseBox = el('div', { className: 'mp-pausebox hidden', id: 'mpPause' }, [pInfo, el('div', { className: 'mp-row' }, [pVoice, pMute]),
     el('label', { className: 'check' }, ['Push to talk (hold V)', pPtt]), el('label', { className: 'check' }, ['Voices fade with distance', pProx]),
-    el('p', { className: 'note', textContent: 'T chat · V push to talk · M mute' }), invBox]);
+    el('p', { className: 'note', textContent: 'T chat · V push to talk · M mute' }), btnLink, invBox]);
   const pauseMenu = document.querySelector('#pause .menu');
   pauseMenu.insertBefore(pauseBox, document.getElementById('btnQuit'));
   pPtt.checked = S.ptt; pProx.checked = S.proximity;
@@ -101,6 +103,14 @@ export function initMultiplayer(G) {
   }
   btnManCopy.onclick = () => copyText(manReply);
   btnInvCopy.onclick = () => copyText(invOut);
+  // a link with the room code: opening it goes straight to joining that room
+  const inviteLink = () => { const u = new URL(location.href); u.hash = ''; u.search = ''; u.searchParams.set('room', S.code); return u.toString(); };
+  let linkTimer = 0;
+  btnLink.onclick = () => {
+    const text = inviteLink(), done = () => { btnLink.textContent = 'Copied!'; clearTimeout(linkTimer); linkTimer = setTimeout(() => { btnLink.textContent = 'Copy invite link'; }, 1600); };
+    const fallback = () => { const ta = el('textarea', { value: text }); document.body.append(ta); ta.select(); try { document.execCommand('copy'); done(); } catch { prompt('Copy this link:', text); } ta.remove(); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback); else fallback();
+  };
 
   function openMenu() {
     note.textContent = '';
@@ -115,31 +125,34 @@ export function initMultiplayer(G) {
     const room = S.role === 'host' ? (S.code ? `Room <b>${S.code}</b>` : 'Hosting (copy-paste invites)') : 'Joined';
     hud.innerHTML = `${room} · ${n}/${MAX_PLAYERS} · ${voice}`;
     pInfo.textContent = S.role === 'host' ? (S.code ? `You are hosting. Room code: ${S.code}` : 'You are hosting. Invite players by copy-paste below.') : 'You are playing in someone else’s game.';
+    btnLink.classList.toggle('hidden', !(S.role === 'host' && S.code));
     pVoice.textContent = S.mic ? 'Leave voice' : 'Join voice';
     pMute.textContent = S.muted ? 'Unmute' : 'Mute'; pMute.disabled = !S.mic;
     invBox.classList.toggle('hidden', S.role !== 'host');
   }
 
   // ================= chat =================
-  function logLine(text, from, sys) {
+  function logLine(text, from, sys, slot) {
     const p = el('p', { className: sys ? 'sys' : '' });
+    const col = PLAYER_COLORS[slot];
+    if (from && col) p.append(el('span', { className: 'mpDot', title: col.name, style: `background:#${col.hex.toString(16).padStart(6, '0')}` }));
     if (from) p.append(el('b', { textContent: from + ': ' }));
     p.append(document.createTextNode(text));
     chatLog.append(p);
     while (chatLog.children.length > 60) chatLog.firstChild.remove();
     setTimeout(() => p.classList.add('old'), 12000);
     chatLog.scrollTop = chatLog.scrollHeight;
-    S.log.push({ from, text, sys: !!sys });
+    S.log.push({ from, text, sys: !!sys, slot });
   }
   S.log = [];
   function sendChat(text) {
     text = String(text || '').trim().slice(0, 300); if (!text) return;
-    if (S.role === 'host') broadcastChat(S.name, text);
+    if (S.role === 'host') broadcastChat(S.name, text, false, 0);
     else if (S.hostLink) S.hostLink.send({ t: 'chat', text });
   }
-  function broadcastChat(from, text, sys) {
-    logLine(text, from, sys);
-    for (const c of S.clients.values()) c.link.send({ t: 'chat', from, text, sys });
+  function broadcastChat(from, text, sys, slot) {
+    logLine(text, from, sys, slot);
+    for (const c of S.clients.values()) c.link.send({ t: 'chat', from, text, sys, slot });
   }
   function openChat() {
     if (!S.role || S.chatOpen) return;
@@ -272,10 +285,13 @@ export function initMultiplayer(G) {
       if (m.t === 'hello' && !c.id) {
         if (S.clients.size >= MAX_PLAYERS - 1) { link.send({ t: 'full' }); setTimeout(() => link.close(), 500); return; } // host + 3
         c.id = 'p' + S.nextId++; c.name = String(m.name || 'Moth').slice(0, 18);
-        const players = [{ id: 'h', name: S.name }, ...[...S.clients.values()].map(o => ({ id: o.id, name: o.name }))];
-        S.clients.set(c.id, c); S.names.set(c.id, c.name); remotes.add(c.id, c.name);
-        link.send({ t: 'welcome', id: c.id, players, world: worldForWire(), at: myState() });
-        for (const o of S.clients.values()) if (o !== c) o.link.send({ t: 'join', id: c.id, name: c.name });
+        // clothing colour: the lowest join slot not in use (the host is always slot 0)
+        const used = new Set([...S.clients.values()].map(o => o.slot));
+        c.slot = [1, 2, 3].find(k => !used.has(k)) ?? 1;
+        const players = [{ id: 'h', name: S.name, slot: 0 }, ...[...S.clients.values()].map(o => ({ id: o.id, name: o.name, slot: o.slot }))];
+        S.clients.set(c.id, c); S.names.set(c.id, c.name); remotes.add(c.id, c.name, c.slot);
+        link.send({ t: 'welcome', id: c.id, slot: c.slot, players, world: worldForWire(), at: myState() });
+        for (const o of S.clients.values()) if (o !== c) o.link.send({ t: 'join', id: c.id, name: c.name, slot: c.slot });
         broadcastChat(null, `${c.name} has come into the house.`, true);
         // voices already in the game
         if (S.mic) sendTrackTo(c, 'h', S.mic.getAudioTracks()[0], S.mic);
@@ -285,7 +301,7 @@ export function initMultiplayer(G) {
       if (!c.id) return;
       if (m.t === 's') { c.state = m; remotes.setState(c.id, m); }
       else if (m.t === 'w' && m.w) applyFromNet(m.w);
-      else if (m.t === 'chat') broadcastChat(c.name, String(m.text || '').slice(0, 300));
+      else if (m.t === 'chat') broadcastChat(c.name, String(m.text || '').slice(0, 300), false, c.slot);
       else if (m.t === 'esc') { if (G.onEsc) G.onEsc(c.id, m); }
       else if (m.t === 'rtc') { if (!c.voice) c.voice = new VoicePeer(link, false, t => onHostTrack(c, t)); c.voice.signal(m); }
     };
@@ -311,7 +327,7 @@ export function initMultiplayer(G) {
         manual.open = true; busy(false); return false;
       }
     }
-    S.role = 'host'; S.myId = 'h'; S.code = code; S.blockSave = false;
+    S.role = 'host'; S.myId = 'h'; S.mySlot = 0; setSelfClothes(0); S.code = code; S.blockSave = false;
     start(() => { const s = fromSave && loadSave(); if (s) G.startGame(s.checkpoint, s); else G.startGame(null); });
     logLine(code ? `You are hosting. Room code ${code}. Players join from Multiplayer on their home screen.` : 'You are hosting. Invite players from the pause menu (copy-paste).', null, true);
     busy(false); return code || true;
@@ -343,8 +359,8 @@ export function initMultiplayer(G) {
     link.onmessage = m => {
       switch (m.t) {
         case 'welcome': {
-          S.myId = m.id;
-          for (const p of m.players) { S.names.set(p.id, p.name); remotes.add(p.id, p.name); }
+          S.myId = m.id; S.mySlot = m.slot; setSelfClothes(m.slot ?? null);
+          for (const p of m.players) { S.names.set(p.id, p.name); remotes.add(p.id, p.name, p.slot); }
           const w = m.world;
           start(() => {
             G.startGame(w.zone === 'exterior' ? null : 'room', { lampLit: w.lamp, solved: w.solved, studySolved: w.study, dinnerSolved: w.dinner, plates: w.plates, doorsOpen: w.doors, altarSolved: w.altar, deskOpen: w.desk, wardOpen: w.ward, moths: w.moths, batteries: w.batteries, lanterns: w.lanterns, cat: w.cat, attic: w.attic, visited: { cellar: true, first: true, catacombs: true, attic: true } });
@@ -355,7 +371,7 @@ export function initMultiplayer(G) {
           logLine(`You have joined ${S.names.get('h') || 'the host'}’s game.`, null, true);
           break;
         }
-        case 'join': S.names.set(m.id, m.name); remotes.add(m.id, m.name); refreshUi(); break;
+        case 'join': S.names.set(m.id, m.name); remotes.add(m.id, m.name, m.slot); refreshUi(); break;
         case 'leave': remotes.remove(m.id); dropOut(m.id); refreshUi(); break;
         case 'ps': for (const s of m.l) if (s.id !== S.myId) { if (!remotes.players.has(s.id)) remotes.add(s.id, S.names.get(s.id) || '?'); remotes.setState(s.id, s); } break;
         case 'w': {
@@ -363,7 +379,7 @@ export function initMultiplayer(G) {
           S.hostKey = sortKey(m.w); S.lastLamp = m.w.lamp;
           break;
         }
-        case 'chat': logLine(m.text, m.from, m.sys); break;
+        case 'chat': logLine(m.text, m.from, m.sys, m.slot); break;
         case 'esc': if (G.onEsc) G.onEsc('h', m); break;
         case 'rtc': hostVoice().signal(m); break;
         case 'vmap': {
@@ -440,7 +456,7 @@ export function initMultiplayer(G) {
     if (S.hostVoice) { S.hostVoice.close(); S.hostVoice = null; }
     if (S.signal) { S.signal.close(); S.signal = null; }
     for (const id of [...S.outs.keys()]) dropOut(id);
-    S.vmap.clear(); S.pendingTracks.clear(); remotes.clear();
+    S.vmap.clear(); S.pendingTracks.clear(); remotes.clear(); setSelfClothes(null); S.mySlot = null;
     S.role = null; S.code = null; S.hostKey = S.lastSentKey = null; S.lastLamp = null;
     closeChat(false);
     hud.classList.add('hidden'); pauseBox.classList.add('hidden');
@@ -455,8 +471,17 @@ export function initMultiplayer(G) {
     else if (S.hostLink) S.hostLink.send({ ...m, t: 'esc' });
   }
 
+  // opened from an invite link (?room=CODE): go straight to joining that room
+  try {
+    const u = new URL(location.href), room = cleanCode(u.searchParams.get('room') || '');
+    if (room.length === 5) {
+      u.searchParams.delete('room'); history.replaceState(null, '', u.toString());
+      setTimeout(() => { openMenu(); codeIn.value = room; joinCode(room); }, 0);
+    }
+  } catch { /* no URL access: join by typing the code */ }
+
   return {
-    openMenu, escSend,
+    openMenu, escSend, inviteLink: () => (S.code ? inviteLink() : null),
     get count() { return S.role ? 1 + (S.role === 'host' ? S.clients.size : remotes.players.size) : 1; }, closeMenu, hostGame, joinCode, manualJoin, makeInvite, acceptInvite, sendChat, joinVoice, leaveVoice, leave: () => teardown(),
     remotes,
     get active() { return !!S.role; },

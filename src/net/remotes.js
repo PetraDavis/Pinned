@@ -2,7 +2,7 @@
 // stage (hoodie, jeans, shaggy androgynous hair; no wings, no antennae), a faint name above
 // the head, and a torch beam when their torch is on. Positions are smoothed between updates.
 import * as THREE from 'three';
-import { makeAvatar } from '../world/avatar.js';
+import { makeAvatar, setClothes } from '../world/avatar.js';
 
 function nameSprite(name) {
   const c = document.createElement('canvas'); c.width = 256; c.height = 64; const g = c.getContext('2d');
@@ -19,10 +19,10 @@ export function createRemotes(scene) {
   const players = new Map();
   const tmp = new THREE.Vector3();
 
-  function add(id, name) {
-    if (players.has(id)) return players.get(id);
+  function add(id, name, slot) {
+    if (players.has(id)) { if (slot != null) setSlot(id, slot); return players.get(id); }
     const root = new THREE.Group(); root.name = 'remote-' + id;
-    const body = makeAvatar(1); root.add(body);
+    const body = makeAvatar(1); setClothes(body, slot); root.add(body);
     const tag = nameSprite(name); root.add(tag);
     // torch: a small dark body in the right hand and an unshadowed beam
     const torch = new THREE.Group(); torch.position.set(0.24, 1.05, -0.22); root.add(torch);
@@ -33,7 +33,7 @@ export function createRemotes(scene) {
     const beam = new THREE.SpotLight(0xffe8c0, 0, 16, 0.38, 0.5, 1.6); beam.castShadow = false; beam.userData.noLimit = true;
     beam.target.position.set(0, -0.2, -3); torch.add(beam, beam.target);
     scene.add(root);
-    const p = { id, name, root, body, tag, torch, beam, lens, target: new THREE.Vector3(), yaw: 0, pitch: 0, crouch: 0, y: 0, zone: 'exterior', flash: false, have: false };
+    const p = { id, name, slot, root, body, tag, torch, beam, lens, target: new THREE.Vector3(), yaw: 0, pitch: 0, crouch: 0, y: 0, zone: 'exterior', flash: false, have: false };
     players.set(id, p);
     return p;
   }
@@ -41,9 +41,11 @@ export function createRemotes(scene) {
   function remove(id) {
     const p = players.get(id); if (!p) return;
     scene.remove(p.root);
-    p.root.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) [].concat(o.material).forEach(m => { if (m.map) m.map.dispose(); m.dispose(); }); });
+    p.root.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) [].concat(o.material).forEach(m => { if (m.map && !m.map.userData.shared) m.map.dispose(); m.dispose(); }); });
     players.delete(id);
   }
+
+  function setSlot(id, slot) { const p = players.get(id); if (!p) return; p.slot = slot; setClothes(p.body, slot); }
 
   function setState(id, s) {
     const p = players.get(id); if (!p) return;
@@ -69,5 +71,5 @@ export function createRemotes(scene) {
 
   const distanceTo = (id, pos) => { const p = players.get(id); return p && p.have ? tmp.copy(p.root.position).setY(0).distanceTo(pos) : Infinity; };
   const zoneOf = id => players.get(id)?.zone;
-  return { add, remove, setState, update, distanceTo, zoneOf, players, clear() { for (const id of [...players.keys()]) remove(id); } };
+  return { add, remove, setSlot, setState, update, distanceTo, zoneOf, players, clear() { for (const id of [...players.keys()]) remove(id); } };
 }

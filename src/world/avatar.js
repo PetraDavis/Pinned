@@ -11,10 +11,29 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { rand } from './build.js';
 
+// Multiplayer clothing colours, one per join slot (host = 0). Muted, period-dyed wools.
+export const PLAYER_COLORS = [
+  { name: 'Oxblood', hex: 0x6a2626 },
+  { name: 'Bottle green', hex: 0x2c4a34 },
+  { name: 'Navy', hex: 0x23304e },
+  { name: 'Mustard', hex: 0x8a6c26 },
+];
+const DEFAULT_KNIT = 0x2c333c; // solo play: the original slate hoodie
+const knitCache = new Map();
+const knitFor = col => { if (!knitCache.has(col)) { const t = fabricTex(col, true); t.userData.shared = true; knitCache.set(col, t); } return knitCache.get(col); };
+// Recolour an avatar's hoodie (null = the solo default).
+export function setClothes(av, slot) {
+  const m = av.userData.hoodieMat; if (!m) return;
+  const c = PLAYER_COLORS[slot]; m.map = knitFor(c ? c.hex : DEFAULT_KNIT); m.needsUpdate = true;
+}
+// The mirror reflections are the local player: they follow the local player's slot.
+const selfAvatars = new Set(); let selfSlot = null;
+export function setSelfClothes(slot) { selfSlot = slot; for (const a of selfAvatars) setClothes(a, slot); }
+
 const V2 = (x, y) => new THREE.Vector2(x, y);
 const clean = g => { const n = g.index ? g.toNonIndexed() : g; for (const k of Object.keys(n.attributes)) if (!['position', 'normal', 'uv'].includes(k)) n.deleteAttribute(k); return n; };
 
-export function makeAvatar(stage) {
+export function makeAvatar(stage, opts = {}) {
   const a = new THREE.Group();
   const st = k => stage >= k;
   const hr = rand(stage * 13 + 1);
@@ -25,8 +44,10 @@ export function makeAvatar(stage) {
     sheen: st(4) ? 0.7 : 0.18, sheenColor: new THREE.Color(0xf4ece0), sheenRoughness: 0.5, map: skinTex(stage), clearcoat: st(4) ? 0.15 : 0, clearcoatRoughness: 0.6 });
   const hairCol = st(4) ? 0xd2c9bb : 0x3a2a20;
   const hair = new THREE.MeshPhysicalMaterial({ color: hairCol, roughness: 0.7, sheen: st(4) ? 1 : 0.4, sheenColor: new THREE.Color(st(4) ? 0xffffff : 0x8a6a50), emissive: hairCol, emissiveIntensity: 0.05, side: THREE.DoubleSide });
-  const knit = fabricTex(0x2c333c, true), denim = fabricTex(0x27303e, false);
+  const knit = knitFor(DEFAULT_KNIT), denim = fabricTex(0x27303e, false);
   const hoodie = new THREE.MeshStandardMaterial({ map: knit, roughness: 0.95, emissive: 0x0b0d10 });
+  a.userData.hoodieMat = hoodie;
+  if (opts.self) { selfAvatars.add(a); if (selfSlot != null) setClothes(a, selfSlot); }
   const jeans = new THREE.MeshStandardMaterial({ map: denim, roughness: 0.9 });
   const shoeMat = new THREE.MeshStandardMaterial({ color: 0x1c1a1a, roughness: 0.7 });
   const soleMat = new THREE.MeshStandardMaterial({ color: 0xd8d2c8, roughness: 0.8 });
