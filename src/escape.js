@@ -521,7 +521,7 @@ export function createEscape(G) {
       if (S.mode === 'glimpse') { S.glimpseT -= dt; S.yaw = Math.atan2(p.x - S.pos.x, p.y - S.pos.y); placeModel(); if (S.glimpseT <= 0) { S.mode = 'hunt'; S.knows = true; } if (dist < 0.85 && !tq.under) return catchP(tq); return; }
 
       // ---- senses (wider and quicker the more of you there are) ----
-      const sense = 1 + 0.3 * k, fast = 1 + 0.18 * k;
+      const sense = 1 + 0.3 * k, fast = (1 + 0.18 * k) * (G.hardcore && G.hardcore() ? 1.2 : 1);
       // under furniture: unseen, unless she watched you crawl in (then she drags you out)
       S.sawIn = S.sawIn || {}; S.wasUnder = S.wasUnder || {};
       if (tq.under && !S.wasUnder[tq.id]) S.sawIn[tq.id] = !!(S.lastSee && dist < 5);

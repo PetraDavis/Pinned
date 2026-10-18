@@ -19,6 +19,7 @@ h2 { font-weight: normal; letter-spacing: .15em; margin: 0 0 8px; }
 button { font: inherit; font-size: 18px; letter-spacing: .08em; color: var(--ink); background: rgba(20, 22, 26, .7); border: 1px solid #3a3a36; padding: 10px 14px; cursor: pointer; transition: background .2s, border-color .2s; }
 button:hover:not(:disabled), button:focus-visible { background: rgba(60, 55, 45, .8); border-color: var(--accent); outline: none; }
 button:disabled { color: #55524a; cursor: default; }
+#btnHardcore:not(:disabled) { color: #d88a70; border-color: #5a2a20; }
 label { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; text-align: left; color: var(--dim); }
 label input { grid-column: 1 / -1; accent-color: var(--accent); }
 output { color: var(--ink); }

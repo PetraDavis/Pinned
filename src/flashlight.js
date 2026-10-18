@@ -134,7 +134,7 @@ export function createFlashlight(camera, scene, { playClick } = {}) {
       // gentle hand sway, more when walking
       const k = moving ? 1 : 0.35;
       model.position.set(0.24 + Math.sin(t * 1.7) * 0.004 * k + Math.sin(t * 7.5) * 0.006 * (moving ? 1 : 0), -0.23 + Math.cos(t * 1.3) * 0.003 * k + Math.abs(Math.sin(t * 7.5)) * 0.006 * (moving ? 1 : 0), -0.42);
-      if (f.on) { f.battery = Math.max(0, f.battery - DRAIN * dt); f.onTime += dt; if (f.battery <= 0) { f.on = false; playClick && playClick(); } }
+      if (f.on) { f.battery = Math.max(0, f.battery - DRAIN * (f.drainMul || 1) * dt); f.onTime += dt; if (f.battery <= 0) { f.on = false; playClick && playClick(); } }
       let I = f.on ? 30 : 0, angle = 0.36;
       if (f.on && f.battery < LOW) { f.flicker -= dt; if (f.flicker < 0) f.flicker = Math.random() * 0.4; I *= f.flicker < 0.06 ? 0.15 : 0.6 + f.battery * 2; }
       if (f.cool > 0) f.cool -= dt;

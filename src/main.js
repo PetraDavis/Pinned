@@ -96,6 +96,12 @@ const sky = new THREE.HemisphereLight(0x9a9cc4, 0x4a4030, 1.5);
 scene.add(moonLight, sky);
 
 const player = new Player(camera, canvas);
+// Hardcore (unlocked by finishing the game once, any ending): one life, no saves or checkpoints,
+// no hints, a weaker torch, and The Mother faster and about more often. Single-player only.
+let hardcore = false;
+const HC_UNLOCK = 'pinned.hardcoreUnlocked', HC_DONE = 'pinned.hardcoreDone';
+const lsGet = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
 // flashlight (F): held in the right hand, battery-limited (see flashlight.js)
 scene.add(camera);
 const flashlight = createFlashlight(camera, scene, { playClick });
@@ -265,7 +271,7 @@ const catPlay = createCatacombsPlay({
   die: () => {
     if (mp && mp.active) return wakeTogether({ spot: { ...CATA.spawn, yaw: Math.PI }, wings: false, line: 'Dark, and then the cold stone of the stair. The poison has burned itself out of you.', after: () => catPlay.load({ ...catPlay.state(), poisoned: false }) });
     state = 'cutscene'; player.enabled = false; $('fade').style.opacity = 1;
-    setTimeout(() => { const s = loadSave(); spawnAt(s ? s.checkpoint : null, s || {}); $('fade').style.opacity = 0; state = 'playing'; player.enabled = true; say('Dark, and then nothing. You are back where you last saved.', 6000); }, 3200);
+    setTimeout(() => { if (hardcore) return hardcoreOver(); const s = loadSave(); spawnAt(s ? s.checkpoint : null, s || {}); $('fade').style.opacity = 0; state = 'playing'; player.enabled = true; say('Dark, and then nothing. You are back where you last saved.', 6000); }, 3200);
   },
   toChapel: () => transition(() => { player.place(ROOM_ORIGIN.x + CELLAR.stairE.x, ROOM_ORIGIN.z + CELLAR.stairE.z - 0.3, 0); playThud(); }),
   toFirstFloor: () => transition(() => { player.place(ROOM_ORIGIN.x + FIRST.spawn.x, ROOM_ORIGIN.z + FIRST.spawn.z, Math.PI); playThud(); if (!visited.first) { visited.first = true; save('firstfloor'); say('The first floor. Silk everywhere, on the walls, in the corners, over the shapes on the trestles.', 7000); } }),
@@ -281,7 +287,7 @@ const atticPlay = createAtticPlay({
 const roomsPlay = createRoomsPlay({ origin: ROOM_ORIGIN, player, say, transition, sfx: { thud: playThud, creak: playCreak } });
 // ---------- The Mother (motherPlay.js) ----------
 const motherPlay = createMotherPlay({
-  ground, origin: ROOM_ORIGIN, player, camera, flashlight, lantern, say, colliders: () => colliders(), escapeOwns: () => escape.ownsMother, flicker,
+  ground, origin: ROOM_ORIGIN, player, camera, flashlight, lantern, say, colliders: () => colliders(), escapeOwns: () => escape.ownsMother, flicker, hardcore: () => hardcore,
   sfx: { flutter: (l) => { captionSound('[wings fluttering]'); playFlutter(l); }, clicks: (l, n) => { captionSound('[clicking nearby]'); playClicksAt(l, n); }, shriek: (l) => { captionSound('[a thin, rising shriek]'); playShriek(l); } }, detectScale: () => catPlay.detectScale,
   active: () => state === 'playing' && zone === 'room', playerCount: () => playerCount(),
   // together: the host runs her (like the escape); a caught player wakes at the top of the ladder
@@ -293,7 +299,7 @@ const motherPlay = createMotherPlay({
     state = 'cutscene'; player.enabled = false; playFlutter(1); playClicksAt(1, 6);
     say('Wings close over you, soft and enormous, and the light goes out.', 3000);
     setTimeout(() => { $('fade').style.opacity = 1; }, 600);
-    setTimeout(() => { const s = loadSave(); spawnAt(s ? s.checkpoint : null, s || {}); $('fade').style.opacity = 0; state = 'playing'; player.enabled = true; say('Dark, and then nothing. You are back where you last saved.', 6000); }, 3400);
+    setTimeout(() => { if (hardcore) return hardcoreOver(); const s = loadSave(); spawnAt(s ? s.checkpoint : null, s || {}); $('fade').style.opacity = 0; state = 'playing'; player.enabled = true; say('Dark, and then nothing. You are back where you last saved.', 6000); }, 3400);
   },
 });
 // how many are in the house (1 alone): The Mother is busier the more of you there are
@@ -318,7 +324,7 @@ function wakeTogether({ spot = escape.spawn(), line = 'The top of the ladder. Be
 }
 // ---------- the escape: the finale chase (escape.js) and the ending (ending.js) ----------
 const escape = createEscape({
-  room, ground, origin: ROOM_ORIGIN, player, camera, flashlight, lantern, say, motherPlay, flicker,
+  room, ground, origin: ROOM_ORIGIN, player, camera, flashlight, lantern, say, motherPlay, flicker, hardcore: () => hardcore,
   sfx: { flutter: playFlutter, clicks: playClicksAt, shriek: (l) => { captionSound('[a thin, rising shriek]'); playShriek(l); }, thud: playThud, creak: playCreak, grind: playGrind, glass: playGlass, softClicks: playSoftClicks },
   colliders: () => colliders(), active: () => state === 'playing' && zone === 'room', visited: () => visited, save: (cp) => save(cp),
   mpClient: () => !!(mp && mp.isClient),
@@ -330,7 +336,7 @@ const escape = createEscape({
     state = 'cutscene'; player.enabled = false; playFlutter(1); playClicksAt(1, 6);
     say('Wings close over you, soft and enormous, and the light goes out.', 3000);
     setTimeout(() => { $('fade').style.opacity = 1; }, 600);
-    setTimeout(() => { const s = loadSave(); spawnAt(s ? s.checkpoint : null, s || {}); $('fade').style.opacity = 0; state = 'playing'; player.enabled = true; say('The top of the ladder.', 5000); }, 3400);
+    setTimeout(() => { if (hardcore) return hardcoreOver(); const s = loadSave(); spawnAt(s ? s.checkpoint : null, s || {}); $('fade').style.opacity = 0; state = 'playing'; player.enabled = true; say('The top of the ladder.', 5000); }, 3400);
   },
   onEnd: () => {
     state = 'ending'; player.enabled = false; show('hud', false); promptEl.textContent = '';
@@ -338,13 +344,14 @@ const escape = createEscape({
     if (flashlight.on) flashlight.toggle(); if (lantern.on) lantern.lower();
     // the secret ending: every moth note in the house collected (counted from MOTH_NOTES, so new ones count too)
     const allNotes = MOTH_NOTES.length, have = new Set(mothsTaken.filter(id => NOTE_BY_ID[id])).size;
-    const sv = loadSave() || {}, slotName = (sv.name || '').trim();
+    if (!hardcore) lsSet(HC_UNLOCK, '1'); else lsSet(HC_DONE, '1'); // finishing normal unlocks Hardcore
+    const sv = (!hardcore && loadSave()) || {}, slotName = (sv.name || '').trim();
     // the save is done with: Continue no longer replays the chase (it offers to start over)
-    if (!(mp && mp.isClient) && sv.checkpoint) writeSave({ ...sv, completed: true });
+    if (!hardcore && !(mp && mp.isClient) && sv.checkpoint) writeSave({ ...sv, completed: true });
     let remembered = sv.collectedName; try { remembered = remembered || localStorage.getItem('pinned.collectedName'); } catch {}
     ending.start({ secret: allNotes > 0 && have >= allNotes ? {
       name: remembered || (slotName && !/^Save \d+$/.test(slotName) ? slotName : ''),
-      onName: (n) => { try { localStorage.setItem('pinned.collectedName', n); } catch {} const cur = loadSave(); if (cur && !(mp && mp.isClient)) writeSave({ ...cur, collectedName: n }); },
+      onName: (n) => { try { localStorage.setItem('pinned.collectedName', n); } catch {} const cur = !hardcore && loadSave(); if (cur && !(mp && mp.isClient)) writeSave({ ...cur, collectedName: n }); },
     } : null });
   },
 });
@@ -404,7 +411,7 @@ const interactables = [
     act: () => {
       room.setLamp(!room.lampOn); playLamp(room.lampOn);
       if (room.lampOn) say('The wick catches. Warm light crawls up the walls, and every pinned moth seems to lean towards it.');
-      const sv = loadSave(); if (sv && !(mp && mp.isClient)) writeSave({ ...sv, lampLit: room.lampOn });
+      const sv = !hardcore && loadSave(); if (sv && !(mp && mp.isClient)) writeSave({ ...sv, lampLit: room.lampOn });
     },
   },
   {
@@ -647,6 +654,7 @@ const HINT_REFUSALS = ['I don’t feel like it.', 'Stop asking.', 'Stop botherin
 let hintsUsed = {};
 function showHint() {
   const p = currentPuzzle();
+  if (hardcore) { say('No hints in Hardcore. You are on your own.', 3000); return; }
   if (!p) { say('Nothing here seems to need solving right now.', 3000); return; }
   const grp = HINT_GROUP[p] || p;
   if ((hintsUsed[grp] || 0) >= HINT_LIMIT) {
@@ -661,7 +669,7 @@ function showHint() {
 }
 // a gentle nudge if the player has been in a puzzle room for a few minutes without a hint
 function hintTick(dt) {
-  const p = currentPuzzle(); if (!p) { stuckTime = 0; return; }
+  const p = currentPuzzle(); if (!p || hardcore) { stuckTime = 0; return; }
   stuckTime += dt;
   if (stuckTime > 180 && !nudged[p] && !hintState[p]) { nudged[p] = true; say(`${HINTS[p][0]} (Press H for more hints.)`, 10000); }
 }
@@ -776,7 +784,7 @@ function transition(mid) {
 }
 
 let lastCheckpoint = null;
-function save(checkpoint) { if (mp && mp.isClient) return; catPlay.settle(); /* a guest's progress lives in the host's game */ writeSave({ checkpoint, lampLit: room.lampOn, solved: room.puzzle.solved, studySolved: ground.lifespan.solved, dinnerSolved: ground.dinner.solved, plates: ground.dinner.seats.filter(st => st.flipped).map(st => st.id), doorsOpen: Object.values(ground.doors).filter(d => d.isOpen).map(d => d.id), battery: +flashlight.battery.toFixed(3), batteries: [...batteriesTaken], lantern: lantern.have ? +lantern.fuel.toFixed(3) : null, lanternOn: !!lantern.on, torchOn: !!flashlight.on, lanterns: [...lanternsTaken], altarSolved: ground.lu.altarSolved, deskOpen: ground.lu.deskOpen, wardOpen: ground.lu.wardOpen, visited: { ...visited }, hintsUsed: { ...hintsUsed }, hintState: { ...hintState }, moths: [...mothsTaken], tutorial: tutorial.state(), cat: catPlay.state(), attic: ground.attic.serialize() }); lastCheckpoint = checkpoint; }
+function save(checkpoint) { if (mp && mp.isClient) return; catPlay.settle(); /* a guest's progress lives in the host's game */ if (hardcore) { lastCheckpoint = checkpoint; return; } /* Hardcore never saves */ writeSave({ checkpoint, lampLit: room.lampOn, solved: room.puzzle.solved, studySolved: ground.lifespan.solved, dinnerSolved: ground.dinner.solved, plates: ground.dinner.seats.filter(st => st.flipped).map(st => st.id), doorsOpen: Object.values(ground.doors).filter(d => d.isOpen).map(d => d.id), battery: +flashlight.battery.toFixed(3), batteries: [...batteriesTaken], lantern: lantern.have ? +lantern.fuel.toFixed(3) : null, lanternOn: !!lantern.on, torchOn: !!flashlight.on, lanterns: [...lanternsTaken], altarSolved: ground.lu.altarSolved, deskOpen: ground.lu.deskOpen, wardOpen: ground.lu.wardOpen, visited: { ...visited }, hintsUsed: { ...hintsUsed }, hintState: { ...hintState }, moths: [...mothsTaken], tutorial: tutorial.state(), cat: catPlay.state(), attic: ground.attic.serialize() }); lastCheckpoint = checkpoint; }
 let grandHallSaved = false;
 function spawnAt(checkpoint, saved = {}) {
   room.resetPuzzle(); room.setLamp(!!saved.lampLit);
@@ -872,6 +880,17 @@ function refreshHome() {
   if (n) setActiveSlot(n); // the home-screen journal shows the save Continue would load
   $('btnContinue').disabled = !s; $('btnLoad').disabled = !s;
   $('homeNote').textContent = s ? `Continue: ${s.name || `Save ${n}`}, ${s.completed ? 'escaped. Start over?' : placeOf(s.checkpoint)}` : '';
+  const hc = $('btnHardcore'), open = !!lsGet(HC_UNLOCK);
+  hc.disabled = !open; hc.classList.toggle('locked', !open);
+  hc.textContent = open ? (lsGet(HC_DONE) ? 'Hardcore (beaten)' : 'Hardcore') : 'Hardcore (locked)';
+  hc.title = open ? 'One life. No saves, no hints. A weak torch, and she is faster.' : 'Finish the game once to unlock Hardcore.';
+}
+// Hardcore: caught or killed once and the run is over, back to the home screen
+function hardcoreOver() {
+  hardcore = false; flashlight.drainMul = 1; if (flashlight.on) flashlight.toggle(); if (lantern.on) lantern.lower();
+  show('pause', false); show('hud', false); show('home', true); $('fade').style.opacity = 0;
+  state = 'home'; player.enabled = false; if (document.pointerLockElement) document.exitPointerLock(); backdrop.start(); refreshHome();
+  $('homeNote').textContent = 'Hardcore: the house keeps you. There are no second chances.';
 }
 // a finished save (the ending seen) is not replayed: it offers to start over from the beginning
 const confirmText = $('confirm').querySelector('p'), confirmDefault = confirmText.textContent;
@@ -882,15 +901,18 @@ function playSlot(n) {
 }
 function lock() { try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch { /* headless etc. */ } }
 
-function startGame(checkpoint, saved = {}) {
-  playSecs = 0;
+function startGame(checkpoint, saved = {}, hard = false) {
+  playSecs = 0; hardcore = !!hard && !(mp && mp.active);
   spawnAt(checkpoint, saved);
+  flashlight.drainMul = hardcore ? 1.6 : 1; if (hardcore) flashlight.battery = 0.4; // Hardcore: a weaker torch
+  show('btnHint', !hardcore);
   if (restoreHeld) { if (restoreHeld.lantern) raiseLantern(); else if (restoreHeld.torch && !flashlight.on) { flashlight.toggle(); updateBatteryHud(); } restoreHeld = null; }
   show('home', false); show('hud', true); backdrop.stop();
   state = 'playing'; player.enabled = true;
   startAudio(settings.volume);
   lock();
-  if (!checkpoint) say('The Pale Wing house. Everyone at school says it’s haunted. Find a way past the fence.', 6000);
+  if (hardcore) say('Hardcore. One life, no saves, no hints. The Pale Wing house. Find a way past the fence.', 7000);
+  else if (!checkpoint) say('The Pale Wing house. Everyone at school says it’s haunted. Find a way past the fence.', 6000);
   else say((checkpoint === 'escape' && 'The top of the ladder.') || atticPlay.backMessage(checkpoint) || (checkpoint === 'cellar' ? 'You are back in the cellar, at the foot of the stairs.' : checkpoint === 'catacombs' ? 'You are back in the catacombs, at the foot of the chapel steps.' : checkpoint === 'chapel' ? 'You are back in the chapel.' : checkpoint === 'firstfloor' ? 'You are back on the first floor.' : checkpoint === 'leader' ? 'You are back in the leader’s bedroom.' : checkpoint === 'dining' ? 'You are back in the dining room.' : checkpoint === 'kitchen' ? 'You are back in the kitchen, by the cellar door.' : checkpoint === 'study' ? 'You are back in the Specimen Study.' : checkpoint === 'grandhall' ? 'You are back in the Grand Hall.' : checkpoint === 'hallway' ? 'You are back in the hallway.' : checkpoint === 'room' ? 'You are back in the drawing room.' : 'You are back on the grounds.'));
 }
 function pause() {
@@ -904,7 +926,8 @@ function resume() {
 }
 let restoreHeld = null;
 function quitHome() {
-  if (state !== 'home' && lastCheckpoint !== undefined && !(mp && mp.isClient)) save(lastCheckpoint); // keep what you were holding
+  if (state !== 'home' && lastCheckpoint !== undefined && !(mp && mp.isClient)) save(lastCheckpoint); // keep what you were holding (Hardcore: nothing is kept)
+  if (hardcore) { hardcore = false; flashlight.drainMul = 1; }
   show('pause', false); show('hud', false); show('home', true);
   state = 'home'; player.enabled = false; backdrop.start(); refreshHome();
 }
@@ -917,6 +940,7 @@ $('btnRestart').onclick = () => slotsUI.open('new', n => playSlot(n));
 $('btnConfirmYes').onclick = () => { show('confirm', false); confirmText.textContent = confirmDefault; clearSave(); startGame(null); };
 $('btnConfirmNo').onclick = () => { show('confirm', false); confirmText.textContent = confirmDefault; };
 $('btnMulti').onclick = () => mp && mp.openMenu();
+$('btnHardcore').onclick = () => { if (lsGet(HC_UNLOCK)) startGame(null, {}, true); };
 $('btnSettingsHome').onclick = () => openSettings('home');
 $('btnSettingsPause').onclick = () => openSettings('pause');
 $('btnSettingsBack').onclick = () => { show('settings', false); show(settingsReturn, true); };
@@ -1025,7 +1049,7 @@ function loop() {
 
 // ---------- The Mother below the attic (motherRoam.js): First Floor, cellar, catacombs; never the ground floor ----------
 const motherRoam = createMotherRoam({
-  room, origin: ROOM_ORIGIN, player, camera, flashlight, lantern, say, motherPlay, flicker, colliders: () => colliders(),
+  room, origin: ROOM_ORIGIN, player, camera, flashlight, lantern, say, motherPlay, flicker, colliders: () => colliders(), hardcore: () => hardcore,
   sfx: { flutter: (l) => { captionSound('[wings fluttering]'); playFlutter(l); }, clicks: (l, n) => { captionSound('[clicking nearby]'); playClicksAt(l, n); }, shriek: (l) => { captionSound('[a thin, rising shriek]'); playShriek(l); } },
   detectScale: () => catPlay.detectScale, playerCount: () => playerCount(), state: () => state, zone: () => zone,
   escapeOwns: () => escape.ownsMother, mpClient: () => !!(mp && mp.isClient),
@@ -1036,7 +1060,7 @@ const motherRoam = createMotherRoam({
     state = 'cutscene'; player.enabled = false; playFlutter(1); playClicksAt(1, 6);
     say('Wings close over you, soft and enormous, and the light goes out.', 3000);
     setTimeout(() => { $('fade').style.opacity = 1; }, 600);
-    setTimeout(() => { const s = loadSave(); spawnAt(s ? s.checkpoint : null, s || {}); $('fade').style.opacity = 0; state = 'playing'; player.enabled = true; say('Dark, and then nothing. You are back where you last saved.', 6000); }, 3400);
+    setTimeout(() => { if (hardcore) return hardcoreOver(); const s = loadSave(); spawnAt(s ? s.checkpoint : null, s || {}); $('fade').style.opacity = 0; state = 'playing'; player.enabled = true; say('Dark, and then nothing. You are back where you last saved.', 6000); }, 3400);
   },
 });
 spawnAt(null);
@@ -1045,7 +1069,7 @@ $('loading').classList.add('hidden');
 loop();
 
 // Hook for automated tests / debugging.
-window.__pinned = { tutorial,
+window.__pinned = { tutorial, get hardcore() { return hardcore; }, startHardcore: () => startGame(null, {}, true), refreshHome: () => refreshHome(),
   start: startGame, pause, resume, quitHome, player, setZone, interactables, interact: () => current && current.act(), refresh: () => { current = findInteractable(); },
   caps: CAPS, get state() { return state; }, get zone() { return zone; }, get prompt() { return current && (typeof current.prompt === 'function' ? current.prompt() : current.prompt); }, room,
   renderer, scene, camera, flashlight, lantern, motherMoths, catacombs: catPlay, ground, mother: motherPlay, roam: motherRoam, flicker, escape, ending, credits, save: (cp) => save(cp), visited, get hints() { return { used: hintsUsed, state: hintState }; }, currentPuzzle: () => currentPuzzle(), openPadlock, tryPadlock, dials, get gameTime() { return gameTime; }, get colliders() { return colliders(); }, collection, photo, halluc, get tutorial() { return tutorial; },

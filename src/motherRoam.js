@@ -32,6 +32,7 @@ export { FREQ as ROAM_FREQ };
 const CELL = 0.5, RAD = 0.3;
 
 export function createMotherRoam(G) {
+  const HARD = () => (G.hardcore && G.hardcore() ? 1.25 : 1); // Hardcore: a quarter faster, twice as often, stays longer
   const { origin: O, player, camera, say, sfx } = G;
   let model = null, api = null;
   const S = { mode: 'off', floor: null, pos: new THREE.Vector2(), yaw: 0, goal: null, visitT: 0, lost: 0, stun: 0, phase: 0, tid: null, lastSeen: null, flT: 0.6, uiT: 0, timers: {}, wait: 0 };
@@ -149,7 +150,7 @@ export function createMotherRoam(G) {
     for (let c = 0; c < d.length; c++) { if (d[c] < lo || d[c] > hi) continue; const v = cellPos(g, c); if (qs.some(q => los(q.pos, v))) continue; cand.push(c); }
     if (!cand.length) { S.floor = null; return false; }
     S.pos.copy(cellPos(g, cand[Math.floor(Math.random() * cand.length)])); S.floor = f;
-    S.mode = 'patrol'; const st = FREQ[f].stay; S.visitT = (st[0] + Math.random() * (st[1] - st[0])) * (1 + 0.3 * crowd()); S.goal = null; S.tid = null; S.stun = 0; S.lost = 0; S.flT = 0.6;
+    S.mode = 'patrol'; const st = FREQ[f].stay; S.visitT = (st[0] + Math.random() * (st[1] - st[0])) * (1 + 0.3 * crowd()) * (HARD() > 1 ? 1.3 : 1); S.goal = null; S.tid = null; S.stun = 0; S.lost = 0; S.flT = 0.6;
     S.yaw = Math.atan2(near.pos.x - S.pos.x, near.pos.y - S.pos.y); ensureModel(); model.rotation.y = S.yaw; place(); show(true); anim('twitch'); sfx.clicks(0.35, 3);
     return true;
   }
@@ -170,7 +171,7 @@ export function createMotherRoam(G) {
     const to = nextToward(goal); if (!to) return true;
     const d = to.clone().sub(S.pos), L = d.length();
     if (S.pos.distanceTo(goal) < 0.3) return true;
-    if (moving && L > 0.01) { S.pos.addScaledVector(d.normalize(), Math.min(L, speed * 1.5 * dt)); S.yaw = Math.atan2(d.x, d.y); }
+    if (moving && L > 0.01) { S.pos.addScaledVector(d.normalize(), Math.min(L, speed * 1.5 * HARD() * dt)); S.yaw = Math.atan2(d.x, d.y); }
     else if (!moving && Math.random() < dt * 2.5) anim('twitch');
     return false;
   }
@@ -269,7 +270,7 @@ export function createMotherRoam(G) {
         moth.style.opacity = 0; dist = 99;
         // time on each floor (anyone's) counts toward her next visit there
         const fl = new Set(all.map(q => floorOf(q.pos.y)));
-        for (const f of fl) { S.timers[f] = (S.timers[f] ?? -FREQ[f].first) + dt * (1 + 0.5 * k); }
+        for (const f of fl) { S.timers[f] = (S.timers[f] ?? -FREQ[f].first) + dt * (1 + 0.5 * k) * (HARD() > 1 ? 2 : 1); /* Hardcore: she comes twice as often */ }
         for (const f of fl) if (S.timers[f] >= 0) { const q = all.filter(q => floorOf(q.pos.y) === f).sort(() => Math.random() - 0.5)[0]; if (arrive(f, q)) break; S.timers[f] = -10; }
         broadcast(dt); return;
       }

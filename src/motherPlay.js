@@ -39,6 +39,7 @@ export { HIDE_SPOTS };
 const inAttic = z => z > 170.5 && z < 186.5;
 
 export function createMotherPlay(G) {
+  const HARD = () => (G.hardcore && G.hardcore() ? 1.25 : 1); // Hardcore: a quarter faster, shorter pauses
   const { ground, origin: O, player, camera, flashlight, lantern, say, sfx } = G;
   const anchor = ground.attic.motherAnchor;
   const model = buildMother(); anchor.add(model); const api = model.userData.api;
@@ -194,7 +195,7 @@ export function createMotherPlay(G) {
     S.phase += dt; const moving = (S.phase % 0.55) < 0.36;
     const tgt = S.path[0], d = tgt.clone().sub(pos), L = d.length();
     if (L < 0.15) { S.path.shift(); return !S.path.length; }
-    if (moving) { const m = Math.min(L, speed * 1.55 * dt); pos.addScaledVector(d.normalize(), m); S.yaw = Math.atan2(d.x, d.y); }
+    if (moving) { const m = Math.min(L, speed * 1.55 * HARD() * dt); pos.addScaledVector(d.normalize(), m); S.yaw = Math.atan2(d.x, d.y); }
     else if (Math.random() < dt * 3) anim('twitch');
     return false;
   }
@@ -270,7 +271,7 @@ export function createMotherPlay(G) {
         const done = step(dt, (S.mode === 'lured' ? 2.2 : 1.1) * (1 + 0.18 * crowd()));
         if (done) {
           S.still -= dt;
-          if (S.still <= 0) { S.still = (2 + Math.random() * 5) * (1 - 0.45 * crowd()); /* off on her rounds sooner with more of you */ S.mode = 'wander'; S.target = null; S.path = route(new THREE.Vector2(...WP[Math.floor(Math.random() * WP.length)])); }
+          if (S.still <= 0) { S.still = (2 + Math.random() * 5) * (1 - 0.45 * crowd()) / HARD(); /* off on her rounds sooner with more of you */ S.mode = 'wander'; S.target = null; S.path = route(new THREE.Vector2(...WP[Math.floor(Math.random() * WP.length)])); }
         }
       }
       // she is the attic's alone: never below it (never the ground floor)
