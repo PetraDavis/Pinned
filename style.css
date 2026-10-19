@@ -134,3 +134,11 @@ select { grid-column: 1 / -1; font: inherit; color: var(--ink); background: #141
 html.touch #crosshair { opacity: .7; }
 html.touch #pauseBtn { padding: 10px 14px; }
 #touch .t-small { min-width: 0; height: 36px; font-size: 12px; align-self: flex-end; }
+/* phone held sideways (short landscape): small title on top, menu in two columns on the left, clear of the title */
+@media (max-height: 520px) and (orientation: landscape) {
+  .title { font-size: clamp(26px, 12vh, 56px); top: max(6px, env(safe-area-inset-top, 0px)); }
+  #home { align-items: flex-end; justify-content: flex-start; padding: 0 0 max(10px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+  #home .menu { display: grid; grid-template-columns: 1fr 1fr; width: min(480px, 54vw); margin: 0 !important; max-height: calc(100vh - 12vh - 44px); }
+  #home .menu button { font-size: 15px; padding: 6px 8px; }
+  #home .menu .note { grid-column: 1 / -1; }
+}
