@@ -39,6 +39,7 @@ import { createHallucinations, initAccessibilitySettings } from './hallucinate.j
 import { captionSound } from './captions.js';
 import { initMultiplayer } from './net/multiplayer.js';
 import { createEscape } from './escape.js';
+import { IS_TOUCH, initTouch } from './touch.js';
 import { createTutorial } from './tutorial.js';
 import { createEnding } from './ending.js';
 import { createCredits } from './credits.js';
@@ -899,7 +900,7 @@ function playSlot(n) {
   if (s && s.completed) { confirmText.textContent = 'You got out. This save is finished. Start again from the beginning, in this slot?'; show('confirm', true); return; }
   if (s) startGame(s.checkpoint, s); else startGame(null);
 }
-function lock() { try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch { /* headless etc. */ } }
+function lock() { if (IS_TOUCH) return; try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch { /* headless etc. */ } }
 
 function startGame(checkpoint, saved = {}, hard = false) {
   playSecs = 0; hardcore = !!hard && !(mp && mp.active);
@@ -1111,3 +1112,29 @@ mp = initMultiplayer({ chooseSlot: cb => slotsUI.open('host', n => { setActiveSl
   extraState: () => ({ ln: lantern.on ? 1 : 0, hd: motherPlay.hidden ? 1 : 0, mv: player.moving ? 1 : 0, sp: player.moving && !player.crouching && player.keys && (player.keys.ShiftLeft || player.keys.ShiftRight) ? 1 : 0, dd: escDead ? 1 : 0, ui: ['modal', 'overlay', 'mothcard'].includes(state) ? 1 : 0 }), scene, camera, player, flashlight, say, lock, setZone, startGame, worldSnapshot, applyWorld,
   get zone() { return zone; }, get state() { return state; } });
 window.__pinned.mp = mp;
+
+// ---------- touchscreen controls (src/touch.js) ----------
+// tap to interact: aim the view at the tapped point for a moment and use what is there
+const _ray = new THREE.Raycaster(), _v = new THREE.Vector3();
+function tapInteract(nx, ny) {
+  if (state !== 'playing') return;
+  const yaw = player.yaw, pitch = player.pitch;
+  _ray.setFromCamera({ x: nx, y: ny }, camera); const d = _ray.ray.direction;
+  player.yaw = Math.atan2(-d.x, -d.z); player.pitch = Math.asin(THREE.MathUtils.clamp(d.y, -1, 1)); player.applyCamera(); camera.updateMatrixWorld();
+  const it = findInteractable();
+  let ok = !!it;
+  if (it && it.pos) { // a nearby object: the tap must land near it on screen
+    const ip = typeof it.pos === 'function' ? it.pos() : it.pos;
+    player.yaw = yaw; player.pitch = pitch; player.applyCamera(); camera.updateMatrixWorld();
+    // anything from the floor to head height at that spot counts (doors, drawers, things on the floor)
+    const a = _v.set(ip.x, 0, ip.z).project(camera).clone(), b = _v.set(ip.x, 1.8, ip.z).project(camera);
+    const sx = v => v.x * camera.aspect, ux = sx(b) - sx(a), uy = b.y - a.y, L2 = ux * ux + uy * uy || 1;
+    const t = THREE.MathUtils.clamp(((nx * camera.aspect - sx(a)) * ux + (ny - a.y) * uy) / L2, 0, 1);
+    ok = a.z < 1 && b.z < 1 && Math.hypot(nx * camera.aspect - (sx(a) + ux * t), ny - (a.y + uy * t)) < 0.35;
+  }
+  player.yaw = yaw; player.pitch = pitch; player.applyCamera();
+  current = findInteractable();
+  if (ok) it.act();
+}
+window.__pinned.tapInteract = tapInteract;
+initTouch({ player, pause, tapInteract, flashlight, lantern, state: () => state, prompt: () => window.__pinned.prompt, hardcore: () => hardcore, get mp() { return mp; } });

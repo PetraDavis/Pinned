@@ -111,3 +111,26 @@ select { grid-column: 1 / -1; font: inherit; color: var(--ink); background: #141
 #credits .cr-skip:hover:not(:disabled) { background: #3a2214; }
 #credits .cr-skip:disabled { opacity: .35; cursor: default; }
 #credits .cr-tools .cr-small { margin-top: 6px; }
+
+/* Touchscreen controls (src/touch.js): subtle brass-rimmed buttons, only on touch devices */
+#touch { position: fixed; inset: 0; z-index: 7; pointer-events: none; touch-action: none; -webkit-user-select: none; user-select: none; }
+#touch.hidden, #touch .hidden { display: none !important; }
+#touch .t-zone { position: absolute; top: 64px; z-index: -1; bottom: 0; pointer-events: auto; touch-action: none; }
+#touch .t-left { left: 0; width: 45%; } #touch .t-right { right: 0; width: 55%; }
+#touch .t-stick { position: absolute; width: 112px; height: 112px; margin: -56px 0 0 -56px; border-radius: 50%;
+  border: 1px solid rgba(185,167,126,.35); background: radial-gradient(circle, rgba(185,167,126,.06), rgba(0,0,0,.25)); pointer-events: none; }
+#touch .t-knob { position: absolute; left: 50%; top: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%;
+  border: 1px solid rgba(216,200,160,.55); background: radial-gradient(circle at 40% 35%, rgba(120,100,64,.55), rgba(30,24,16,.6)); }
+#touch .t-btns { position: absolute; display: flex; pointer-events: none; gap: 8px; }
+#touch .t-main { right: max(14px, env(safe-area-inset-right, 0px)); bottom: max(54px, env(safe-area-inset-bottom, 0px)); flex-wrap: wrap-reverse; flex-direction: row-reverse; width: 230px; justify-content: flex-start; }
+#touch .t-top { right: 12px; top: max(84px, env(safe-area-inset-top, 0px)); flex-direction: column; align-items: flex-end; }
+#touch button { pointer-events: auto; touch-action: none; min-width: 52px; height: 44px; padding: 0 10px; border-radius: 22px;
+  font: italic 13px Georgia, 'Times New Roman', serif; letter-spacing: .06em; color: #d8c8a0; opacity: .62;
+  background: rgba(12,10,8,.5); border: 1px solid rgba(185,167,126,.45); box-shadow: inset 0 0 0 2px rgba(0,0,0,.35), inset 0 0 0 3px rgba(185,167,126,.12); }
+#touch button:active { opacity: .95; background: rgba(60,50,34,.7); }
+#touch .t-big { width: 64px; height: 64px; border-radius: 50%; font: 700 22px Georgia, serif; font-style: normal; }
+#touch button.lit { opacity: .9; border-color: #d8b870; color: #f0dca0; }
+#touch .t-top button { height: 36px; min-width: 0; font-size: 12px; }
+html.touch #crosshair { opacity: .7; }
+html.touch #pauseBtn { padding: 10px 14px; }
+#touch .t-small { min-width: 0; height: 36px; font-size: 12px; align-self: flex-end; }
