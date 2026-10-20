@@ -22,7 +22,7 @@ import { SPECIES, drawSpecimenFit } from '../moths.js';
 // lifespan of the adult moth, shortest first (as the leader's journal tells it)
 // the dinner seating, in SEATS order: H, F, N1, N2, S1, S2
 export const DINNER_SOLUTION = ['lubricipeda', 'calyptra', 'rubicunda', 'cecropia', 'caja', 'bisselliella'];
-const DINNER_START = ['caja', 'rubicunda', 'bisselliella', 'lubricipeda', 'calyptra', 'cecropia'];
+export const DINNER_START = ['caja', 'rubicunda', 'bisselliella', 'lubricipeda', 'calyptra', 'cecropia'];
 export const SEATING_NOTE = [
   'A seating plan in the cook’s hand, for the Order’s last supper:',
   '“The pale one sits at the head, facing the window.',
@@ -303,6 +303,9 @@ export function buildGroundFloor(group, local, { quality: q0 = 'high' } = {}) {
     use(st, held) { const prev = st.key; st.key = held || null; placeDinner(); return prev; },
     correct() { return SEATS.every((st, i) => st.key === DINNER_SOLUTION[i]); },
     filled() { return SEATS.every(st => st.key); },
+    // multiplayer: who sits where
+    layout() { return SEATS.map(st => st.key || null); },
+    setLayout(k) { if (!Array.isArray(k) || k.length !== SEATS.length || !k.every(x => x === null || dinnerBoxes[x])) return false; const seen = new Set(); SEATS.forEach((st, i) => { const x = k[i]; st.key = x && !seen.has(x) ? (seen.add(x), x) : null; }); placeDinner(); return true; },
     solve() { SEATS.forEach((st, i) => { st.key = DINNER_SOLUTION[i]; }); placeDinner(); dinner.solved = true; },
     rattle() { dinner.shake = 1.2; },
     reset() { SEATS.forEach((st, i) => { st.key = DINNER_START[i]; st.flipped = false; st.flip = 0; st.plate.rotation.x = 0; }); dinner.solved = false; placeDinner(); },
@@ -365,11 +368,12 @@ export function buildGroundFloor(group, local, { quality: q0 = 'high' } = {}) {
 
   // =============== mirrors M1 (hallway) and M2 (grand hall) ===============
   // Each reflection shows the player a little more moth-like.
-  const size = quality === 'low' ? 256 : quality === 'medium' ? 512 : 1024;
+  const size = quality === 'xlow' ? 128 : quality === 'low' ? 256 : quality === 'medium' ? 512 : 1024;
   const avatars = [];
   const mirrors = [];
   function addMirror(m) {
-    const i = mirrors.length, av = makeAvatar(m.stage, { self: true }); av.visible = false; av.userData.anyFloor = true; group.add(av); avatars.push(av);
+    // the reflection's figure is built the first time you come near that mirror (a faster load)
+    const i = mirrors.length, av = new THREE.Group(); av.visible = false; av.userData.anyFloor = true; group.add(av); avatars.push(av);
     const mg = new THREE.Group(); mg.position.copy(m.pos); mg.rotation.y = m.ry; group.add(mg);
     const frame = new THREE.Mesh(new THREE.BoxGeometry(m.w + 0.16, m.h + 0.16, 0.05), new THREE.MeshStandardMaterial({ color: 0x8a6a30, metalness: 0.8, roughness: 0.35 }));
     frame.position.z = -0.02; mg.add(frame);
@@ -382,6 +386,7 @@ export function buildGroundFloor(group, local, { quality: q0 = 'high' } = {}) {
     ref.onBeforeRender = (renderer, scene, camera) => {
       ref.getWorldPosition(world);
       if (world.distanceTo(camera.position) > 9) return; // too far to matter: keep the last image
+      if (!av.children.length) av.add(makeAvatar(m.stage, { self: true }));
       av.visible = true; orig.call(ref, renderer, scene, camera); av.visible = false;
     };
     const out = { ...m, group: mg, avatar: av, world: m.pos.clone() }; mirrors.push(out); return out;
@@ -415,6 +420,8 @@ export function buildGroundFloor(group, local, { quality: q0 = 'high' } = {}) {
       const j = L.lifted; [L.order[i], L.order[j]] = [L.order[j], L.order[i]]; L.lifted = null; placeCases();
       return 'swapped';
     },
+    // multiplayer: the order of the cases on the board (a lifted case is only lifted for you)
+    setLifespanOrder(o) { if (!Array.isArray(o) || o.length !== L.order.length || [...o].sort().join() !== [...L.order].sort().join()) return false; L.order = [...o]; placeCases(); return true; },
     lifespanCorrect() { return L.order.every((k, i) => k === LIFESPAN_ORDER[i]); },
     solveLifespan() { L.order = [...LIFESPAN_ORDER]; L.lifted = null; L.solved = true; placeCases(); doors.grand.locked = false; },
     reset() {
@@ -434,7 +441,7 @@ export function buildGroundFloor(group, local, { quality: q0 = 'high' } = {}) {
       hiss = 0;
       lights.forEach((l, i) => {
         const u = l.userData; let k = 0.92 + Math.sin(t * 6 + i * 2.1) * 0.05 + Math.sin(t * 11.3 + i) * 0.03;
-        if (u.creepy && (quality !== 'low' || i % 2 === 0)) {
+        if (u.creepy && ((quality !== 'low' && quality !== 'xlow') || i % 2 === 0)) {
           if (u.sputter > 0) { u.sputter -= dt; k *= 0.35 + 0.5 * Math.abs(Math.sin(t * 47 + i)) * (Math.random() < 0.3 ? 0.2 : 1); }
           else if (Math.random() < dt * 0.25) u.sputter = 0.15 + Math.random() * 0.6;
           if (u.dip > 0) { u.dip -= dt; k *= 0.06; } else if (Math.random() < dt * 0.04) u.dip = 0.05 + Math.random() * 0.15;

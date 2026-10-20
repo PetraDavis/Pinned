@@ -15,7 +15,8 @@ function rng(seed) {
 
 // Texture resolution multiplier, set from the Graphics quality setting.
 let Q = 4;
-const ANISO = { 1: 2, 2: 8, 4: 16 };
+const ANISO = { 0.5: 1, 1: 2, 2: 8, 4: 16 };
+let PBR = true; // normal/roughness maps: only made where a setting can use them
 // Normal / roughness maps generated from a colour canvas, keyed by that canvas.
 export const pbrMaps = new WeakMap();
 
@@ -33,7 +34,7 @@ function canvasTex(w, h, draw, repeat = [1, 1], srgb = true, bump = 0) {
   t.repeat.set(repeat[0], repeat[1]);
   t.anisotropy = ANISO[Q] || 8;
   if (srgb) t.colorSpace = THREE.SRGBColorSpace;
-  if (bump) makePbr(c, bump);
+  if (bump && PBR) makePbr(c, bump);
   return t;
 }
 
@@ -101,7 +102,8 @@ function stains(g, w, h, n, r, color = '0,0,0', a = 0.12) {
 export const tex = {};
 
 export function buildTextures(quality = 'high') {
-  Q = { low: 1, medium: 2, high: 4 }[quality] || 4;
+  Q = { xlow: 0.5, low: 1, medium: 2, high: 4 }[quality] || 4;
+  PBR = quality !== 'low' && quality !== 'xlow'; // Low and Extra Low draw without them (main.js)
   // Grey ashlar stone for facades
   tex.stone = canvasTex(512, 512, (g, w, h) => {
     const r = rng(1);

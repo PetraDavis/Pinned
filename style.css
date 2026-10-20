@@ -142,3 +142,12 @@ html.touch #pauseBtn { padding: 10px 14px; }
   #home .menu button { font-size: 15px; padding: 6px 8px; }
   #home .menu .note { grid-column: 1 / -1; }
 }
+/* Settings and the brightness calibration on short or phone screens: the menu scrolls inside
+   the visible area (dvh: the part not under the browser's toolbars), and Back / Done stay
+   pinned at its bottom edge so they can always be pressed. */
+#settings .menu { max-height: calc(100vh - 24px); max-height: calc(100dvh - 24px - env(safe-area-inset-bottom, 0px)); overflow-y: auto; overscroll-behavior: contain; padding: 4px 4px 0; }
+#settings #btnSettingsBack { background: #14161a; position: sticky; bottom: 0; z-index: 1; box-shadow: 0 -10px 14px 2px rgba(3, 4, 6, 0.9); margin-bottom: max(6px, env(safe-area-inset-bottom, 0px)); }
+#calibrate { overflow-y: auto; justify-content: safe center; padding: 12px 16px max(12px, env(safe-area-inset-bottom, 0px)); box-sizing: border-box; }
+#calibrate canvas { max-height: 34vh; max-height: 34dvh; object-fit: contain; height: auto; }
+#calibrate button { background: #14161a; position: sticky; bottom: 0; min-width: 160px; flex-shrink: 0; }
+@media (max-height: 520px) { #calibrate { gap: 8px !important; } #calibrate .note { margin: 0; } }

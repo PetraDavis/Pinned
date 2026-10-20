@@ -78,20 +78,30 @@ export function makeAvatar(stage, opts = {}) {
   }
 
   // ---------- arms: shoulder, upper arm, bent elbow, forearm, ribbed cuff, hands ----------
+  // each arm and leg hangs from its own pivot (shoulder, hip) so it can swing when walking
+  const limbs = {};
+  const limb = (name, px, py, lists) => {
+    const piv = new THREE.Group(); piv.position.set(px, py, 0); body.add(piv); limbs[name] = piv;
+    for (const [geos, matl] of lists) { if (!geos.length) continue; const g = mergeGeometries(geos.map(clean), false); g.translate(-px, -py, 0); piv.add(new THREE.Mesh(g, matl)); }
+  };
   for (const sx of [-1, 1]) {
+    const arm = [], skinA = [];
     put(parts.hoodie, new THREE.SphereGeometry(0.06, 16, 12), sx * 0.17, 1.38, 0, 0, 0, 0, 1.1, 0.75, 1);
-    put(parts.hoodie, new THREE.CapsuleGeometry(0.052, 0.24, 6, 14), sx * 0.205, 1.2, 0, 0, 0, sx * 0.1);
-    put(parts.hoodie, new THREE.CapsuleGeometry(0.046, 0.22, 6, 14), sx * 0.235, 0.96, 0.025, -0.12, 0, sx * 0.05);
-    for (let k = 0; k < 3; k++) put(parts.hoodie, new THREE.TorusGeometry(0.04, 0.008, 6, 18), sx * 0.242, 0.83 - k * 0.015, 0.04, Math.PI / 2 - 0.12, 0, 0);
-    hand(sx, sx * 0.25, 0.8, 0.045);
+    put(arm, new THREE.CapsuleGeometry(0.052, 0.24, 6, 14), sx * 0.205, 1.2, 0, 0, 0, sx * 0.1);
+    put(arm, new THREE.CapsuleGeometry(0.046, 0.22, 6, 14), sx * 0.235, 0.96, 0.025, -0.12, 0, sx * 0.05);
+    for (let k = 0; k < 3; k++) put(arm, new THREE.TorusGeometry(0.04, 0.008, 6, 18), sx * 0.242, 0.83 - k * 0.015, 0.04, Math.PI / 2 - 0.12, 0, 0);
+    hand(sx, sx * 0.25, 0.8, 0.045, skinA);
+    limb(sx < 0 ? 'armL' : 'armR', sx * 0.18, 1.36, [[arm, hoodie], [skinA, skin]]);
   }
 
   // ---------- legs and shoes ----------
   const legProf = [[0.0, 0], [0.058, 0], [0.06, 0.06], [0.056, 0.3], [0.06, 0.42], [0.072, 0.62], [0.082, 0.8], [0.0, 0.82]].map(([x, y]) => V2(x, y));
   for (const sx of [-1, 1]) {
-    put(parts.jeans, new THREE.LatheGeometry(legProf, 18), sx * 0.09, 0.06, 0, 0, 0, sx * -0.02);
-    put(parts.shoe, new THREE.CapsuleGeometry(0.045, 0.15, 6, 12), sx * 0.09, 0.05, 0.04, Math.PI / 2, 0, 0, 1.1, 1, 0.8);
-    put(parts.sole, new THREE.BoxGeometry(0.1, 0.02, 0.27, 2, 1, 4), sx * 0.09, 0.01, 0.04);
+    const j = [], sh = [], so = [];
+    put(j, new THREE.LatheGeometry(legProf, 18), sx * 0.09, 0.06, 0, 0, 0, sx * -0.02);
+    put(sh, new THREE.CapsuleGeometry(0.045, 0.15, 6, 12), sx * 0.09, 0.05, 0.04, Math.PI / 2, 0, 0, 1.1, 1, 0.8);
+    put(so, new THREE.BoxGeometry(0.1, 0.02, 0.27, 2, 1, 4), sx * 0.09, 0.01, 0.04);
+    limb(sx < 0 ? 'legL' : 'legR', sx * 0.09, 0.86, [[j, jeans], [sh, shoeMat], [so, soleMat]]);
   }
   put(parts.jeans, new THREE.SphereGeometry(0.17, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2), 0, 0.84, 0, Math.PI, 0, 0, 0.98, 0.45, 0.64);
 
@@ -188,12 +198,12 @@ export function makeAvatar(stage, opts = {}) {
     const pts = []; for (let i = 0; i < 160; i++) { const u = hr() * 6.28, v = hr() * 1.3; pts.push(Math.cos(u) * Math.sin(v) * 0.112, 0.02 + Math.cos(v) * 0.112, Math.sin(u) * Math.sin(v) * 0.112); }
     head.add(new THREE.Points(new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(pts, 3)), new THREE.PointsMaterial({ color: 0xd8d0c0, size: 0.004 })));
   }
-  a.userData.stage = stage;
+  a.userData.stage = stage; a.userData.limbs = limbs;
   a.traverse(o => { if (o.isMesh) o.castShadow = false; });
   return a;
 
   // a relaxed hand: palm, four two-joint fingers curling slightly, a thumb, knuckles and nails
-  function hand(sx, x, y, z) {
+  function hand(sx, x, y, z, into = null) {
     const g = [];
     put(g, new THREE.BoxGeometry(0.062, 0.075, 0.022, 3, 3, 2), x, y - 0.04, z, 0, 0, 0);
     for (let f = 0; f < 4; f++) {
@@ -202,6 +212,7 @@ export function makeAvatar(stage, opts = {}) {
       put(g, new THREE.CapsuleGeometry(0.0056, l * 0.45, 4, 8), fx, y - 0.083 - l * 0.78, z + 0.011, 0.45, 0, 0);
     }
     put(g, new THREE.CapsuleGeometry(0.0075, 0.03 * fingerL, 4, 8), x + sx * 0.032, y - 0.055, z + 0.012, 0.5, 0, sx * 0.6);
+    if (into) { into.push(...g); return; }
     const m = new THREE.Mesh(mergeGeometries(g.map(clean), false), skin); m.scale.set(1, 1, 1); body.add(m);
   }
 }

@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { drawMoth } from './moths.js';
 
-const PER = { low: 2, medium: 4, high: 6 }, NEAR = 11, MAX_LAMPS = 6;
+const PER = { xlow: 1, low: 2, medium: 4, high: 6 }, NEAR = 11, MAX_LAMPS = 6;
 
 export function createLampMoths(scene, quality = 'high') {
   const lamps = [];

@@ -265,7 +265,7 @@ function buildCollector(q, label = null) {
   C.hand = buildHand(); s.add(C.hand); s.add(C.hand.userData.pin);
   // the lamp: one warm pool on the case
   C.lamp = new THREE.SpotLight(0xffd8a8, 9, 4, 0.55, 0.6, 1.5); C.lamp.position.set(-0.5, 1.3, 0.35); C.lamp.target.position.set(0, 0, 0); s.add(C.lamp, C.lamp.target);
-  if (q !== 'low') { C.lamp.castShadow = true; C.lamp.shadow.mapSize.set(1024, 1024); C.lamp.shadow.bias = -0.0004; C.hand.traverse(o => { if (o.isMesh) o.castShadow = true; }); }
+  if (q !== 'low' && q !== 'xlow') { C.lamp.castShadow = true; C.lamp.shadow.mapSize.set(1024, 1024); C.lamp.shadow.bias = -0.0004; C.hand.traverse(o => { if (o.isMesh) o.castShadow = true; }); }
   floor.receiveShadow = true;
   s.add(new THREE.HemisphereLight(0x504840, 0x080604, 0.35));
   return C;

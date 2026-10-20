@@ -11,6 +11,83 @@
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
 </script>
+<!-- Fetch every module at once instead of one import level at a time (much faster on slow
+     connections). Keep in step with the imports; a missing line only costs speed. -->
+<link rel="modulepreload" href="src/atticPlay.js">
+<link rel="modulepreload" href="src/audio.js">
+<link rel="modulepreload" href="src/audio/ambience.js">
+<link rel="modulepreload" href="src/audio/core.js">
+<link rel="modulepreload" href="src/audio/footsteps.js">
+<link rel="modulepreload" href="src/audio/index.js">
+<link rel="modulepreload" href="src/audio/mother.js">
+<link rel="modulepreload" href="src/audio/music.js">
+<link rel="modulepreload" href="src/audio/sfx.js">
+<link rel="modulepreload" href="src/caps.js">
+<link rel="modulepreload" href="src/captions.js">
+<link rel="modulepreload" href="src/catacombMoths.js">
+<link rel="modulepreload" href="src/catacombsPlay.js">
+<link rel="modulepreload" href="src/characters/mother.js">
+<link rel="modulepreload" href="src/collection.js">
+<link rel="modulepreload" href="src/credits.js">
+<link rel="modulepreload" href="src/ending.js">
+<link rel="modulepreload" href="src/escape.js">
+<link rel="modulepreload" href="src/fastCanvas.js">
+<link rel="modulepreload" href="src/flashlight.js">
+<link rel="modulepreload" href="src/hallucinate.js">
+<link rel="modulepreload" href="src/homeScreen.js">
+<link rel="modulepreload" href="src/lampMoths.js">
+<link rel="modulepreload" href="src/lantern.js">
+<link rel="modulepreload" href="src/lightsFlicker.js">
+<link rel="modulepreload" href="src/main.js">
+<link rel="modulepreload" href="src/mothNotes.js">
+<link rel="modulepreload" href="src/motherMoths.js">
+<link rel="modulepreload" href="src/motherPlay.js">
+<link rel="modulepreload" href="src/motherRoam.js">
+<link rel="modulepreload" href="src/moths.js">
+<link rel="modulepreload" href="src/net/link.js">
+<link rel="modulepreload" href="src/net/multiplayer.js">
+<link rel="modulepreload" href="src/net/remotes.js">
+<link rel="modulepreload" href="src/net/voice.js">
+<link rel="modulepreload" href="src/photoMode.js">
+<link rel="modulepreload" href="src/player.js">
+<link rel="modulepreload" href="src/roomMoths.js">
+<link rel="modulepreload" href="src/roomsPlay.js">
+<link rel="modulepreload" href="src/slots.js">
+<link rel="modulepreload" href="src/storage.js">
+<link rel="modulepreload" href="src/textures.js">
+<link rel="modulepreload" href="src/touch.js">
+<link rel="modulepreload" href="src/tutorial.js">
+<link rel="modulepreload" href="src/world/attic.js">
+<link rel="modulepreload" href="src/world/avatar.js">
+<link rel="modulepreload" href="src/world/bodies.js">
+<link rel="modulepreload" href="src/world/build.js">
+<link rel="modulepreload" href="src/world/catacombs.js">
+<link rel="modulepreload" href="src/world/cocoon.js">
+<link rel="modulepreload" href="src/world/drawerPuzzle.js">
+<link rel="modulepreload" href="src/world/exterior.js">
+<link rel="modulepreload" href="src/world/extraRooms.js">
+<link rel="modulepreload" href="src/world/firstRoom.js">
+<link rel="modulepreload" href="src/world/fixtures.js">
+<link rel="modulepreload" href="src/world/groundFloor.js">
+<link rel="modulepreload" href="src/world/lowerUpper.js">
+<link rel="modulepreload" href="src/world/stainedGlass.js">
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" crossorigin>
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/math/SimplexNoise.js" crossorigin>
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/objects/Reflector.js" crossorigin>
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/postprocessing/EffectComposer.js" crossorigin>
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/postprocessing/GTAOPass.js" crossorigin>
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/postprocessing/MaskPass.js" crossorigin>
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/postprocessing/OutputPass.js" crossorigin>
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/postprocessing/Pass.js" crossorigin>
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/postprocessing/RenderPass.js" crossorigin>
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/postprocessing/ShaderPass.js" crossorigin>
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/postprocessing/UnrealBloomPass.js" crossorigin>
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/shaders/CopyShader.js" crossorigin>
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/shaders/GTAOShader.js" crossorigin>
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/shaders/LuminosityHighPassShader.js" crossorigin>
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/shaders/OutputShader.js" crossorigin>
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/shaders/PoissonDenoiseShader.js" crossorigin>
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/utils/BufferGeometryUtils.js" crossorigin>
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -103,8 +180,8 @@
     <label>Field of view <output id="oFov"></output><input id="sFov" type="range" min="55" max="100" step="1"></label>
     <label class="check">Tutorial prompts<input id="sTutorial" type="checkbox"></label>
     <label class="check">Crouch toggles (instead of hold)<input id="sCrouchToggle" type="checkbox"></label>
-    <label for="sQuality">Graphics quality<select id="sQuality"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></label>
-    <p id="qualityNote" class="note">Lower quality runs faster on older computers.</p>
+    <label for="sQuality">Graphics quality<select id="sQuality"><option value="xlow">Extra Low</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></label>
+    <p id="qualityNote" class="note">Lower quality runs faster on older computers. Extra Low is for very slow phones and laptops: it loads fastest and draws the plainest.</p>
     <button id="btnReloadTex" class="hidden">Restart to apply texture detail</button>
     <button id="btnSettingsBack">Back</button>
   </div>

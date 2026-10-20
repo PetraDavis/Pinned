@@ -2,7 +2,9 @@
 // the game runs (Firefox and Safari default to Medium, software or weak GPUs to Low), and
 // says how many point lights may be active at once so shaders stay small enough for
 // Firefox's and Safari's shader compilers.
+let cached = null;
 export function detectCaps() {
+  if (cached) return cached;
   const ua = navigator.userAgent || '';
   const firefox = /Firefox\//.test(ua);
   const safari = /Safari\//.test(ua) && !/Chrome\/|Chromium\/|Edg\//.test(ua);
@@ -15,10 +17,10 @@ export function detectCaps() {
   } catch { /* no WebGL info */ }
   const software = /SwiftShader|llvmpipe|Software|Basic Render/i.test(gpu);
   const weak = software || /Intel.*(HD|UHD) Graphics [2-6]\d\d\b|Mali-[GT][0-7]\d\b|Adreno \(TM\) [3-5]\d\d/i.test(gpu);
-  const defaultQuality = weak ? 'low' : (firefox || safari) ? 'medium' : 'high';
+  const defaultQuality = software ? 'xlow' : weak ? 'low' : (firefox || safari) ? 'medium' : 'high';
   // nearest-N point lights (a fixed count, so three.js never recompiles shaders on the move)
   const maxLights = weak ? 8 : (firefox || safari) ? 8 : 12;
-  return { firefox, safari, gpu, software, weak, defaultQuality, maxLights };
+  return (cached = { firefox, safari, gpu, software, weak, defaultQuality, maxLights });
 }
 
 // Keep at most `max` non-shadow point lights visible: the nearest to the camera. The visible
