@@ -994,6 +994,7 @@ $('mothCardClose').onclick = closeMothCard;
 await loadStep('Waking the house', 'collection');
 const collection = createCollection();
 $('btnCredits').onclick = () => { show('home', false); credits.play(() => show('home', true)); };
+$('btnCreditsCorner').onclick = () => $('btnCredits').click(); // the always-visible corner button
 $('btnCollection').onclick = () => { show('home', false); collection.open(() => show('home', true)); };
 await loadStep('Waking the house', 'photo');
 const photo = createPhotoMode({ renderer, scene, camera,
