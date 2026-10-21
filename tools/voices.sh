@@ -45,7 +45,15 @@ done
 i=0
 for s in 6.45-9.6 11.15-12.25; do
   a=${s%-*}; b=${s#*-}; i=$((i+1))
-  ffmpeg -hide_banner -y -loglevel error -i $R/take-04-shriek.m4a -af "atrim=start=$a:end=$b,asetpts=PTS-STARTPTS,highpass=f=180,$DN,alimiter=limit=0.9,asetrate=48000*1.35,aresample=48000" -ac 1 $W/s$i-a.wav
+  ffmpeg -hide_banner -y -loglevel error -i $R/take-04-shriek.m4a -af "atrim=start=$a:end=$b,asetpts=PTS-STARTPTS,highpass=f=180,$DN" -ac 1 $W/s$i-raw.wav
+  if [ $i = 1 ]; then
+    # her 2nd take ends in a breathy hiss (from 2.0 s, and faintly 0.8-1.9 s): de-essed, softened and quieter, the scream itself untouched
+    ffmpeg -hide_banner -y -loglevel error -i $W/s$i-raw.wav -af "atrim=end=0.8" $W/s$i-p1.wav
+    ffmpeg -hide_banner -y -loglevel error -i $W/s$i-raw.wav -af "atrim=start=0.75,asetpts=PTS-STARTPTS,deesser=i=0.8:m=0.6:f=0.5,lowpass=f=6000,afftdn=nr=24:nf=-55,volume=-6dB" $W/s$i-p2.wav
+    ffmpeg -hide_banner -y -loglevel error -i $W/s$i-p1.wav -i $W/s$i-p2.wav -filter_complex "[0][1]acrossfade=d=0.05" $W/s$i-raw2.wav
+    mv $W/s$i-raw2.wav $W/s$i-raw.wav
+  fi
+  ffmpeg -hide_banner -y -loglevel error -i $W/s$i-raw.wav -af "alimiter=limit=0.9,asetrate=48000*1.35,aresample=48000" -ac 1 $W/s$i-a.wav
   ffmpeg -hide_banner -y -loglevel error -i $W/s$i-a.wav -af "asetrate=48000*1.9,aresample=48000,highpass=f=2500,volume=0.5" $W/s$i-b.wav
   ffmpeg -hide_banner -y -loglevel error -i $W/s$i-a.wav -i $W/s$i-b.wav -filter_complex "[0]tremolo=f=58:d=0.45,highpass=f=400[x];[x][1]amix=inputs=2:normalize=0:duration=first,equalizer=f=4000:t=q:w=1:g=3,afade=t=in:d=0.01" $W/s$i.wav
   ffmpeg -hide_banner -y -loglevel error -i $W/s$i.wav -af "areverse,afade=t=in:d=0.15,areverse" $W/s$i-f.wav
