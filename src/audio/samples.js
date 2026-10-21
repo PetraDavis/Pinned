@@ -4,7 +4,7 @@
 // (window.__PINNED_ASSETS, see tools/build.mjs).
 // Off until Petra has listened to the processed takes and said yes (then true, and the audio/
 // files go in with it).
-export const VOICES = false;
+export const VOICES = true;
 const cache = new WeakMap(); // AudioContext -> Map(name -> Promise<AudioBuffer|null>)
 let opus = null;
 const assetUrl = p => (typeof window !== 'undefined' && window.__PINNED_ASSETS && window.__PINNED_ASSETS[p]) || p;
