@@ -336,12 +336,19 @@ export function initMultiplayer(G) {
   }
   // host: a player moved something. Apply it, tell everyone what changed, and correct the sender
   function pzFromClient(c, diff) {
-    const before = pzNow(); pzApply(diff); const after = pzNow(); S.pzKnown = after;
+    const before = pzNow(); pzApply(diff); const after = pzNow();
+    // only what this message touched counts as known: the host's own moves since the last tick still go out
+    for (const k of new Set([...Object.keys(diff || {}), ...Object.keys(after).filter(k => before[k] !== after[k])])) if (after[k] !== undefined) S.pzKnown[k] = after[k];
     const changed = {}; for (const [k, v] of Object.entries(after)) if (before[k] !== v) changed[k] = v;
     const fix = { ...changed }; for (const k of Object.keys(diff || {})) if (after[k] !== undefined && after[k] !== diff[k]) fix[k] = after[k];
     for (const o of S.clients.values()) { const d = o === c ? fix : changed; if (Object.keys(d).length) o.link.send({ t: 'pz', d }); }
   }
-  function pzFromHost(diff) { pzApply(diff); S.pzKnown = pzNow(); }
+  function pzFromHost(diff) {
+    const before = pzNow(); pzApply(diff); const now = pzNow();
+    // mark known only what the host sent (and what applying it changed), so a move made here
+    // since the last tick is not mistaken for the host's and still gets sent
+    for (const k of Object.keys(now)) if (k in (diff || {}) || before[k] !== now[k]) S.pzKnown[k] = now[k];
+  }
 
   // ================= positions =================
   function myState() {

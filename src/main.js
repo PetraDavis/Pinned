@@ -1145,7 +1145,15 @@ function setPuzzleLayout(id, v) {
   const h = room.puzzle.held;
   if (h && ((id === 'dinner' && ground.dinner.layout().includes(h)) || (id === 'attic' && ground.attic.layout().rack.includes(h)))) room.puzzle.held = null;
   updateHeld();
+  // the host checks a shared puzzle after every merge: two people placing the last pieces at
+  // the same moment would otherwise each see an unfinished puzzle and nobody would solve it
+  if (ok && !(mp && mp.isClient)) setTimeout(() => sharedSolveCheck(id), 0);
   return ok;
+}
+function sharedSolveCheck(id) {
+  if (id === 'room' && !room.puzzle.solved && room.puzzle.filled() && room.puzzle.correct()) checkSequence();
+  if (id === 'dinner' && !ground.dinner.solved && ground.dinner.filled() && ground.dinner.correct()) checkDinner();
+  if (id === 'study' && !ground.lifespan.solved && ground.lifespanCorrect()) { playSoftClicks(5); ground.solveLifespan(); playGrind(); say('The last case settles on its hook. Behind the walls, something heavy slides, and down the hallway a bolt draws back.', 7000); save('study'); }
 }
 // a player left with a specimen in hand: put it back where it started, if that place is free
 function returnHeld(key) {
