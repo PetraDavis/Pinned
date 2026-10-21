@@ -1,6 +1,7 @@
 // The Mother: a rasping breath, clicks and wing flutters placed at her head with a
 // PannerNode, and the player's own heartbeat (not positional) rising as she gets close.
 import { A, gain, filt, noiseSrc, panner, placePanner, env, tone } from './core.js';
+import { flutter } from './ambience.js';
 
 // Petra's recorded breathing and clicks (audio/, made from her takes with ffmpeg: cleaned,
 // a little lower and fluttering for the breath, a higher dry layer on the clicks). Loaded a few

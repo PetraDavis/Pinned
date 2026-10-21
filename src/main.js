@@ -1040,7 +1040,17 @@ let gameTime = 0;
 // In multiplayer the shared world never stops: pausing only opens the menu for you.
 const frozen = () => ((state === 'paused' || state === 'photo') && !(mp && mp.active)) || state === 'home' || document.hidden;
 let shadowLights = null, frameNo = 0; const tmpShadowV = new THREE.Vector3();
+// One subsystem failing must never stop the game: each risky update runs through safe(), and the
+// frame as a whole is guarded too, so the next frame is always scheduled (a thrown error here once
+// froze the player in place while menus still worked). Each distinct error is logged once.
+const seenErrors = new Set();
+function reportError(where, e) { const k = where + ':' + (e && e.message); if (seenErrors.has(k)) return; seenErrors.add(k); console.error('[pinned] ' + where + ' failed:', e); }
+function safe(where, fn) { try { fn(); } catch (e) { reportError(where, e); } }
 function loop() {
+  try { frame(); } catch (e) { reportError('frame', e); try { renderer.render(scene, camera); } catch { /* nothing more to do */ } }
+  requestAnimationFrame(loop);
+}
+function frame() {
   const realDt = Math.min(clock.getDelta(), 0.05);
   const dt = frozen() ? 0 : realDt;
   { const now = performance.now() / 1000; if (state === 'playing' || state === 'paused') playSecs += Math.min(1, now - (lastPlayNow || now)); lastPlayNow = now; }
@@ -1055,10 +1065,10 @@ function loop() {
   lampMoths.update(t, camera);
   lightLimiter.update(camera);
   flicker.update(dt);
-  if (!escape.ownsMother) motherPlay.update(dt);
-  motherRoam.update(dt);
-  escape.update(dt, t);
-  { const d = Math.min(escape.ownsMother ? escape.warnDist : motherPlay.warnDist, motherRoam.warnDist); motherMoths.update(dt, t, d, motherPlay.hidden || state !== 'playing'); }
+  if (!escape.ownsMother) safe('mother', () => motherPlay.update(dt));
+  safe('roam', () => motherRoam.update(dt));
+  safe('escape', () => escape.update(dt, t));
+  safe('swarm', () => { const d = Math.min(escape.ownsMother ? escape.warnDist : motherPlay.warnDist, motherRoam.warnDist); motherMoths.update(dt, t, d, motherPlay.hidden || state !== 'playing'); });
   // shadow maps: only for shadow-casting lamps near the player, refreshed every other frame
   if (!shadowLights) { shadowLights = []; scene.traverse(o => { if (o.isLight && o.shadow && !o.isDirectionalLight && o.userData.shadowOn) shadowLights.push(o); }); }
   frameNo++;
@@ -1069,7 +1079,7 @@ function loop() {
   }
   flashlight.update(dt, t, player.moving, currentQ, lantern.on ? { on: true, onTime: lantern.onTime, pos: lantern.worldPos(lurePos) } : null);
   setHiss(state === 'playing' && zone === 'room' ? ground.hiss : 0);
-  updateAudio({ dt, realDt, state, frozen: frozen(), zone, player, camera, origin: ROOM_ORIGIN, mother: motherSound });
+  safe('audio', () => updateAudio({ dt, realDt, state, frozen: frozen(), zone, player, camera, origin: ROOM_ORIGIN, mother: motherSound }));
   if (state === 'playing') hintTick(dt);
   tutorial.tick(dt);
   catPlay.update(dt, t, state === 'playing');
@@ -1081,11 +1091,10 @@ function loop() {
   }
   else if (curtain) { curtain.rotation.x = -0.25 - Math.sin(t * 1.3) * 0.12 + Math.sin(t * 3.1) * 0.05; }
   tickSilk(t);
-  halluc.update(dt, state === 'playing', zone === 'room');
+  safe('hallucinations', () => halluc.update(dt, state === 'playing', zone === 'room'));
   lightLimiter.fade(realDt);
   if (state === 'ending') ending.frame(document.hidden ? 0 : realDt);
   else if (state !== 'home') { flicker.apply(); if (currentQ.post && composer) composer.render(dt); else renderer.render(scene, camera); flicker.restore(); }
-  requestAnimationFrame(loop);
 }
 
 // ---------- The Mother below the attic (motherRoam.js): First Floor, cellar, catacombs; never the ground floor ----------

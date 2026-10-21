@@ -39,9 +39,13 @@ export function initAudioSettings(settings, save) {
 // legacy API used by main.js
 export function setVolume(v) { if (S) S.volume = v; apply(); }
 export function startAudio(v) { if (S && v != null) S.volume = v; unlock(); apply(); }
-export function playFlutter(level = 1) { if (A.ctx && level > 0.02) motherFlutter(level); }
-export function playShriek(level = 1) { if (A.ctx && level > 0.02) motherShriek(level); }
-export function playClicksAt(level = 1, n = 2) { if (A.ctx && level > 0.02) motherClicks(level, n); }
+// a sound that fails must never break the game code that asked for it (a missing import here
+// once froze the attic chase): errors are logged once and swallowed
+const soundErr = new Set();
+const quiet = (name, fn) => { try { fn(); } catch (e) { if (!soundErr.has(name)) { soundErr.add(name); console.error('[pinned] sound ' + name + ' failed:', e); } } };
+export function playFlutter(level = 1) { if (A.ctx && level > 0.02) quiet('flutter', () => motherFlutter(level)); }
+export function playShriek(level = 1) { if (A.ctx && level > 0.02) quiet('shriek', () => motherShriek(level)); }
+export function playClicksAt(level = 1, n = 2) { if (A.ctx && level > 0.02) quiet('clicks', () => motherClicks(level, n)); }
 
 // ---- per frame ----
 const fwd = new THREE.Vector3(), up = new THREE.Vector3(), lp = { x: 0, y: 0, z: 0 };
