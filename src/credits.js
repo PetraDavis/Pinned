@@ -13,6 +13,8 @@ const LINES = `
   <div class="cr-title">PINNED</div>
   <div class="cr-rule">❦</div>
   <div class="cr-role">A game by</div><div class="cr-name">Petra Davis</div>
+  <div class="cr-role">Voice of the Mother</div><div class="cr-name">Petra Davis</div>
+  <div class="cr-role">Whispers</div><div class="cr-name">Petra Davis</div>
   <div class="cr-rule">❦</div>
   <div class="cr-thanks">Thanks to my beta tester and inspiration, Frida!</div>
   <div class="cr-rule">❦</div>
@@ -20,7 +22,7 @@ const LINES = `
     <div class="cr-role">Tools</div>
     <div class="cr-small">Built with Claude</div>
     <div class="cr-small">Engine: three.js</div>
-    <div class="cr-small">Sound: generated with the Web Audio API; every footstep, flutter and creak is synthesised as you play, with no recorded samples</div>
+    <div class="cr-small">Sound: generated with the Web Audio API; every footstep, flutter and creak is synthesised as you play. The Mother and the whispers are recorded voices</div>
     <div class="cr-small">Typeface: Cinzel Decorative by Natanael Gama, via Google Fonts (SIL Open Font License)</div>
   </div>`;
 
