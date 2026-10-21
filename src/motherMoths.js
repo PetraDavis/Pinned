@@ -5,7 +5,7 @@
 import * as THREE from 'three';
 import { drawMoth } from './moths.js';
 
-const CAP = { low: 24, medium: 50, high: 90 }, FAR = 15, THICK = 4;
+const CAP = { xlow: 14, low: 24, medium: 50, high: 90 }, FAR = 15, THICK = 4;
 
 export function createMotherMoths(camera, quality = 'high') {
   const c = document.createElement('canvas'); c.width = c.height = 64;

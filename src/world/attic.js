@@ -484,6 +484,19 @@ export function buildAttic(ctx) {
     setHour(i, h) { S.clock[i] = ((h - 1) % 12 + 12) % 12 + 1; placeToken(i, S.clock[i]); },
     clockCorrect() { return CLOCK_MOTHS.every((c, i) => S.clock[i] === c.hour); },
     solveClock() { S.clockSolved = true; S.clockHeld = -1; CLOCK_MOTHS.forEach((c, i) => api.setHour(i, c.hour)); removeLocal(hatchCol); },
+    // multiplayer: the arrangements on the table, the rack and the clock (what you carry stays yours)
+    layout() { return { jars: [...S.jars], rack: [...S.rack], clock: [...S.clock] }; },
+    setLayout(v) {
+      if (!v) return false;
+      if (Array.isArray(v.rack) && v.rack.length === S.rack.length && !S.rackSolved) { const seen = new Set(); S.rack = v.rack.map(k => (k && !seen.has(k) ? (seen.add(k), k) : null)); placeRack(); }
+      if (Array.isArray(v.jars) && v.jars.length === S.jars.length && !S.jarsSolved && v.jars.every(k => !k || jars[k])) {
+        const seen = new Set(); S.jars = v.jars.map(k => (k && !seen.has(k) ? (seen.add(k), k) : null));
+        if (S.jarHeld && seen.has(S.jarHeld)) S.jarHeld = null;
+        placeJars();
+      }
+      if (Array.isArray(v.clock) && v.clock.length === S.clock.length && !S.clockSolved) v.clock.forEach((h, i) => { if (i !== S.clockHeld && Number.isFinite(h)) api.setHour(i, h); });
+      return true;
+    },
     serialize() { return { jars: S.jars.map(k => k || S.jarHeld), jarsSolved: S.jarsSolved, rack: [...S.rack], rackSolved: S.rackSolved, eggsOpen: S.eggsOpen, boxOpen: S.boxOpen, clock: [...S.clock], clockSolved: S.clockSolved, wheel: S.wheel, sawRafters: S.sawRafters }; },
     restore(s) {
       if (!s) return;

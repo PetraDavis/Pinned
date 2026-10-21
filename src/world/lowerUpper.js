@@ -438,8 +438,11 @@ export function buildLowerUpper(ctx) {
       if (altar.seq.length < 4) return 'pressed';
       const ok = altar.seq.every((k, i) => k === ALTAR_ORDER[i]);
       if (ok) { api.solveAltar(); return 'solved'; }
-      altar.seq = []; altar.shake = 0.8; setTimeout(() => tiles.forEach(x => { x.pressed = false; }), 900); return 'wrong';
+      altar.seq = []; altar.shake = 0.8; setTimeout(() => tiles.forEach(x => { if (!altar.seq.includes(x.key)) x.pressed = false; }), 900); return 'wrong';
     },
+    // multiplayer: the stones pressed so far, in order
+    get altarSeq() { return [...altar.seq]; },
+    setAltarSeq(seq) { if (altar.solved || !Array.isArray(seq) || seq.length > 3 || !seq.every(k => tiles.some(x => x.key === k))) return false; altar.seq = [...new Set(seq)]; tiles.forEach(x => { x.pressed = altar.seq.includes(x.key); }); return true; },
     solveAltar() { altar.solved = true; altar.seq = [...ALTAR_ORDER]; tiles.forEach(x => { x.pressed = true; }); stairEOpen.v = true; ctx.doors.cWineEgg.locked = false; },
     openDesk() { deskOpen.v = true; keyTag.visible = true; ctx.doors.fLeaderLinen.locked = false; },
     reset() {

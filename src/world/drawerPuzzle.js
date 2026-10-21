@@ -181,6 +181,20 @@ export function createPuzzle(group, local, cabinetPos) {
       P.held = had || null;
       return hand && had ? 'swapped' : hand ? 'placed' : 'taken';
     },
+    // multiplayer: the shared arrangement (what lies in each drawer and on each stand);
+    // whatever is in someone's hand is in neither
+    layout() { return { s: stands.map(s => s.item), d: cabinet.drawers.map(d => d.userData.item) }; },
+    setLayout(v) {
+      const ok = k => k === null || boxes[k];
+      if (!v || !Array.isArray(v.s) || v.s.length !== 5 || !Array.isArray(v.d) || v.d.length !== 8 || ![...v.s, ...v.d].every(ok)) return false;
+      const seen = new Set(), clean = k => (k && !seen.has(k) ? (seen.add(k), k) : null);
+      const s2 = v.s.map(clean), d2 = v.d.map(clean);
+      if (P.held && seen.has(P.held)) P.held = null; // someone else put it down: it is not in your hand after all
+      for (const k in boxes) remove(k);
+      cabinet.drawers.forEach((d, i) => { d.userData.item = null; putInDrawer(d, d2[i]); });
+      stands.forEach((s, i) => { s.item = null; putOnStand(s, s2[i]); });
+      return true;
+    },
     filled() { return stands.every(s => s.item); },
     correct() { return stands.every((s, i) => s.item === SOLUTION[i]); },
     rattle() { stands.forEach(s => { s.shake = 1; }); },

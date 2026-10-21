@@ -1,4 +1,5 @@
 // Pinned - entry point: renderer, game states, menus, interactions, save points.
+import './fastCanvas.js'; // first: how texture canvases are kept (see the file)
 import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
@@ -11,14 +12,14 @@ import { createLampMoths } from './lampMoths.js';
 import { createMotherMoths } from './motherMoths.js';
 import { buildFirstRoom, ROOM_LAMP, ROOM_SPAWN, ROOM_WINDOW, ROOM_DOOR, ROOM_ORIGIN, ROOM_CABINET, ROOM_MOSAIC, ROOM_STANDS, ROOM_PANEL } from './world/firstRoom.js';
 import { tickSilk } from './world/cocoon.js';
-import { JOURNAL, LIFESPAN_ORDER, SEATING_NOTE, DINNER_SOLUTION } from './world/groundFloor.js';
+import { JOURNAL, LIFESPAN_ORDER, SEATING_NOTE, DINNER_SOLUTION, DINNER_START } from './world/groundFloor.js';
 import { SPECIES } from './moths.js';
 import { CELLAR, FIRST, WARDROBE_VERSE, DESK_CODE } from './world/lowerUpper.js';
 import { CATA } from './world/catacombs.js';
 import { createCatacombsPlay } from './catacombsPlay.js';
 import { createRoomsPlay } from './roomsPlay.js';
 import { MOTH_NOTES, STORY, buildMothNotes, mothImage } from './mothNotes.js';
-import { specimenCanvas } from './world/drawerPuzzle.js';
+import { specimenCanvas, DRAWER_ITEMS } from './world/drawerPuzzle.js';
 import { Player } from './player.js';
 import { startAudio, setVolume, playThud, playGlass, playCreak, playGrind, playClick, setHiss, playSoftClicks, playFlutter, playClicksAt, playShriek } from './audio.js';
 import { updateAudio, initAudioSettings, playDoor, playDrawer, playDial, playLamp, playLantern, playChime } from './audio/index.js';
@@ -59,6 +60,8 @@ const CAPS = detectCaps();
 // first run on this browser: pick a safe default
 if (!settings.qualityChosen) { settings.quality = CAPS.defaultQuality; settings.qualityChosen = true; saveSettings(settings); }
 const QUALITIES = {
+  // Extra Low: half pixel ratio, no shadows at all, no antialiasing, 256 px textures, no grass, dust or post effects
+  xlow: { pr: 0.5, shadow: 256, soft: false, lampShadows: false, pbr: false, grass: 0, dust: 0, post: false, noShadows: true },
   low: { pr: 0.75, shadow: 512, soft: false, lampShadows: false, pbr: false, grass: 0.2, dust: 0, post: false },
   medium: { pr: 1, shadow: 1024, soft: true, lampShadows: true, pbr: true, grass: 0.5, dust: 150, post: false },
   high: { pr: 1.5, shadow: 2048, soft: true, lampShadows: true, pbr: true, grass: 1, dust: 300, post: true },
@@ -66,10 +69,11 @@ const QUALITIES = {
 const texQuality = settings.quality; // the texture detail this page load was built with
 const QUALITY = QUALITIES[settings.quality] || QUALITIES.high;
 // logarithmic depth avoids z-fighting between close, nearly coplanar surfaces (cases, trims, glass)
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance', logarithmicDepthBuffer: settings.quality !== 'low' });
+const LOWEST = settings.quality === 'low' || settings.quality === 'xlow';
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: settings.quality !== 'xlow', powerPreference: 'high-performance', logarithmicDepthBuffer: !LOWEST });
 renderer.setPixelRatio(Math.min(devicePixelRatio, QUALITY.pr));
 renderer.setSize(innerWidth, innerHeight);
-renderer.shadowMap.enabled = true;
+renderer.shadowMap.enabled = !QUALITY.noShadows; // Extra Low: none (changing it back on needs a restart)
 renderer.shadowMap.type = QUALITY.soft ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -215,6 +219,7 @@ function applyQuality(q) {
   renderer.setPixelRatio(Math.min(devicePixelRatio, Q.pr));
   renderer.setSize(innerWidth, innerHeight);
   renderer.shadowMap.type = Q.soft ? THREE.PCFSoftShadowMap : THREE.BasicShadowMap;
+  renderer.shadowMap.enabled = !Q.noShadows; // Extra Low draws no shadows at all
   // post effects (GTAO + bloom) fall back to plain rendering if this browser can't build them
   if (Q.post && !composer) { try { composer = buildComposer(); } catch (e) { console.warn('Post-processing unavailable:', e); QUALITIES.high.post = false; } }
   if (composer) { composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(innerWidth, innerHeight); }
@@ -297,6 +302,7 @@ const motherPlay = createMotherPlay({
   localAlive: () => !escDead && zone === 'room' && ['playing', 'paused', 'modal', 'overlay'].includes(state),
   caughtMP: () => wakeTogether({ line: 'The top of the ladder. Dark, and then nothing; somewhere behind you, a dry click.' }),
   caught: () => {
+    if (mp && mp.active) return wakeTogether({}); // together: only you; the house goes on for the others
     state = 'cutscene'; player.enabled = false; playFlutter(1); playClicksAt(1, 6);
     say('Wings close over you, soft and enormous, and the light goes out.', 3000);
     setTimeout(() => { $('fade').style.opacity = 1; }, 600);
@@ -323,6 +329,12 @@ function wakeTogether({ spot = escape.spawn(), line = 'The top of the ladder. Be
     state = 'playing'; player.enabled = true; say(line, 5000);
   }, 3400);
 }
+// together, caught by her on the floors below the attic: wake at that floor's stair, where you came in
+function floorWakeSpot() {
+  const z = player.pos.z - ROOM_ORIGIN.z;
+  const sp = z < 70 ? CELLAR.spawn : z < 110 ? FIRST.spawn : z < 165 ? CATA.spawn : null;
+  return sp ? { x: sp.x, z: sp.z, yaw: Math.PI } : escape.spawn();
+}
 // ---------- the escape: the finale chase (escape.js) and the ending (ending.js) ----------
 const escape = createEscape({
   room, ground, origin: ROOM_ORIGIN, player, camera, flashlight, lantern, say, motherPlay, flicker, hardcore: () => hardcore,
@@ -334,6 +346,7 @@ const escape = createEscape({
   inGame: () => state !== 'home' && state !== 'ending',
   localAlive: () => !escDead && zone === 'room' && ['playing', 'paused', 'modal', 'overlay'].includes(state),
   caught: () => {
+    if (mp && mp.active) return wakeTogether({}); // together: only you; the house goes on for the others
     state = 'cutscene'; player.enabled = false; playFlutter(1); playClicksAt(1, 6);
     say('Wings close over you, soft and enormous, and the light goes out.', 3000);
     setTimeout(() => { $('fade').style.opacity = 1; }, 600);
@@ -1025,7 +1038,7 @@ function loop() {
   for (const l of shadowLights) {
     l.shadow.autoUpdate = false;
     let o = l, vis = true; while (o) { if (!o.visible) { vis = false; break; } o = o.parent; }
-    if (vis && l.castShadow && l.intensity > 0 && (settings.quality === 'low' ? (frameNo & 1) === 0 : true) && l.getWorldPosition(tmpShadowV).distanceTo(camera.position) < 14) l.shadow.needsUpdate = true;
+    if (vis && l.castShadow && l.intensity > 0 && (LOWEST ? (frameNo & 1) === 0 : true) && l.getWorldPosition(tmpShadowV).distanceTo(camera.position) < 14) l.shadow.needsUpdate = true;
   }
   flashlight.update(dt, t, player.moving, currentQ, lantern.on ? { on: true, onTime: lantern.onTime, pos: lantern.worldPos(lurePos) } : null);
   setHiss(state === 'playing' && zone === 'room' ? ground.hiss : 0);
@@ -1049,15 +1062,17 @@ function loop() {
 }
 
 // ---------- The Mother below the attic (motherRoam.js): First Floor, cellar, catacombs; never the ground floor ----------
-const motherRoam = createMotherRoam({
+let roamCtx; // kept for tests (window.__pinned.roamCaught)
+const motherRoam = createMotherRoam(roamCtx = {
   room, origin: ROOM_ORIGIN, player, camera, flashlight, lantern, say, motherPlay, flicker, colliders: () => colliders(), hardcore: () => hardcore,
   sfx: { flutter: (l) => { captionSound('[wings fluttering]'); playFlutter(l); }, clicks: (l, n) => { captionSound('[clicking nearby]'); playClicksAt(l, n); }, shriek: (l) => { captionSound('[a thin, rising shriek]'); playShriek(l); } },
   detectScale: () => catPlay.detectScale, playerCount: () => playerCount(), state: () => state, zone: () => zone,
   escapeOwns: () => escape.ownsMother, mpClient: () => !!(mp && mp.isClient),
   net: { active: () => !!(mp && mp.active), players: () => mp.players, toAll: (m) => mp.escSend(m), toOne: (id, m) => mp.escSend(m, null, id), toHost: (m) => mp.escSend(m) },
   localAlive: () => !escDead && zone === 'room' && ['playing', 'paused', 'modal', 'overlay'].includes(state),
-  caughtMP: () => wakeTogether({ line: 'Dark, and then nothing. Somewhere below you, a dry click.' }),
+  caughtMP: () => wakeTogether({ spot: floorWakeSpot(), line: 'Dark, and then nothing. You come to by the stair you came down. Somewhere, a dry click.' }),
   caught: () => {
+    if (mp && mp.active) return wakeTogether({ spot: floorWakeSpot(), line: 'Dark, and then nothing. You come to by the stair you came down. Somewhere, a dry click.' }); // together: only you, the others play on
     state = 'cutscene'; player.enabled = false; playFlutter(1); playClicksAt(1, 6);
     say('Wings close over you, soft and enormous, and the light goes out.', 3000);
     setTimeout(() => { $('fade').style.opacity = 1; }, 600);
@@ -1088,7 +1103,7 @@ function worldSnapshot() {
     cat: catPlay.state(), attic: ground.attic.serialize() };
 }
 // catacomb and attic puzzle state: take the other side's when it has got further (more solved/open flags)
-const progress = o => o ? Object.values(o).filter(v => v === true).length : 0;
+const progress = o => o ? Object.values(o).reduce((n, v) => n + (v === true ? 1 : Array.isArray(v) ? v.length : 0), 0) : 0; // flags set, keys found and fitted
 function applyWorld(w) {
   const res = { moths: [], solved: false };
   if (typeof w.lamp === 'boolean' && w.lamp !== room.lampOn) room.setLamp(w.lamp);
@@ -1107,11 +1122,55 @@ function applyWorld(w) {
   if (w.attic && progress(w.attic) > progress(ground.attic.serialize())) { ground.attic.restore(w.attic); res.solved = true; }
   return res;
 }
-mp = initMultiplayer({ chooseSlot: cb => slotsUI.open('host', n => { setActiveSlot(n); const s = loadSave(); cb(!!s && !s.completed); }),
+// Puzzles in progress, shared together: where each specimen, case, guest, stone, jar and
+// clock moth is right now (not just whether the puzzle is solved). What someone carries is in
+// nobody's layout. Solved puzzles drop out (the solved flags above carry them).
+function puzzleLayouts() {
+  const out = {};
+  if (!room.puzzle.solved) out.room = room.puzzle.layout();
+  if (!ground.lifespan.solved) out.study = { o: [...ground.lifespan.order] };
+  if (!ground.dinner.solved) out.dinner = { k: ground.dinner.layout() };
+  if (!ground.lu.altarSolved) out.altar = { q: ground.lu.altarSeq.join(',') };
+  out.attic = ground.attic.layout();
+  return out;
+}
+function setPuzzleLayout(id, v) {
+  let ok = false;
+  if (id === 'room' && !room.puzzle.solved) ok = room.puzzle.setLayout(v);
+  else if (id === 'study' && !ground.lifespan.solved) { ok = ground.setLifespanOrder(v && v.o); const L = ground.lifespan; if (ok && L.lifted !== null) { /* still lifted for you */ } }
+  else if (id === 'dinner' && !ground.dinner.solved) ok = ground.dinner.setLayout(v && v.k);
+  else if (id === 'altar' && !ground.lu.altarSolved) ok = ground.lu.setAltarSeq(v && typeof v.q === 'string' ? (v.q ? v.q.split(',') : []) : null);
+  else if (id === 'attic') ok = ground.attic.setLayout(v);
+  // two of you grabbed the same specimen: whoever put it down first has it
+  const h = room.puzzle.held;
+  if (h && ((id === 'dinner' && ground.dinner.layout().includes(h)) || (id === 'attic' && ground.attic.layout().rack.includes(h)))) room.puzzle.held = null;
+  updateHeld();
+  // the host checks a shared puzzle after every merge: two people placing the last pieces at
+  // the same moment would otherwise each see an unfinished puzzle and nobody would solve it
+  if (ok && !(mp && mp.isClient)) setTimeout(() => sharedSolveCheck(id), 0);
+  return ok;
+}
+function sharedSolveCheck(id) {
+  if (id === 'room' && !room.puzzle.solved && room.puzzle.filled() && room.puzzle.correct()) checkSequence();
+  if (id === 'dinner' && !ground.dinner.solved && ground.dinner.filled() && ground.dinner.correct()) checkDinner();
+  if (id === 'study' && !ground.lifespan.solved && ground.lifespanCorrect()) { playSoftClicks(5); ground.solveLifespan(); playGrind(); say('The last case settles on its hook. Behind the walls, something heavy slides, and down the hallway a bolt draws back.', 7000); save('study'); }
+}
+// a player left with a specimen in hand: put it back where it started, if that place is free
+function returnHeld(key) {
+  if (!key || key === room.puzzle.held) return;
+  const L = puzzleLayouts();
+  const inUse = (L.room ? [...L.room.s, ...L.room.d] : []).concat(L.dinner ? L.dinner.k : [], L.attic ? L.attic.rack : []);
+  if (inUse.includes(key)) return;
+  if (L.room) { const i = DRAWER_ITEMS.indexOf(key); if (i >= 0 && !L.room.d[i]) { L.room.d[i] = key; room.puzzle.setLayout(L.room); return; } }
+  if (L.dinner) { const i = DINNER_START.indexOf(key); if (i >= 0 && !L.dinner.k[i]) { L.dinner.k[i] = key; ground.dinner.setLayout(L.dinner.k); return; } }
+  if (L.attic && SPAN_MM[key]) { const i = L.attic.rack.indexOf(null); if (i >= 0) { L.attic.rack[i] = key; ground.attic.setLayout({ rack: L.attic.rack }); } }
+}
+mp = initMultiplayer({ puzzleLayouts, setPuzzleLayout, returnHeld, chooseSlot: cb => slotsUI.open('host', n => { setActiveSlot(n); const s = loadSave(); cb(!!s && !s.completed); }),
   onEsc: (from, m) => (m.mo === 2 ? motherRoam.onNet(from, m) : m.mo ? motherPlay.onNet(from, m) : escape.onNet(from, m)),
-  extraState: () => ({ ln: lantern.on ? 1 : 0, hd: motherPlay.hidden ? 1 : 0, mv: player.moving ? 1 : 0, sp: player.moving && !player.crouching && player.keys && (player.keys.ShiftLeft || player.keys.ShiftRight) ? 1 : 0, dd: escDead ? 1 : 0, ui: ['modal', 'overlay', 'mothcard'].includes(state) ? 1 : 0 }), scene, camera, player, flashlight, say, lock, setZone, startGame, worldSnapshot, applyWorld,
+  extraState: () => ({ ln: lantern.on && lantern.fuel > 0 ? 1 : 0, hk: room.puzzle.held || 0, hd: motherPlay.hidden ? 1 : 0, mv: player.moving ? 1 : 0, sp: player.moving && !player.crouching && player.keys && (player.keys.ShiftLeft || player.keys.ShiftRight) ? 1 : 0, dd: escDead ? 1 : 0, ui: ['modal', 'overlay', 'mothcard'].includes(state) ? 1 : 0 }), scene, camera, player, flashlight, say, lock, setZone, startGame, worldSnapshot, applyWorld,
   get zone() { return zone; }, get state() { return state; } });
 window.__pinned.mp = mp;
+window.__pinned.roamCaught = () => roamCtx.caught(); // test hook: as if she caught you here
 
 // ---------- touchscreen controls (src/touch.js) ----------
 // tap to interact: aim the view at the tapped point for a moment and use what is there
