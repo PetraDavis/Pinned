@@ -30,15 +30,18 @@ for s in 0.55-1.15 2.65-4.1 5.95-7.0 8.5-9.45 10.55-10.85 12.25-12.85 13.9-14.35
   peaknorm $W/c$i.wav -3 $W/cn$i.wav; check $W/cn$i.wav; enc $W/cn$i.wav mother-click-$i 24k
 done
 
-# ---- whispers (take-03): the 8 lines, cleaned hard, loud and clear; a detuned double, a reversed swell, short echoes
+# ---- whispers (take-03): the 8 lines; Petra needs to understand the words, so the dry voice stays on top:
+#      hard noise removal, a strong 1-4 kHz presence lift, a faint double and a little room, nothing else
 i=0
 for s in 0.1-2.5 5.2-7.4 10.15-11.6 13.4-16.95 19.35-21.05 22.85-24.65 26.4-27.95 29.3-31.35; do
   a=${s%-*}; b=${s#*-}; i=$((i+1))
-  ffmpeg -hide_banner -y -loglevel error -i $R/take-03-whispers.m4a -af "atrim=start=$a:end=$b,asetpts=PTS-STARTPTS,highpass=f=160,lowpass=f=9000,$DN,$GATE,equalizer=f=3200:t=q:w=1:g=6,equalizer=f=250:t=q:w=1:g=-4,apad=pad_dur=0.8" -ac 1 $W/w$i-dry.wav
-  ffmpeg -hide_banner -y -loglevel error -i $W/w$i-dry.wav -af "asetrate=48000*1.025,aresample=48000,adelay=22,volume=0.4" $W/w$i-dbl.wav
-  ffmpeg -hide_banner -y -loglevel error -i $W/w$i-dry.wav -af "areverse,aecho=0.8:0.6:90|170:0.35|0.22,areverse,volume=0.3" $W/w$i-rev.wav
-  ffmpeg -hide_banner -y -loglevel error -i $W/w$i-dry.wav -i $W/w$i-dbl.wav -i $W/w$i-rev.wav -filter_complex "[0][1][2]amix=inputs=3:normalize=0:duration=first,aecho=0.8:0.5:60|140:0.22|0.12" $W/w$i.wav
-  loud $W/w$i.wav -16 $W/wn$i.wav; check $W/wn$i.wav; enc $W/wn$i.wav whisper-$i 32k
+  # every line brought to the same level first, so the gate treats the soft ones like the rest
+  ffmpeg -hide_banner -y -loglevel error -i $R/take-03-whispers.m4a -af "atrim=start=$a:end=$b,asetpts=PTS-STARTPTS,highpass=f=160" -ac 1 $W/w$i-cut.wav
+  peaknorm $W/w$i-cut.wav -12 $W/w$i-lvl.wav
+  ffmpeg -hide_banner -y -loglevel error -i $W/w$i-lvl.wav -af "lowpass=f=10000,$DN,$GATE,equalizer=f=2500:t=o:w=1.6:g=7,equalizer=f=1200:t=q:w=1:g=2,equalizer=f=250:t=q:w=1:g=-5,acompressor=threshold=0.05:ratio=3:attack=5:release=80:makeup=2,apad=pad_dur=0.4" -ac 1 $W/w$i-dry.wav
+  ffmpeg -hide_banner -y -loglevel error -i $W/w$i-dry.wav -af "asetrate=48000*1.012,aresample=48000,adelay=15,volume=0.15" $W/w$i-dbl.wav
+  ffmpeg -hide_banner -y -loglevel error -i $W/w$i-dry.wav -i $W/w$i-dbl.wav -filter_complex "[0][1]amix=inputs=2:normalize=0:duration=first,aecho=0.9:0.3:45|95:0.12|0.06" $W/w$i.wav
+  loud $W/w$i.wav -15 $W/wn$i.wav; check $W/wn$i.wav; enc $W/wn$i.wav whisper-$i 40k
 done
 
 # ---- shriek (take-04): Petra keeps the 2nd and 3rd; the 3rd is the main one (louder), the 2nd a quieter variant
@@ -48,9 +51,10 @@ for s in 6.45-9.6 11.15-12.25; do
   ffmpeg -hide_banner -y -loglevel error -i $R/take-04-shriek.m4a -af "atrim=start=$a:end=$b,asetpts=PTS-STARTPTS,highpass=f=180,$DN" -ac 1 $W/s$i-raw.wav
   if [ $i = 1 ]; then
     # her 2nd take ends in a breathy hiss (from 2.0 s, and faintly 0.8-1.9 s): de-essed, softened and quieter, the scream itself untouched
-    ffmpeg -hide_banner -y -loglevel error -i $W/s$i-raw.wav -af "atrim=end=0.8" $W/s$i-p1.wav
+    # Petra: its own screech sounded like a creak, so it opens with her 3rd take's screech instead
+    ffmpeg -hide_banner -y -loglevel error -i $R/take-04-shriek.m4a -af "atrim=start=11.15:end=12.0,asetpts=PTS-STARTPTS,highpass=f=180,$DN" -ac 1 $W/s$i-p1.wav
     ffmpeg -hide_banner -y -loglevel error -i $W/s$i-raw.wav -af "atrim=start=0.75,asetpts=PTS-STARTPTS,deesser=i=0.8:m=0.6:f=0.5,lowpass=f=6000,afftdn=nr=24:nf=-55,volume=-6dB" $W/s$i-p2.wav
-    ffmpeg -hide_banner -y -loglevel error -i $W/s$i-p1.wav -i $W/s$i-p2.wav -filter_complex "[0][1]acrossfade=d=0.05" $W/s$i-raw2.wav
+    ffmpeg -hide_banner -y -loglevel error -i $W/s$i-p1.wav -i $W/s$i-p2.wav -filter_complex "[0][1]acrossfade=d=0.08" $W/s$i-raw2.wav
     mv $W/s$i-raw2.wav $W/s$i-raw.wav
   fi
   ffmpeg -hide_banner -y -loglevel error -i $W/s$i-raw.wav -af "alimiter=limit=0.9,asetrate=48000*1.35,aresample=48000" -ac 1 $W/s$i-a.wav
