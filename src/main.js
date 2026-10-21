@@ -31,6 +31,7 @@ import { createSlotScreen, placeOf } from './slots.js';
 import { addEverMoth } from './storage.js';
 import { createCollection } from './collection.js';
 import { createPhotoMode } from './photoMode.js';
+import { makeAvatar } from './world/avatar.js';
 import { startHomeBackdrop } from './homeScreen.js';
 import { createAtticPlay } from './atticPlay.js';
 import { SPAN_MM, rackPlateCanvas } from './world/attic.js';
@@ -167,6 +168,7 @@ function torchBurst() {
   const why = flashlight.failWhy;
   if (why === 'battery') { flashScreen(0.12); say('The bulb only flickers. Not enough battery for a burst.', 2500); }
   else if (why === 'off') say('Switch the torch on first (F), then B for a burst.', 2500);
+  else if (why === 'cooldown') say('The bulb is still hot. A moment before the next burst.', 1500);
 }
 function updateBatteryHud() {
   batteryFill.style.width = Math.round(flashlight.battery * 100) + '%';
@@ -317,7 +319,7 @@ const motherPlay = createMotherPlay({
   // together: the host runs her (like the escape); a caught player wakes at the top of the ladder
   mpClient: () => !!(mp && mp.isClient), state: () => state, inGame: () => state !== 'home' && state !== 'ending',
   net: { active: () => !!(mp && mp.active), players: () => mp.players, toAll: (m) => mp.escSend(m), toOne: (id, m) => mp.escSend(m, null, id), toHost: (m) => mp.escSend(m) },
-  localAlive: () => !escDead && zone === 'room' && ['playing', 'paused', 'modal', 'overlay'].includes(state),
+  localAlive: () => !escDead && zone === 'room' && ['playing', 'paused', 'modal', 'overlay', 'photo'].includes(state),
   caughtMP: () => wakeTogether({ line: 'The top of the ladder. Dark, and then nothing; somewhere behind you, a dry click.' }),
   caught: () => {
     if (mp && mp.active) return wakeTogether({}); // together: only you; the house goes on for the others
@@ -334,6 +336,7 @@ let escDead = false;
 function caughtTogether() { wakeTogether({}); }
 // any death together (the chase, the attic Mother, the poison): no reload of your save; you wake at a checkpoint
 function wakeTogether({ spot = escape.spawn(), line = 'The top of the ladder. Behind you, in the dark, she is coming.', wings = true, after = null }) {
+  if (photo && photo.active) photo.stop(); // caught while out of your body (multiplayer): back in it first
   if (escDead) return;
   escDead = true; state = 'cutscene'; player.enabled = false;
   if (wings) { playFlutter(1); playClicksAt(1, 6); say('Wings close over you, soft and enormous, and the light goes out.', 3000); }
@@ -363,7 +366,7 @@ const escape = createEscape({
   net: { active: () => !!(mp && mp.active), players: () => mp.players, toAll: (m, except) => mp.escSend(m, except), toOne: (id, m) => mp.escSend(m, null, id), toHost: (m) => mp.escSend(m) },
   playerCount: () => playerCount(), caughtMP: () => caughtTogether(), state: () => state,
   inGame: () => state !== 'home' && state !== 'ending',
-  localAlive: () => !escDead && zone === 'room' && ['playing', 'paused', 'modal', 'overlay'].includes(state),
+  localAlive: () => !escDead && zone === 'room' && ['playing', 'paused', 'modal', 'overlay', 'photo'].includes(state),
   caught: () => {
     if (mp && mp.active) return wakeTogether({}); // together: only you; the house goes on for the others
     state = 'cutscene'; player.enabled = false; playFlutter(1); playClicksAt(1, 6);
@@ -1001,8 +1004,27 @@ $('btnCollection').onclick = () => { show('home', false); collection.open(() => 
 await loadStep('Waking the house', 'photo');
 const photo = createPhotoMode({ renderer, scene, camera,
   render: () => { if (currentQ.post && composer) composer.render(0); else renderer.render(scene, camera); },
-  enter: () => { if (state !== 'playing' && state !== 'paused') return false; if (mp && mp.active) { say('Photo mode is not available in multiplayer.', 3000); return false; } show('pause', false); state = 'photo'; player.enabled = false; if (document.pointerLockElement) document.exitPointerLock(); },
-  exit: () => { state = 'playing'; player.enabled = true; lock(); } });
+  enter: () => { if (state !== 'playing' && state !== 'paused') return false; show('pause', false); state = 'photo'; player.enabled = false; if (document.pointerLockElement) document.exitPointerLock(); showBody(true); },
+  exit: () => { showBody(false); state = 'playing'; player.enabled = true; lock(); } });
+// Out of your body: in photo mode your own figure stands where you left it, seen in the third
+// person, as moth-like as the furthest mirror you have looked into shows you. Only on this screen:
+// in multiplayer the others still see your avatar where you stand (it is driven by player.pos).
+const bodies = {};
+function showBody(on) {
+  // the torch in your hand is drawn in front of the camera: hide its body while the camera is free (the beam stays)
+  flashlight.model.traverse(o => { if (o.isMesh) o.visible = !on; });
+  for (const b of Object.values(bodies)) b.visible = false;
+  ground.selfAt = null; ground.selfBody = null;
+  if (!on) return;
+  const stage = ground.mirrors.reduce((m, r) => r.avatar.children.length ? Math.max(m, r.stage) : m, 0);
+  const b = bodies[stage] || (bodies[stage] = (() => { const g = new THREE.Group(); g.userData.photoIgnore = true; g.add(makeAvatar(stage, { self: true })); scene.add(g); return g; })());
+  const eye = 1.62 + (0.95 - 1.62) * (player.crouchT || 0) - (player.lowView || 0);
+  b.position.set(player.pos.x, Math.max(0, camera.position.y - eye), player.pos.z);
+  b.rotation.set(0, player.yaw + Math.PI, 0); // the figure faces +z; the view looks down -z
+  b.scale.set(1, 1 - 0.3 * (player.crouchT || 0), 1);
+  b.visible = true;
+  ground.selfAt = { x: player.pos.x - ROOM_ORIGIN.x, z: player.pos.z - ROOM_ORIGIN.z, yaw: player.yaw }; ground.selfBody = b;
+}
 $('btnPhoto').onclick = () => photo.start();
 addEventListener('keydown', e => { if (e.code === 'KeyK' && state === 'playing' && !e.repeat) photo.start(); });
 
@@ -1109,7 +1131,7 @@ const motherRoam = roamRef = createMotherRoam(roamCtx = {
   detectScale: () => catPlay.detectScale, playerCount: () => playerCount(), state: () => state, zone: () => zone,
   escapeOwns: () => escape.ownsMother, mpClient: () => !!(mp && mp.isClient),
   net: { active: () => !!(mp && mp.active), players: () => mp.players, toAll: (m) => mp.escSend(m), toOne: (id, m) => mp.escSend(m, null, id), toHost: (m) => mp.escSend(m) },
-  localAlive: () => !escDead && zone === 'room' && ['playing', 'paused', 'modal', 'overlay'].includes(state),
+  localAlive: () => !escDead && zone === 'room' && ['playing', 'paused', 'modal', 'overlay', 'photo'].includes(state),
   caughtMP: () => wakeTogether({ spot: floorWakeSpot(), line: 'Dark, and then nothing. You come to by the stair you came down. Somewhere, a dry click.' }),
   caught: () => {
     if (mp && mp.active) return wakeTogether({ spot: floorWakeSpot(), line: 'Dark, and then nothing. You come to by the stair you came down. Somewhere, a dry click.' }); // together: only you, the others play on

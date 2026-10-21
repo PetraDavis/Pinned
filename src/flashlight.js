@@ -10,7 +10,7 @@ import { SPECIES, drawMoth } from './moths.js';
 
 const DRAIN = 1 / 300;          // a full battery lasts five minutes of light
 const LOW = 0.15;               // below this the beam flickers
-export const BURST_COST = 0.12, BURST_RANGE = 8, BURST_COOLDOWN = 1.5, STUN_TIME = 3.5;
+export const BURST_COST = 0.12, BURST_RANGE = 8, BURST_COOLDOWN = 1.5, STUN_TIME = 5;
 // does a torch burst catch a target? Forgiving: roughly in front of you (about 40 degrees either
 // side, in plan, so looking up or down at her does not matter), within BURST_RANGE (+ a little for
 // her size), and with nothing solid between. `at` is her world position, losFn() the wall test.

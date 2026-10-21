@@ -241,6 +241,9 @@ export function createMotherRoam(G) {
     // tests: a free spot r metres (+-1) from her that she can walk to, in plain sight of her
     debugSpotNear(r) { const g = grid(S.floor), c0 = nearestFree(g, S.pos); if (c0 < 0) return null; const d = field(g, c0); let best = null, bd = 1e9;
       for (let c = 0; c < d.length; c++) { if (d[c] < 0) continue; const v = cellPos(g, c), e = Math.abs(v.distanceTo(S.pos) - r); if (e < bd && los(v, S.pos)) { bd = e; best = v; } } return best && [best.x, best.y]; },
+    // tests: a reachable spot rmin..rmax metres from her with a wall between
+    debugHiddenSpot(rmin, rmax) { const g = grid(S.floor), c0 = nearestFree(g, S.pos); if (c0 < 0) return null; const d = field(g, c0);
+      for (let c = 0; c < d.length; c++) { if (d[c] < 0) continue; const v = cellPos(g, c), L = v.distanceTo(S.pos); if (L > rmin && L < rmax && !los(v, S.pos)) return [v.x, v.y]; } return null; },
     debugGrid(f) { const g = grid(f), me = P(), c = nearestFree(g, me), d = c >= 0 ? field(g, c) : []; let n = 0, mx = 0, free = 0; for (let i = 0; i < d.length; i++) { if (d[i] >= 0) { n++; mx = Math.max(mx, d[i]); } } for (const v of g.free) free += v; return { nx: g.nx, nz: g.nz, x0: g.x0, free, me: c, reach: n, maxSteps: mx }; },
     get debug() { return { mode: S.mode, floor: S.floor, x: S.pos.x, z: S.pos.y, dist, stun: S.stun, visitT: S.visitT, timers: { ...S.timers }, tid: S.tid, visible: !!(model && model.visible), flT: S.flT }; },
     // tests / debugging: a visit now, on the floor you are on
@@ -257,7 +260,7 @@ export function createMotherRoam(G) {
             if (op === 'spread' || op === 'fold' || op === 'twitch') { ensureModel(); api[op](); }
             else if (op === 'fl' && here && G.flicker && new THREE.Vector2(m.x, m.z).distanceTo(p) < 16) G.flicker.pulse();
           }
-        } else if (m.ev === 'caught') { if (G.state() === 'playing' || G.state() === 'paused') G.caughtMP(); }
+        } else if (m.ev === 'caught') { if (G.state() === 'playing' || G.state() === 'paused' || G.state() === 'photo') G.caughtMP(); }
         return;
       }
       if (m.req === 'flash' && m.o) stunBy(new THREE.Vector3(...m.o), new THREE.Vector3(...m.d), m.r, new THREE.Vector2(m.o[0] - O.x, m.o[2] - O.z));
@@ -299,7 +302,9 @@ export function createMotherRoam(G) {
         const sawIn = S.mode === 'chase' && S.tid === q.id && qd < 3;
         if (q.hidden && !sawIn) continue;
         const see = qd < sightRange(q) && los(S.pos, q.pos), noise = q.moving && !q.crouch && qd < (q.sprint ? 7 : 3.5) * (1 + 0.3 * k);
-        if (see || noise) { if (S.mode !== 'chase') { anim('spread'); anim('twitch'); sfx.flutter(hear()); } S.mode = 'chase'; S.tid = q.id; S.lastSeen = q.pos.clone(); S.lost = 0; T = q; break; }
+        if (see) { if (S.mode !== 'chase') { anim('spread'); anim('twitch'); sfx.flutter(hear()); } S.mode = 'chase'; S.tid = q.id; S.lastSeen = q.pos.clone(); S.lost = 0; T = q; break; }
+        // heard through a wall: she goes to look where the sound was (re-heard at most every 1.5 s)
+        if (noise && S.mode !== 'chase') { const now = performance.now() / 1000; if (!S.heardT || now - S.heardT > 1.5) { S.heardT = now; if (S.mode !== 'patrol' || !S.goal || S.goal.distanceTo(q.pos) > 1) anim('twitch'); S.mode = 'patrol'; S.goal = q.pos.clone(); S.visitT = Math.max(S.visitT, 8); } break; }
       }
       const tdist = T ? S.pos.distanceTo(T.pos) : 99;
       if (S.mode === 'chase') {

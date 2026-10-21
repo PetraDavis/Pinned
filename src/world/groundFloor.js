@@ -428,7 +428,7 @@ export async function buildGroundFloor(group, local, { quality: q0 = 'high' } = 
       ref.getWorldPosition(world);
       if (world.distanceTo(camera.position) > 9) return; // too far to matter: keep the last image
       if (!av.children.length) av.add(makeAvatar(m.stage, { self: true }));
-      av.visible = true; orig.call(ref, renderer, scene, camera); av.visible = false;
+      const sb = api.selfBody; if (sb) sb.visible = false; av.visible = true; orig.call(ref, renderer, scene, camera); av.visible = false; if (sb) sb.visible = true;
     };
     const out = { ...m, group: mg, avatar: av, world: m.pos.clone() }; mirrors.push(out); return out;
   }
@@ -496,9 +496,10 @@ export async function buildGroundFloor(group, local, { quality: q0 = 'high' } = 
         l.intensity = u.base * k;
       });
       // reflections: the avatar stands where the player stands
-      const yaw = Math.atan2(-camera.matrixWorld.elements[8], -camera.matrixWorld.elements[10]);
+      // (in photo mode main.js sets api.selfAt: the body stays put while the camera floats)
+      const me = api.selfAt, yaw = me ? me.yaw : Math.atan2(-camera.matrixWorld.elements[8], -camera.matrixWorld.elements[10]);
       for (const a of avatars) {
-        a.position.set(camera.position.x - 1000, 0, camera.position.z);
+        if (me) a.position.set(me.x, 0, me.z); else a.position.set(camera.position.x - 1000, 0, camera.position.z);
         a.rotation.y = yaw;
       }
     },

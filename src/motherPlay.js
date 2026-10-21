@@ -112,6 +112,12 @@ export function createMotherPlay(G) {
     if (q.crouch && !q.torch && !q.lamp) r = 2.6;
     return r * (q.local && G.detectScale ? G.detectScale() : 1) * (1 + 0.3 * crowd());
   }
+  // a sound through a wall: she investigates the spot (re-heard at most every 1.5 s, so she does not track you)
+  function hearAt(at) {
+    const now = performance.now() / 1000; if (S.heardT && now - S.heardT < 1.5) return; S.heardT = now;
+    if (S.mode !== 'lured') { anim('twitch'); sfx.clicks && sfx.clicks(hear(), 2); }
+    S.target = at.clone(); S.path = route(at); S.mode = 'lured';
+  }
   function chase(q) { if (S.mode !== 'chase') { anim('spread'); sfx.flutter(hear()); anim('twitch'); } S.mode = 'chase'; S.tid = q.id; S.lastSeen = q.pos.clone(); S.lost = 0; }
 
   // ---- together (multiplayer): the host runs her and sends {t:'esc', mo:1} messages; guests only draw her ----
@@ -231,7 +237,7 @@ export function createMotherPlay(G) {
           if (!R.s && m.s && here && pos.distanceTo(p) < 15) say(STUN_MSG, 4000);
           Object.assign(R, { x: m.x, z: m.z, yaw: m.yaw, m: m.m, s: m.s, a: m.a ? 1 : 0, have: true });
           for (const op of m.op || []) if (op === 'spread' || op === 'fold' || op === 'twitch') api[op](); else if (op === 'fl' && here && G.flicker && new THREE.Vector2(m.x, m.z).distanceTo(p) < 16) G.flicker.pulse();
-        } else if (m.ev === 'caught') { if (G.state && (G.state() === 'playing' || G.state() === 'paused')) G.caughtMP(); }
+        } else if (m.ev === 'caught') { if (G.state && (G.state() === 'playing' || G.state() === 'paused' || G.state() === 'photo')) G.caughtMP(); }
         return;
       }
       if (m.req === 'flash' && m.o) stunBy(new THREE.Vector3(...m.o), new THREE.Vector3(...m.d), m.r, new THREE.Vector2(m.o[0] - O.x, m.o[2] - O.z));
@@ -256,17 +262,20 @@ export function createMotherPlay(G) {
         if (ground.attic.clockSolved && here) { const now = performance.now() / 1000; if (!S.wakeAt) S.wakeAt = now + 5; if (now > S.wakeAt) { S.wakeAt = 0; S.mode = 'wander'; S.still = 0.3; anim('twitch'); sfx.flutter(hear()); } }
         api.update(0); anchor.position.set(pos.x, 0, pos.y); broadcast(dt); return;
       }
-      if (S.stun > 0) { S.stun -= dt; api.update(dt * 0.3); broadcast(dt); return; }
+      if (S.stun > 0) { S.stun -= dt; if (S.stun <= 0) S.blind = 1.5; api.update(dt * 0.3); broadcast(dt); return; }
+      if (S.blind > 0) S.blind -= dt; // still dazzled for a moment after a stun
       api.update(S.mode === 'chase' ? dt * 3 : dt);
       if (T && T.hidden && S.mode === 'chase' && tdist < 3) { /* saw you go under: drags you out */ if (tdist < 1.2) return catchQ(T); }
       else if (T && !T.local && T.hidden && S.mode === 'chase' && S.tid === T.id) { S.mode = 'search'; S.lost = 0; } // a guest got under a cot unseen
       // detection: any of you up here
-      for (const q of (together ? up : here ? [T] : [])) {
+      for (const q of (S.blind > 0 ? [] : together ? up : here ? [T] : [])) {
         const qd = pos.distanceTo(q.pos);
         if (q.hidden && !(S.mode === 'chase' && S.tid === q.id && qd < 3)) continue;
         const r = sightRange(q), see = qd < r && los(pos, q.pos);
         const ear = 1 + 0.3 * crowd(), noise = q.moving && !q.crouch && qd < (q.sprint ? 8 : 4) * ear;
-        if (see || (noise && qd < 6 * ear)) { if (S.mode !== 'chase' || S.tid === q.id || !T || qd < tdist) { chase(q); if (q !== T) return; } break; }
+        if (see) { if (S.mode !== 'chase' || S.tid === q.id || !T || qd < tdist) { chase(q); if (q !== T) return; } break; }
+        // heard, not seen (a wall between): she goes to where the sound was, not straight at you
+        if (noise && qd < 6 * ear && S.mode !== 'chase') { hearAt(q.pos); break; }
       }
       if (S.mode !== 'chase') { const lure = up.filter(q => q.lamp && !q.hidden).sort((a, b) => a.pos.distanceTo(pos) - b.pos.distanceTo(pos))[0] || (!together && here && lantern.on && !(T.hidden) ? T : null);
         if (lure) { if (!S.target || S.target.distanceTo(lure.pos) > 2) { S.target = lure.pos.clone(); S.path = route(lure.pos); S.mode = 'lured'; } } }

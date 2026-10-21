@@ -353,7 +353,7 @@ export function initMultiplayer(G) {
   // ================= positions =================
   function myState() {
     const p = G.player;
-    return { x: +p.pos.x.toFixed(3), y: +p.y.toFixed(3), z: +p.pos.z.toFixed(3), yaw: +p.yaw.toFixed(3), pitch: +p.pitch.toFixed(3), c: +p.crouchT.toFixed(2), f: G.flashlight.on ? 1 : 0, zn: G.zone, p: G.state === 'paused' ? 1 : 0, ...(G.extraState ? G.extraState() : {}) };
+    return { x: +p.pos.x.toFixed(3), y: +p.y.toFixed(3), z: +p.pos.z.toFixed(3), yaw: +p.yaw.toFixed(3), pitch: +p.pitch.toFixed(3), c: +p.crouchT.toFixed(2), f: G.flashlight.on ? 1 : 0, zn: G.zone, p: G.state === 'paused' || G.state === 'photo' ? 1 : 0, ...(G.extraState ? G.extraState() : {}) };
   }
   function stateTick() {
     if (!S.role || G.state === 'home') return;

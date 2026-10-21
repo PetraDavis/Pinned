@@ -449,7 +449,7 @@ export function createEscape(G) {
           else if (m.k === 'burst') swarms.burst(new THREE.Vector3(...m.at), m.n, m.to ? new THREE.Vector3(...m.to) : null);
         }
         else if (m.ev === 'tunnel') openTunnelHere();
-        else if (m.ev === 'caught') { if (G.state() === 'playing' || G.state() === 'paused') G.caughtMP(); }
+        else if (m.ev === 'caught') { if (G.state() === 'playing' || G.state() === 'paused' || G.state() === 'photo') G.caughtMP(); }
         else if (m.ev === 'end') { if (!ended) { ended = true; S.on = false; R = null; if (model) model.visible = false; G.onEnd(); } }
         return;
       }
@@ -517,7 +517,8 @@ export function createEscape(G) {
           if (together && S.crumbs[i].distanceTo(p) < 5) { S.goneT = 1; return; } // never right on top of someone: wait until there is a trail behind them
           appear(S.crumbs[i].clone(), 'hunt'); S.knows = tq.lit; S.maxCi = Infinity; S.prowl = !tq.lit;
         } return; }
-      if (S.stun > 0) { S.stun -= dt; placeModel(); return; }
+      if (S.stun > 0) { S.stun -= dt; if (S.stun <= 0) S.blind = 1.5; placeModel(); return; }
+      if (S.blind > 0) S.blind -= dt;
       if (S.mode === 'glimpse') { S.glimpseT -= dt; S.yaw = Math.atan2(p.x - S.pos.x, p.y - S.pos.y); placeModel(); if (S.glimpseT <= 0) { S.mode = 'hunt'; S.knows = true; } if (dist < 0.85 && !tq.under) return catchP(tq); return; }
 
       // ---- senses (wider and quicker the more of you there are) ----
@@ -530,9 +531,14 @@ export function createEscape(G) {
       const under = tq.under && !S.sawIn[tq.id];
       const hidden = tq.hidden && !(tq.under && S.sawIn[tq.id]);
       const sightR = (under ? 0 : hidden ? 1.4 : tq.lit ? 16 : tq.crouch ? 2.6 : 6.5) * sense;
-      const see = dist < sightR && los(S.pos, p); S.lastSee = see;
+      const see = !(S.blind > 0) && dist < sightR && los(S.pos, p); S.lastSee = see;
       const noise = tq.moving && !tq.crouch && dist < (tq.sprint ? 9 : 4.5) * sense;
-      if (see || noise || (tq.lit && !under && dist < 24 * sense)) { if (!S.knows && S.mode === 'search') { api.spread(); sfx.flutter(1); } S.knows = true; S.lost = 0; S.maxCi = Infinity; S.prowl = false; if (S.mode === 'search') S.mode = 'hunt'; }
+      // a torch beam is seen from further off, but only with nothing in between; a sound through a
+      // wall only tells her where you were (she follows your trail that far, then searches)
+      const litSeen = !(S.blind > 0) && tq.lit && !under && dist < 24 * sense && los(S.pos, p);
+      const now = S.t || 0;
+      if (!see && !litSeen && noise && (S.heardAt == null || now - S.heardAt > 1.5)) { S.heardAt = now; if (!S.knows) S.maxCi = S.crumbs.length - 1; if (S.mode === 'search') { S.mode = 'hunt'; api.twitch(); } }
+      if (see || litSeen) { if (!S.knows && S.mode === 'search') { api.spread(); sfx.flutter(1); } S.knows = true; S.lost = 0; S.maxCi = Infinity; S.prowl = false; if (S.mode === 'search') S.mode = 'hunt'; }
       else if (S.knows) { S.lost += dt; if (S.lost > 1.6 * (1 - 0.4 * k)) { S.knows = false; S.maxCi = Math.max(S.ci, S.crumbs.length - 5); } }
 
       // ---- movement ----
