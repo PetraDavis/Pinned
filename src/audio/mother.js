@@ -55,7 +55,7 @@ export function updateMother(dt, playing, m, O) {
   const cyc = Math.max(0, Math.sin(phase * Math.PI * 2)) ** 1.5;
   if (recSrc) { // the recording: quicker and a little higher when she is after someone
     breath.gain.setTargetAtTime(0, t, 0.08);
-    recGain.gain.setTargetAtTime(active ? (chase ? 0.75 : 0.5) : 0, t, 0.15);
+    recGain.gain.setTargetAtTime(active ? (chase ? 0.38 : 0.25) : 0, t, 0.15); // halved (-6 dB): Petra wants her breathing quieter
     recSrc.playbackRate.setTargetAtTime(chase ? 1.3 : 1, t, 0.4);
   } else breath.gain.setTargetAtTime(active ? (0.08 + 0.18 * cyc) * (chase ? 1.6 : 1) : 0, t, 0.08);
   breathBP.frequency.setTargetAtTime(480 + 300 * cyc, t, 0.1);
