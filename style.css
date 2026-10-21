@@ -14,7 +14,6 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); c
 #homeBg { position: absolute; inset: 0; width: 100%; height: 100%; }
 .menu { position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 10px; width: min(340px, calc(100vw - 32px)); text-align: center; }
 #home .menu { margin-right: 54vw; }
-@media (max-width: 800px) { #home .menu { margin: 62vh 0 0; } #home .tag { display: none; } }
 h1 { font-size: clamp(44px, 6vw, 80px); font-weight: normal; letter-spacing: .12em; margin: 0 0 4px; text-shadow: 0 0 30px rgba(185, 167, 126, .35); white-space: nowrap; }
 h1 .moth { font-size: .4em; color: var(--accent); vertical-align: middle; opacity: .8; }
 h1 .flip { display: inline-block; transform: scaleX(-1); }
@@ -43,8 +42,6 @@ select { grid-column: 1 / -1; font: inherit; color: var(--ink); background: #141
   -webkit-text-stroke: 1.5px rgba(232, 214, 176, .7);
   text-shadow: 0 0 2px rgba(240, 222, 184, .55), 0 0 18px rgba(214, 180, 120, .35), 0 0 42px rgba(180, 140, 80, .2);
   pointer-events: none; z-index: 1; padding: 0 16px; white-space: nowrap; }
-@media (min-width: 801px) { #home .menu { margin-top: 14vh; } }
-@media (max-width: 800px) { .title { font-size: clamp(34px, 12vw, 60px); top: 2vh; } }
 #held { position: absolute; left: max(16px, env(safe-area-inset-left, 0px)); bottom: 16px; display: flex; align-items: center; gap: 10px; padding: 8px 12px 8px 8px; background: rgba(0,0,0,.55); border: 1px solid #3a3a36; max-width: calc(100vw - 32px); }
 #held img { width: 96px; height: auto; border: 1px solid #5a4a30; }
 #held span { font-style: italic; font-size: 14px; }
@@ -80,9 +77,22 @@ select { grid-column: 1 / -1; font: inherit; color: var(--ink); background: #141
 .jmoth img { width: 84px; height: 84px; flex: none; border-radius: 3px; }
 .jmoth h3 { margin: 0; font-size: 15px; } .jmoth em { font-size: 12px; opacity: .7; } .jmoth p { font-size: 13px; line-height: 1.45; margin: 4px 0 0; }
 /* short windows: keep every home-screen button reachable */
-#home .menu { max-height: calc(100vh - 24px); overflow-y: auto; }
-@media (min-width: 801px) { #home .menu { max-height: calc(86vh - 24px); } } /* 14vh top margin + centring: bottom always stays on screen */
-@media (max-height: 620px) { #home .menu { margin-top: 0 !important; gap: 6px; } #home .menu button { padding-top: 6px; padding-bottom: 6px; } #home .tag { display: none; } }
+
+/* Home screen layout: the menu always fits the visible height (dvh: the part not under the
+   browser's toolbars). The title takes a band at the top, sized from the height as well as the
+   width; the menu sits in the space below it (centred on wide screens, at the bottom on narrow
+   ones), tightens on short screens and scrolls as a last resort. The moth case is fitted into
+   whatever space is left (homeScreen.js). */
+:root { --titleTop: max(4vh, env(safe-area-inset-top, 0px)); --titleFont: min(clamp(40px, 9vw, 120px), 15vh); --homeBottom: max(12px, env(safe-area-inset-bottom, 0px)); }
+@media (max-width: 800px) { :root { --titleTop: max(2vh, env(safe-area-inset-top, 0px)); --titleFont: min(clamp(34px, 12vw, 60px), 11vh); } #home .tag { display: none; } }
+.title { font-size: var(--titleFont); top: var(--titleTop); }
+#home { box-sizing: border-box; padding: calc(var(--titleTop) + 1.2 * var(--titleFont) + 10px) 0 var(--homeBottom); }
+#home .menu { margin-top: 0; overflow-y: auto; overscroll-behavior: contain;
+  max-height: calc(100vh - var(--titleTop) - 1.2 * var(--titleFont) - 10px - var(--homeBottom));
+  max-height: calc(100dvh - var(--titleTop) - 1.2 * var(--titleFont) - 10px - var(--homeBottom)); }
+@media (max-width: 800px) { #home { align-items: flex-end; } #home .menu { margin: 0; gap: 7px; } #home .menu button { padding-block: 8px; } }
+@media (max-height: 760px) { #home .menu { gap: 7px; } #home .menu button { padding-block: 7px; font-size: 17px; } }
+@media (max-height: 620px) { #home .menu { gap: 5px; } #home .menu button { padding-block: 5px; font-size: 16px; } #home .tag { display: none; } }
 
 /* Settings gear: brass cog in the top-right corner of the home screen and pause menu */
 .gear { position: absolute; top: max(14px, env(safe-area-inset-top, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); z-index: 2;

@@ -15,21 +15,21 @@ export function startHomeBackdrop(canvas) {
   function layout() {
     const narrow = W < 800 * dpr;
     // leave the top band clear and dark for the PINNED title
-    let cw = Math.min(narrow ? W * 0.92 : W * 0.5, H * (narrow ? 0.5 : 0.74) * 4 / 3); let ch = cw * 0.75;
+    let cw = Math.min(narrow ? W * 0.92 : W * 0.5, H * (narrow ? 0.62 : 0.74) * 4 / 3); let ch = cw * 0.75;
     let cx = narrow ? W / 2 : W * 0.66, cy = narrow ? H * 0.36 : H * 0.58;
-    if (!narrow) {
-      // fit the case into the space right of the menu and below the title, so a short or
-      // narrow window shrinks the case instead of letting the menu run over its label
-      const home = canvas.parentElement, menu = home && home.querySelector('.menu'), title = home && home.querySelector('.title');
-      const mr = menu && menu.getBoundingClientRect(), tr = title && title.getBoundingClientRect();
-      if (mr && mr.width) {
-        const pad = 24 * dpr, left = mr.right * dpr + pad, right = W - pad;
-        const top = Math.max(tr && tr.height ? (tr.bottom + 12) * dpr : 0, H * 0.18), bottom = H - pad;
-        const k = Math.min(1, (right - left) / cw, (bottom - top) / ch);
-        cw *= k; ch *= k;
-        cx = Math.min(Math.max(cx, left + cw / 2), right - cw / 2);
-        cy = Math.min(Math.max(cy, top + ch / 2), bottom - ch / 2);
-      }
+    // fit the case into the space the menu and the title leave: right of the menu when the menu
+    // is a column on the left (wide screens, phones held sideways), else above the menu
+    const home = canvas.parentElement, menu = home && home.querySelector('.menu'), title = home && home.querySelector('.title');
+    const mr = menu && menu.getBoundingClientRect(), tr = title && title.getBoundingClientRect();
+    if (mr && mr.width) {
+      const pad = (narrow ? 12 : 24) * dpr, titleBottom = tr && tr.height ? (tr.bottom + 8) * dpr : 0;
+      let left, right, top, bottom;
+      if (mr.right * dpr < W * 0.62) { left = mr.right * dpr + pad; right = W - pad; top = Math.max(titleBottom, narrow ? 0 : H * 0.18); bottom = H - pad; }
+      else { left = pad; right = W - pad; top = titleBottom; bottom = mr.top * dpr - pad; }
+      const k = Math.max(0.2, Math.min(1, (right - left) / cw, (bottom - top) / ch));
+      cw *= k; ch *= k;
+      cx = Math.min(Math.max(cx, left + cw / 2), right - cw / 2);
+      cy = Math.min(Math.max(cy, top + ch / 2), bottom - ch / 2);
     }
     const b = cw * 0.065;
     return { cw, ch, cx, cy, x0: cx - cw / 2, y0: cy - ch / 2, b, ix: cx - cw / 2 + b, iy: cy - ch / 2 + b, iw: cw - 2 * b, ih: ch - 2 * b };
