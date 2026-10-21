@@ -419,6 +419,7 @@ export function createEscape(G) {
     get ownsMother() { return S.on || !!G.visited().escape; },
     get chasing() { return S.on; },
     // for the moth swarm: metres to her when you can see her on your floor, 99 otherwise or while stunned
+    get chaseNear() { return S.on && this.warnDist < 16; },
     get warnDist() { return (!model || !model.visible || S.stun > 0 || (R && R.st && R.st.s)) ? 99 : dist; },
     get debug() { return { mode: S.mode, floor: S.floor, x: S.pos.x, z: S.pos.y, dist, knows: S.knows, crumbs: S.crumbs.length, ci: S.ci, beats: { ...S.beats }, tunnel: tunnelAnim, stun: S.stun, visible: !!(model && model.visible), target: S.tid, following: !!R, dead: [...deadUntil.keys()], crowd: crowd() }; },
     begin, openTunnel,

@@ -1089,6 +1089,8 @@ function frame() {
   lantern.update(dt, t, player.moving);
   lampMoths.update(t, camera);
   lightLimiter.update(camera);
+  // she is hunting near you: the house goes dark and stays dark until she loses you
+  safe('dread', () => flicker.setDread((state === 'playing' || state === 'paused' || state === 'photo') && (motherPlay.chaseNear || motherRoam.chaseNear || escape.chaseNear)));
   flicker.update(dt);
   if (!escape.ownsMother) safe('mother', () => motherPlay.update(dt));
   safe('roam', () => motherRoam.update(dt));

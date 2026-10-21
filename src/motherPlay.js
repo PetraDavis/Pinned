@@ -217,6 +217,7 @@ export function createMotherPlay(G) {
     // here, so she cannot be on a floor below too
     get busy() { return (S.mode !== 'asleep' || ground.attic.clockSolved) && quarries().some(q => inAttic(q.pos.y)); },
     // for the moth swarm: metres to her from your view, 99 when asleep, stunned or on another floor
+    get chaseNear() { const m = isClient() ? R.m : S.mode; return m === 'chase' && this.warnDist < 16; },
     get warnDist() { const p = P(); if (!inAttic(p.y)) return 99; const off = isClient() ? (R.m === 'asleep' || R.s || R.a) : (S.mode === 'asleep' || S.stun > 0 || away); return off ? 99 : pos.distanceTo(p); },
     debugPlace(x, z, yaw = 0) { pos.set(x, z); S.yaw = yaw; anchor.position.set(x, 0, z); anchor.rotation.y = yaw; },
     get debug() { return { ...S, x: pos.x, z: pos.y, dist, ...(away || (isClient() && R.a) ? { mode: 'asleep' } : {}) }; }, // away below: silent up here

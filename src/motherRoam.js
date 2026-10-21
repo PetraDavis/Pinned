@@ -233,6 +233,8 @@ export function createMotherRoam(G) {
       return { x: S.pos.x, z: S.pos.y, dist, mode: m === 'chase' ? 'chase' : 'patrol' };
     },
     // for the moth swarm: metres to her when she is on your floor, 99 otherwise or while stunned
+    // she is hunting someone near you (the house goes darker: see lightsFlicker.js)
+    get chaseNear() { const m = isClient() ? R.m : S.mode; return m === 'chase' && this.warnDist < 16; },
     get warnDist() {
       if (G.escapeOwns && G.escapeOwns()) return 99;
       const m = isClient() ? R.m : S.mode, f = isClient() ? R.f : S.floor, s = isClient() ? R.s : S.stun > 0;

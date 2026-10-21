@@ -358,6 +358,10 @@ export function initMultiplayer(G) {
   function stateTick() {
     if (!S.role || G.state === 'home') return;
     const me = myState();
+    // standing still: nothing new to say, so send only twice a second (a keep-alive) instead of 15 times
+    const key = JSON.stringify(me), now = performance.now();
+    if (key === S.lastStateKey && now - (S.lastStateAt || 0) < 500 && !(S.role === 'host' && S.statesDirty)) return;
+    S.lastStateKey = key; S.lastStateAt = now; S.statesDirty = false;
     if (S.role === 'host') {
       const l = [{ id: 'h', ...me }];
       for (const c of S.clients.values()) if (c.state) l.push({ id: c.id, ...c.state });
@@ -388,7 +392,7 @@ export function initMultiplayer(G) {
         refreshUi(); drawLobby(); return;
       }
       if (!c.id) return;
-      if (m.t === 's') { c.state = m; remotes.setState(c.id, m); }
+      if (m.t === 's') { c.state = m; S.statesDirty = true; remotes.setState(c.id, m); }
       else if (m.t === 'w' && m.w) applyFromNet(m.w);
       else if (m.t === 'pz') pzFromClient(c, m.d);
       else if (m.t === 'chat') broadcastChat(c.name, String(m.text || '').slice(0, 300), false, c.slot);
@@ -551,7 +555,7 @@ export function initMultiplayer(G) {
   }
   function frame(t) {
     const dt = Math.min(0.1, (t - lastT) / 1000); lastT = t;
-    remotes.update(dt, G.zone);
+    remotes.update(dt, G.zone, G.camera && G.camera.position);
     for (const [id, o] of S.outs) {
       if (!S.proximity) { o.volume = 1; continue; }
       const d = remotes.distanceTo(id, G.player.pos), other = remotes.zoneOf(id) !== G.zone;

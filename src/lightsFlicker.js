@@ -5,6 +5,11 @@
 // The flicker never writes light state that other code owns: main.js calls apply() just before it
 // renders (lights near the camera are scaled, and the exposure dropped) and restore() just after.
 // A torch burst always wins: no flicker while it is flaring.
+//
+// Dread: while she is hunting someone near you (setDread(true), from main.js each frame) the
+// whole house goes and stays dark: every lamp, the room's fill (hemisphere) light and the
+// exposure sink to about a third over a second or so, on every floor and quality level. Your own
+// torch is kept (it is how you get away), and the pulses above still come on top.
 import * as THREE from 'three';
 
 const RADIUS = 16;
@@ -13,10 +18,12 @@ const SHAPE = [[0.05, 0.25], [0.26, 0.03], [0.05, 0.55], [0.05, 0.08], [0.07, 0.
 const SHAPE_T = SHAPE.reduce((a, s) => a + s[0], 0);
 
 export function createLightsFlicker({ scene, renderer, camera, flashlight }) {
-  let lights = [], scanT = 0, t = -1;
+  let lights = [], fills = [], scanT = 0, t = -1, dread = 0, dreadWant = 0;
   const saved = [], wp = new THREE.Vector3();
+  const DARK = 0.68; // how far the lamps sink at full dread (to 32 %)
   let exposure = null;
-  function scan() { lights = []; scene.traverse(o => { if (o.isLight && !o.isAmbientLight && !o.isHemisphereLight && !o.isDirectionalLight) lights.push(o); }); }
+  function scan() { lights = []; fills = []; scene.traverse(o => { if (!o.isLight) return; if (o.isAmbientLight || o.isHemisphereLight || o.isDirectionalLight) fills.push(o); else lights.push(o); }); }
+  const isTorch = l => flashlight && (l === flashlight.light || l.parent === flashlight.model);
   const level = () => {
     if (t < 0) return 1;
     let a = 0; for (const [d, l] of SHAPE) { a += d; if (t < a) return l; }
@@ -27,18 +34,31 @@ export function createLightsFlicker({ scene, renderer, camera, flashlight }) {
     pulse() { if (t >= 0) return false; t = 0; return true; },
     get active() { return t >= 0; },
     get level() { return level(); },
-    update(dt) { if (t >= 0) { t += dt; if (t >= SHAPE_T) t = -1; } scanT -= dt; },
+    setDread(on) { dreadWant = on ? 1 : 0; },
+    get dread() { return dread; },
+    update(dt) {
+      if (t >= 0) { t += dt; if (t >= SHAPE_T) t = -1; } scanT -= dt;
+      // down in about a second, back up more slowly once she has lost you
+      dread += (dreadWant - dread) * Math.min(1, dt * (dreadWant > dread ? 1.6 : 0.5));
+      if (dread < 0.002) dread = 0;
+    },
     apply() {
-      const k = level();
-      if (k >= 1 || (flashlight && flashlight.burstT >= 0)) return;
+      const burst = flashlight && flashlight.burstT >= 0, k = burst ? 1 : level(), dk = 1 - DARK * dread;
+      if (k >= 1 && dread <= 0) return;
       if (scanT <= 0 || !lights.length) { scan(); scanT = 2; }
       const c = camera.getWorldPosition(wp).clone();
       for (const l of lights) {
         if (!l.visible || l.intensity <= 0) continue;
-        if (l.getWorldPosition(wp).distanceTo(c) > RADIUS) continue;
-        saved.push(l, l.intensity); l.intensity *= k;
+        const torch = isTorch(l);
+        // the pulse: only lights near you; the dread: everything but your torch (boosted to make
+        // up for the lower exposure, so it still lights your way as well as before)
+        const near = k < 1 && l.getWorldPosition(wp).distanceTo(c) <= RADIUS;
+        const m = (near ? k : 1) * (torch ? 1 / (1 - 0.3 * dread) : dk);
+        if (m === 1) continue;
+        saved.push(l, l.intensity); l.intensity *= m;
       }
-      exposure = renderer.toneMappingExposure; renderer.toneMappingExposure = exposure * (0.25 + 0.75 * k);
+      for (const f of fills) { if (!f.visible || f.intensity <= 0) continue; saved.push(f, f.intensity); f.intensity *= dk * (k < 1 ? k : 1); }
+      exposure = renderer.toneMappingExposure; renderer.toneMappingExposure = exposure * (0.25 + 0.75 * k) * (1 - 0.3 * dread);
     },
     restore() {
       for (let i = 0; i < saved.length; i += 2) saved[i].intensity = saved[i + 1];
