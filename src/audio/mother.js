@@ -89,7 +89,7 @@ export function motherShriek(level = 1) {
   const t = A.ctx.currentTime, v = Math.min(1, level), g = gain(0), bp = filt('bandpass', 1800, 4);
   // her recorded shriek: mostly shriek-1 (her third take, Petra's pick), now and then the quieter shriek-2 (her second)
   const k = Math.random() < 0.7 ? 1 : 2, rec = sampleNow(A.ctx, 'mother-shriek-' + k);
-  if (rec) { const sg = gain((k === 1 ? 1 : 0.55) * v), src = A.ctx.createBufferSource(); src.buffer = rec; src.connect(sg).connect(active ? pan : A.sfx); src.start(); return; }
+  if (rec) { const sg = gain((k === 1 ? 1.8 : 1.0) * v), /* about 5 dB louder: Petra wants them louder in the game; the master limiter catches peaks */ src = A.ctx.createBufferSource(); src.buffer = rec; src.connect(sg).connect(active ? pan : A.sfx); src.start(); return; }
   g.connect(active ? pan : A.sfx); env(g, t, 0.32 * v, 0.02, 0.7);
   for (const [f0, f1] of [[900, 2600], [1350, 3700]]) { const o = tone(bp, t, 'sawtooth', f0, 0.75); o.frequency.exponentialRampToValueAtTime(f1, t + 0.18); o.frequency.exponentialRampToValueAtTime(f0 * 0.8, t + 0.75); }
   bp.connect(g);
