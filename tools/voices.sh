@@ -70,12 +70,12 @@ for s in 6.45-9.6 11.15-12.25; do
   if [ $i = 1 ]; then
     # her 2nd take ends in a breathy hiss (from 2.0 s): de-essed and softened, brought right up behind the screech (the quiet gap is cut) and smoothed into it
     # Petra: its own screech sounded like a creak, so it opens with her 3rd take's screech instead
-    ffmpeg -hide_banner -y -loglevel error -i $R/take-04-shriek.m4a -af "atrim=start=11.15:end=12.0,asetpts=PTS-STARTPTS,highpass=f=180,$DN" -ac 1 $W/s$i-p1.wav
-    ffmpeg -hide_banner -y -loglevel error -i $W/s$i-raw.wav -af "atrim=start=1.85,asetpts=PTS-STARTPTS,deesser=i=0.8:m=0.6:f=0.5,lowpass=f=6000,afftdn=nr=24:nf=-55,volume=9dB" $W/s$i-p2.wav
-    # smoothed: the screech darkens as it goes (a bright copy fading into a low-passed one), then a long
-    # equal-power crossfade lets it sink under the hiss with no dip
-    ffmpeg -hide_banner -y -loglevel error -i $W/s$i-p1.wav -filter_complex "[0]asplit[b][d];[b]afade=t=out:st=0.3:d=0.55[bb];[d]lowpass=f=2200,lowpass=f=2200,afade=t=in:st=0.3:d=0.55[dd];[bb][dd]amix=inputs=2:normalize=0" $W/s$i-p1g.wav
-    ffmpeg -hide_banner -y -loglevel error -i $W/s$i-p1g.wav -i $W/s$i-p2.wav -filter_complex "[0][1]acrossfade=d=0.55:c1=qsin:c2=qsin" $W/s$i-raw2.wav
+    ffmpeg -hide_banner -y -loglevel error -i $R/take-04-shriek.m4a -af "atrim=start=11.15:end=12.25,asetpts=PTS-STARTPTS,highpass=f=180,$DN" -ac 1 $W/s$i-p1.wav
+    ffmpeg -hide_banner -y -loglevel error -i $W/s$i-raw.wav -af "atrim=start=1.85,asetpts=PTS-STARTPTS,deesser=i=0.8:m=0.6:f=0.5,lowpass=f=6000,afftdn=nr=24:nf=-55,volume=6dB" $W/s$i-p2.wav
+    # smoothed: while it is still loud, the screech starts to darken in steps (bright -> 3.5 kHz -> 1.8 kHz) and slip a
+    # little lower, and the hiss rises slowly underneath it; the two overlap for about 0.8 s with no dip between
+    ffmpeg -hide_banner -y -loglevel error -i $W/s$i-p1.wav -filter_complex "[0]atrim=end=0.95,asplit=4[b][m][d][l];[b]afade=t=out:st=0.25:d=0.4[bb];[m]lowpass=f=3500,afade=t=in:st=0.25:d=0.4,afade=t=out:st=0.5:d=0.4[mm];[d]lowpass=f=1800,lowpass=f=1800,afade=t=in:st=0.5:d=0.3,afade=t=out:st=0.75:d=0.2[dd];[l]asetrate=48000*0.95,aresample=48000,lowpass=f=2500,afade=t=in:st=0.4:d=0.35,afade=t=out:st=0.7:d=0.25,volume=0.6[ll];[bb][mm][dd][ll]amix=inputs=4:normalize=0:duration=first,afade=t=out:st=0.3:d=0.65:curve=tri" $W/s$i-p1g.wav
+    ffmpeg -hide_banner -y -loglevel error -i $W/s$i-p1g.wav -i $W/s$i-p2.wav -filter_complex "[1]afade=t=in:d=0.8:curve=hsin,adelay=150[h];[0][h]amix=inputs=2:normalize=0:duration=longest" $W/s$i-raw2.wav
     mv $W/s$i-raw2.wav $W/s$i-raw.wav
   fi
   ffmpeg -hide_banner -y -loglevel error -i $W/s$i-raw.wav -af "alimiter=limit=0.9,asetrate=48000*1.35,aresample=48000" -ac 1 $W/s$i-a.wav
