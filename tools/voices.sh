@@ -46,18 +46,20 @@ ffmpeg -hide_banner -y -loglevel error -i $W/b1.wav -af "atrim=end=$F,asetpts=PT
 ffmpeg -hide_banner -y -loglevel error -i $W/bm.wav -i $W/bh.wav -filter_complex "[0][1]acrossfade=d=$F:c1=qsin:c2=qsin" $W/breath.wav
 check $W/breath.wav; enc $W/breath.wav mother-breath
 
-# ---- whispers (take-03): the 8 lines; Petra needs to understand the words, so the dry voice stays on top:
-#      hard noise removal, a strong 1-4 kHz presence lift, a faint double and a little room, nothing else
+# ---- whispers (take-03): the 8 lines, kept as real breathy whispers: close to her take, gentle hiss removal,
+#      the airy top kept, a faint room; no doubling, no compression. All set to the loudness of
+#      "we were cold too" (line 5) as she heard it on the listening page (v4), which Petra chose as the level.
+lufs() { ffmpeg -hide_banner -i $1 -af ebur128 -f null - 2>&1 | sed -n 's/^ *I: *\(-*[0-9.]*\) LUFS/\1/p' | tail -1; }
 i=0
 for s in 0.1-2.5 5.2-7.4 10.15-11.6 13.4-16.95 19.35-21.05 22.85-24.65 26.4-27.95 29.3-31.35; do
   a=${s%-*}; b=${s#*-}; i=$((i+1))
-  # every line brought to the same level first, so the gate treats the soft ones like the rest
-  ffmpeg -hide_banner -y -loglevel error -i $R/take-03-whispers.m4a -af "atrim=start=$a:end=$b,asetpts=PTS-STARTPTS,highpass=f=160" -ac 1 $W/w$i-cut.wav
-  peaknorm $W/w$i-cut.wav -12 $W/w$i-lvl.wav
-  ffmpeg -hide_banner -y -loglevel error -i $W/w$i-lvl.wav -af "lowpass=f=10000,$DN,$GATE,equalizer=f=2500:t=o:w=1.6:g=7,equalizer=f=1200:t=q:w=1:g=2,equalizer=f=250:t=q:w=1:g=-5,acompressor=threshold=0.05:ratio=3:attack=5:release=80:makeup=2,apad=pad_dur=0.4" -ac 1 $W/w$i-dry.wav
-  ffmpeg -hide_banner -y -loglevel error -i $W/w$i-dry.wav -af "asetrate=48000*1.012,aresample=48000,adelay=15,volume=0.15" $W/w$i-dbl.wav
-  ffmpeg -hide_banner -y -loglevel error -i $W/w$i-dry.wav -i $W/w$i-dbl.wav -filter_complex "[0][1]amix=inputs=2:normalize=0:duration=first,aecho=0.9:0.3:45|95:0.12|0.06" $W/w$i.wav
-  loud $W/w$i.wav -15 $W/wn$i.wav; check $W/wn$i.wav; enc $W/wn$i.wav whisper-$i 40k
+  ffmpeg -hide_banner -y -loglevel error -i $R/take-03-whispers.m4a -af "atrim=start=$a:end=$b,asetpts=PTS-STARTPTS,highpass=f=150,afftdn=nr=12:nf=-60:tn=1,equalizer=f=250:t=q:w=1:g=-2,highshelf=f=6000:g=3,apad=pad_dur=0.4,aecho=0.9:0.25:40|80:0.08|0.04,afade=t=in:d=0.01" -ac 1 $W/w$i.wav
+done
+T=-31   # LUFS: how loud "we were cold too" (line 5) was on the listening page, version 4, the level Petra picked
+for i in 1 2 3 4 5 6 7 8; do
+  g=$(python3 -c "print(round($T-($(lufs $W/w$i.wav)),2))")
+  ffmpeg -hide_banner -y -loglevel error -i $W/w$i.wav -af "volume=${g}dB,alimiter=limit=0.89" $W/wn$i.wav
+  check $W/wn$i.wav; enc $W/wn$i.wav whisper-$i 40k
 done
 
 # ---- shriek (take-04): Petra keeps the 2nd and 3rd; the 3rd is the main one (louder), the 2nd a quieter variant
@@ -70,13 +72,16 @@ for s in 6.45-9.6 11.15-12.25; do
     # Petra: its own screech sounded like a creak, so it opens with her 3rd take's screech instead
     ffmpeg -hide_banner -y -loglevel error -i $R/take-04-shriek.m4a -af "atrim=start=11.15:end=12.0,asetpts=PTS-STARTPTS,highpass=f=180,$DN" -ac 1 $W/s$i-p1.wav
     ffmpeg -hide_banner -y -loglevel error -i $W/s$i-raw.wav -af "atrim=start=1.85,asetpts=PTS-STARTPTS,deesser=i=0.8:m=0.6:f=0.5,lowpass=f=6000,afftdn=nr=24:nf=-55,volume=9dB" $W/s$i-p2.wav
-    ffmpeg -hide_banner -y -loglevel error -i $W/s$i-p1.wav -i $W/s$i-p2.wav -filter_complex "[0][1]acrossfade=d=0.3:c1=qsin:c2=qsin" $W/s$i-raw2.wav
+    # smoothed: the screech darkens as it goes (a bright copy fading into a low-passed one), then a long
+    # equal-power crossfade lets it sink under the hiss with no dip
+    ffmpeg -hide_banner -y -loglevel error -i $W/s$i-p1.wav -filter_complex "[0]asplit[b][d];[b]afade=t=out:st=0.3:d=0.55[bb];[d]lowpass=f=2200,lowpass=f=2200,afade=t=in:st=0.3:d=0.55[dd];[bb][dd]amix=inputs=2:normalize=0" $W/s$i-p1g.wav
+    ffmpeg -hide_banner -y -loglevel error -i $W/s$i-p1g.wav -i $W/s$i-p2.wav -filter_complex "[0][1]acrossfade=d=0.55:c1=qsin:c2=qsin" $W/s$i-raw2.wav
     mv $W/s$i-raw2.wav $W/s$i-raw.wav
   fi
   ffmpeg -hide_banner -y -loglevel error -i $W/s$i-raw.wav -af "alimiter=limit=0.9,asetrate=48000*1.35,aresample=48000" -ac 1 $W/s$i-a.wav
-  ffmpeg -hide_banner -y -loglevel error -i $W/s$i-a.wav -af "asetrate=48000*1.9,aresample=48000,highpass=f=2500,volume=0.5" $W/s$i-b.wav
-  ffmpeg -hide_banner -y -loglevel error -i $W/s$i-a.wav -i $W/s$i-b.wav -filter_complex "[0]tremolo=f=58:d=0.45,highpass=f=400[x];[x][1]amix=inputs=2:normalize=0:duration=first,equalizer=f=4000:t=q:w=1:g=3,afade=t=in:d=0.01" $W/s$i.wav
-  ffmpeg -hide_banner -y -loglevel error -i $W/s$i.wav -af "areverse,afade=t=in:d=0.15,areverse" $W/s$i-f.wav
+  ffmpeg -hide_banner -y -loglevel error -i $W/s$i-a.wav -af "asetrate=48000*1.9,aresample=48000,highpass=f=2500,volume=0.35" $W/s$i-b.wav
+  ffmpeg -hide_banner -y -loglevel error -i $W/s$i-a.wav -i $W/s$i-b.wav -filter_complex "[0]tremolo=f=58:d=0.3,highpass=f=400[x];[x][1]amix=inputs=2:normalize=0:duration=first,equalizer=f=4000:t=q:w=1:g=3,afade=t=in:d=0.02" $W/s$i.wav
+  ffmpeg -hide_banner -y -loglevel error -i $W/s$i.wav -af "areverse,afade=t=in:d=0.2,areverse" $W/s$i-f.wav
   peaknorm $W/s$i-f.wav -1 $W/sn$i.wav; check $W/sn$i.wav
 done
 enc $W/sn2.wav mother-shriek-1 40k   # main (her 3rd take)
