@@ -507,9 +507,12 @@ const interactables = [
       if (ground.dinner.filled()) checkDinner();
     },
   })),
-  ...ground.dinner.seats.filter(st => st.digit).map(st => ({
-    zone: 'room', pos: st.pos.clone().add(ROOM_ORIGIN), r: 0.75, when: () => ground.dinner.solved && !st.flipped, prompt: 'E  turn over the plate',
-    act: () => { st.flipped = true; playThud(); say(`Scratched into the glaze underneath: ${st.digit.replace(' · ', ', and the figure ')}.`, 7000); },
+  // the plates: reachable from anywhere round them (standing or crouching, any side of the table),
+  // not only from behind the chair; every plate turns over, and the four with a numeral say so
+  ...ground.dinner.seats.map(st => ({
+    zone: 'room', seat: st, pos: (() => { const v = new THREE.Vector3(); st.plate.getWorldPosition(v); v.y = 0; return v; })(), r: 1.35,
+    when: () => ground.dinner.solved && !st.flipped, prompt: 'E  turn over the plate',
+    act: () => { st.flipped = true; playThud(); say(st.digit ? `Scratched into the glaze underneath: ${st.digit.replace(' · ', ', and the figure ')}.` : 'Nothing underneath this one: plain white glaze.', st.digit ? 7000 : 3500); },
   })),
   {
     zone: 'room', pos: ground.note.position.clone().add(ROOM_ORIGIN), r: 1.3, prompt: 'E  read the note',
