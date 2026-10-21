@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&display=swap">
 <link rel="stylesheet" href="style.css">
 <script type="importmap">
-{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
 </script>
 <!-- Fetch every module at once instead of one import level at a time (much faster on slow
      connections). Keep in step with the imports; a missing line only costs speed. -->
@@ -23,6 +23,9 @@
 <link rel="modulepreload" href="src/audio/music.js">
 <link rel="modulepreload" href="src/audio/sfx.js">
 <link rel="modulepreload" href="src/caps.js">
+<link rel="modulepreload" href="src/loadSteps.js">
+<link rel="modulepreload" href="src/texCache.js">
+<link rel="modulepreload" href="src/audio/samples.js">
 <link rel="modulepreload" href="src/captions.js">
 <link rel="modulepreload" href="src/catacombMoths.js">
 <link rel="modulepreload" href="src/catacombsPlay.js">
@@ -71,7 +74,7 @@
 <link rel="modulepreload" href="src/world/groundFloor.js">
 <link rel="modulepreload" href="src/world/lowerUpper.js">
 <link rel="modulepreload" href="src/world/stainedGlass.js">
-<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" crossorigin>
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js" crossorigin>
 <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/math/SimplexNoise.js" crossorigin>
 <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/objects/Reflector.js" crossorigin>
 <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/postprocessing/EffectComposer.js" crossorigin>
@@ -195,7 +198,7 @@
   </div>
 </div>
 
-<div id="loading" class="screen"><p>Loading…</p></div>
+<div id="loading" class="screen"><p>Loading…</p><div class="loadTrack"><div id="loadBar"></div></div><p id="loadWhat">Fetching the game</p></div>
 <script type="module" src="src/main.js"></script>
 </body>
 </html>

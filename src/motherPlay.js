@@ -120,7 +120,10 @@ export function createMotherPlay(G) {
   const ops = []; // her animation beats since the last message
   function anim(op) { api[op](); if (net()) ops.push(op); }
   const deadUntil = new Map(); let clock = 0, sendT = 0;
-  const R = { x: pos.x, z: pos.y, yaw: 0, m: 'asleep', s: 0, have: false }; // a guest's last word from the host
+  const R = { x: pos.x, z: pos.y, yaw: 0, m: 'asleep', s: 0, a: 0, have: false };
+  // There is only one of her. While she is down on the floors below (motherRoam.js) she is not
+  // up here as well: her attic self is hidden and still until she comes back up.
+  let away = false; // a guest's last word from the host
   function quarries() {
     if (!net()) return [localQ()];
     const out = [];
@@ -139,10 +142,10 @@ export function createMotherPlay(G) {
   function broadcast(dt) {
     const n = net(); if (!n) { ops.length = 0; return; }
     sendT -= dt; if (sendT > 0 && !ops.length) return; sendT = 0.1;
-    n.toAll({ mo: 1, ev: 'st', x: +pos.x.toFixed(3), z: +pos.y.toFixed(3), yaw: +S.yaw.toFixed(3), m: S.mode, s: S.stun > 0 ? 1 : 0, op: ops.splice(0) });
+    n.toAll({ mo: 1, ev: 'st', x: +pos.x.toFixed(3), z: +pos.y.toFixed(3), yaw: +S.yaw.toFixed(3), m: S.mode, s: S.stun > 0 ? 1 : 0, a: away ? 1 : 0, op: ops.splice(0) });
   }
   function stunBy(origin, dir, range, from) {
-    if (S.mode === 'asleep' || S.stun > 0) return false;
+    if (S.mode === 'asleep' || S.stun > 0 || away) return false;
     const at = new THREE.Vector3(anchor.position.x + O.x, 1.6, anchor.position.z + O.z);
     if (!burstHits({ origin, dir, range }, at, () => los(from, pos, pos))) return false;
     S.stun = STUN_TIME; S.mode = 'search'; S.path = []; anim('fold'); anim('twitch'); sfx.flutter(1); if (sfx.shriek) sfx.shriek(1);
@@ -155,7 +158,7 @@ export function createMotherPlay(G) {
   addEventListener('flashburst', e => {
     if (G.escapeOwns && G.escapeOwns()) return;
     const d = e.detail;
-    if (isClient()) { if (R.m !== 'asleep' && !R.s) net().toHost({ mo: 1, req: 'flash', o: [d.origin.x, d.origin.y, d.origin.z], d: [d.dir.x, d.dir.y, d.dir.z], r: d.range }); return; }
+    if (isClient()) { if (R.m !== 'asleep' && !R.s && !R.a) net().toHost({ mo: 1, req: 'flash', o: [d.origin.x, d.origin.y, d.origin.z], d: [d.dir.x, d.dir.y, d.dir.z], r: d.range }); return; }
     if (stunBy(d.origin, d.dir, d.range, P())) { d.hit = true; say(STUN_MSG, 4000); }
   });
 
@@ -168,6 +171,7 @@ export function createMotherPlay(G) {
       if (pos.distanceTo(tgt) > 3) pos.copy(tgt); else pos.lerp(tgt, k);
       S.yaw = R.yaw;
     }
+    model.visible = !R.a; if (R.a) { moth.style.opacity = 0; return; }
     api.update(R.m === 'asleep' ? 0 : R.s ? dt * 0.3 : R.m === 'chase' ? dt * 3 : dt);
     anchor.position.set(pos.x, 0, pos.y);
     anchor.rotation.y += (((S.yaw - anchor.rotation.y + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI) * Math.min(1, dt * 10);
@@ -203,11 +207,14 @@ export function createMotherPlay(G) {
   return {
     model, api,
     get mode() { return S.mode; }, get hidden() { return !!S.hidden; },
+    // one of you up in the attic once the hatch is open (she is awake, or about to wake): she is
+    // here, so she cannot be on a floor below too
+    get busy() { return (S.mode !== 'asleep' || ground.attic.clockSolved) && quarries().some(q => inAttic(q.pos.y)); },
     // for the moth swarm: metres to her from your view, 99 when asleep, stunned or on another floor
-    get warnDist() { const p = P(); if (!inAttic(p.y)) return 99; const off = isClient() ? (R.m === 'asleep' || R.s) : (S.mode === 'asleep' || S.stun > 0); return off ? 99 : pos.distanceTo(p); },
+    get warnDist() { const p = P(); if (!inAttic(p.y)) return 99; const off = isClient() ? (R.m === 'asleep' || R.s || R.a) : (S.mode === 'asleep' || S.stun > 0 || away); return off ? 99 : pos.distanceTo(p); },
     debugPlace(x, z, yaw = 0) { pos.set(x, z); S.yaw = yaw; anchor.position.set(x, 0, z); anchor.rotation.y = yaw; },
-    get debug() { return { ...S, x: pos.x, z: pos.y, dist }; },
-    reset() { pos.set(...WP[0]); S.mode = 'asleep'; S.path = []; S.stun = 0; S.hidden = null; player.lowView = 0; S.wake = 0; S.wakeAt = 0; S.tid = null; veil.style.opacity = 0; moth.style.opacity = 0; api.setOpen(0); anchor.position.set(pos.x, 0, pos.y); deadUntil.clear(); R.have = false; R.m = 'asleep'; R.s = 0; },
+    get debug() { return { ...S, x: pos.x, z: pos.y, dist, ...(away || (isClient() && R.a) ? { mode: 'asleep' } : {}) }; }, // away below: silent up here
+    reset() { pos.set(...WP[0]); S.mode = 'asleep'; S.path = []; S.stun = 0; S.hidden = null; player.lowView = 0; S.wake = 0; S.wakeAt = 0; S.tid = null; veil.style.opacity = 0; moth.style.opacity = 0; api.setOpen(0); anchor.position.set(pos.x, 0, pos.y); deadUntil.clear(); R.have = false; R.m = 'asleep'; R.s = 0; R.a = 0; away = false; },
     // out from under a cot without moving her (waking after being caught, together)
     unhide() { if (S.hidden) { S.hidden = null; veil.style.opacity = 0; player.lowView = 0; } },
     interactables: HIDE_SPOTS.map(h => ({
@@ -222,7 +229,7 @@ export function createMotherPlay(G) {
           const p = P(), here = inAttic(p.y);
           /* she wakes: no caption, the moths will tell you */
           if (!R.s && m.s && here && pos.distanceTo(p) < 15) say(STUN_MSG, 4000);
-          Object.assign(R, { x: m.x, z: m.z, yaw: m.yaw, m: m.m, s: m.s, have: true });
+          Object.assign(R, { x: m.x, z: m.z, yaw: m.yaw, m: m.m, s: m.s, a: m.a ? 1 : 0, have: true });
           for (const op of m.op || []) if (op === 'spread' || op === 'fold' || op === 'twitch') api[op](); else if (op === 'fl' && here && G.flicker && new THREE.Vector2(m.x, m.z).distanceTo(p) < 16) G.flicker.pulse();
         } else if (m.ev === 'caught') { if (G.state && (G.state() === 'playing' || G.state() === 'paused')) G.caughtMP(); }
         return;
@@ -235,6 +242,9 @@ export function createMotherPlay(G) {
       if (together ? dt <= 0 || (G.inGame && !G.inGame()) : !G.active()) return;
       clock += dt; for (const [id, until] of deadUntil) if (clock > until) deadUntil.delete(id);
       const lp = P(); dist = pos.distanceTo(lp); // you: for her sounds and the moth on your hand
+      away = !!(G.roamActive && G.roamActive());
+      model.visible = !away;
+      if (away) { moth.style.opacity = 0; dist = 99; broadcast(dt); return; }
       const localHere = inAttic(lp.y) && (!together || G.active());
       const all = quarries(), up = all.filter(q => inAttic(q.pos.y));
       // her quarry: the one she is after, else the nearest of you up here (alone: always you)

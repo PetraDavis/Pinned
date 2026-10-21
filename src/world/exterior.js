@@ -1,5 +1,6 @@
 // The grounds and outside of the mansion: house, fence, overgrowth, sky.
 import * as THREE from 'three';
+import { loadStep } from '../loadSteps.js';
 import { cultGlassTexture } from './stainedGlass.js';
 import { tex } from '../textures.js';
 import { mat, box, rect, rep, rand, addCollider } from './build.js';
@@ -12,7 +13,7 @@ export const FRONT_DOOR = new THREE.Vector3(0, 0, -10.5);
 export const SUN_DIR = new THREE.Vector3(-0.8, 0.2, 0.55).normalize();
 export const GATE = new THREE.Vector3(0, 0, 20);
 
-export function buildExterior(scene, quality = 'high') {
+export async function buildExterior(scene, quality = 'high') {
   const group = new THREE.Group();
   const colliders = [];
   scene.add(group);
@@ -23,8 +24,11 @@ export function buildExterior(scene, quality = 'high') {
   const ironMat = mat({ color: 0x15161a, roughness: 0.55, metalness: 0.7 });
   const plankMat = mat({ map: tex.plank, color: 0x9b8a78 });
 
+  await loadStep('Laying out the grounds');
   // ---------- ground ----------
+  await loadStep('Laying out the grounds');
   // Dry, rough lawn: tiled grass texture plus large-scale vertex-colour variation
+  await loadStep('Laying out the grounds');
   // (worn dirt patches, darker weedy clumps) so it never reads as a flat sheet.
   const gGeo = new THREE.PlaneGeometry(400, 400, 160, 160);
   const gp = gGeo.attributes.position, cols = new Float32Array(gp.count * 3);
@@ -45,21 +49,28 @@ export function buildExterior(scene, quality = 'high') {
   const lane = new THREE.Mesh(new THREE.PlaneGeometry(400, 9), mat({ map: rep(tex.gravel, 60, 2), color: 0x8a8070, roughness: 1 }));
   lane.rotation.x = -Math.PI / 2; lane.position.set(0, 0.015, 27.5); lane.receiveShadow = true; group.add(lane);
 
+  await loadStep('Laying out the grounds');
   // ---------- the mansion ----------
   const house = new THREE.Group(); group.add(house);
+  await loadStep('Laying out the grounds');
   // plinth
   box(house, 74, 0.7, 22, 0, 0.35, -22, trimMat);
+  await loadStep('Laying out the grounds');
   // main block
   box(house, 36, 13.5, 20, 0, 6.75, -22, stoneMat(9, 3.5), colliders);
+  await loadStep('Laying out the grounds');
   // wings
   for (const s of [-1, 1]) box(house, 18, 9.5, 15, s * 27, 4.75, -21.5, stoneMat(4.5, 2.5), colliders);
+  await loadStep('Laying out the grounds');
   // central porch tower
   box(house, 8, 16, 1.6, 0, 8, -11.3, stoneMat(2, 4), colliders);
+  await loadStep('Laying out the grounds');
   // string courses
   for (const y of [4.6, 8.8]) box(house, 36.4, 0.25, 20.4, 0, y, -22, trimMat, null, { cast: false });
   box(house, 36.6, 0.5, 20.6, 0, 13.6, -22, trimMat, null, { cast: false });
   for (const s of [-1, 1]) box(house, 18.4, 0.45, 15.4, s * 27, 9.6, -21.5, trimMat, null, { cast: false });
 
+  await loadStep('Laying out the grounds');
   // roofs
   const roof = (w, d, h, x, y, z, ry, m) => {
     const sh = new THREE.Shape();
@@ -72,11 +83,14 @@ export function buildExterior(scene, quality = 'high') {
   };
   roof(37, 21, 7, 0, 13.8, -22, Math.PI / 2, slateMat(4, 1));
   for (const s of [-1, 1]) roof(19, 16, 4.5, s * 27, 9.8, -21.5, Math.PI / 2, slateMat(2, 0.6));
+  await loadStep('Laying out the grounds');
   // porch gable (ridge front-to-back)
   roof(4, 9, 4, 0, 16, -12, 0, slateMat(1, 0.5));
+  await loadStep('Laying out the grounds');
   // ridge cresting (iron)
   box(house, 30, 0.5, 0.08, 0, 21.05, -22, ironMat, null, { cast: false });
 
+  await loadStep('Laying out the grounds');
   // chimneys
   const chimneyMat = mat({ map: rep(tex.stone, 0.6, 2), color: 0x9a9690 });
   for (const [x, z, h] of [[-12, -18, 8], [-12, -27, 8], [12, -18, 8], [12, -27, 8], [-31, -21, 5.5], [31, -21, 5.5], [0, -30, 9]]) {
@@ -89,6 +103,7 @@ export function buildExterior(scene, quality = 'high') {
     }
   }
 
+  await loadStep('Laying out the grounds');
   // turret on the east corner
   const turret = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 2.6, 18, 20), stoneMat(4, 4));
   turret.position.set(18.5, 9, -12.8); turret.castShadow = turret.receiveShadow = true; house.add(turret);
@@ -105,6 +120,7 @@ export function buildExterior(scene, quality = 'high') {
     }
   }
 
+  await loadStep('Laying out the grounds');
   // ---------- facade detail: dentil cornices, quoins, porch balustrade ----------
   {
     const parts = { dentil: [], quoin: [], baluster: [] };
@@ -147,6 +163,7 @@ export function buildExterior(scene, quality = 'high') {
     box(house, 37.4, 0.3, 21.4, 0, 13.85, -22, trimMat, null, { cast: false });
   }
 
+  await loadStep('Laying out the grounds');
   // ---------- windows ----------
   const addWin = (kind, x, y, z, ry, w = 1.3, h = 2.4) => {
     const win = makeWindow(kind, w, h); win.position.set(x, y, z); win.rotation.y = ry; house.add(win); return win;
@@ -169,31 +186,39 @@ export function buildExterior(scene, quality = 'high') {
     for (const z of [-17.5, -21.5, -25.5]) for (const [y, h] of floors.slice(0, 2))
       addWin(pick(), s * 36, y, z, s * Math.PI / 2, 1.3, h);
   }
+  await loadStep('Laying out the grounds');
   // round window in porch gable
   const oculus = new THREE.Mesh(new THREE.CircleGeometry(0.8, 24), mat({ color: 0x0a0c10, roughness: 0.2, metalness: 0.5 }));
   oculus.position.set(0, 13.6, -10.48); house.add(oculus);
   const ring = new THREE.Mesh(new THREE.TorusGeometry(0.85, 0.12, 8, 24), trimMat);
   ring.position.copy(oculus.position); house.add(ring);
 
+  await loadStep('Laying out the grounds');
   // ---------- front entrance ----------
   const doorMat = mat({ map: tex.wood, color: 0x8a7a6a });
   for (const s of [-1, 1]) box(house, 1.15, 3.2, 0.15, s * 0.6, 2.3, -10.45, doorMat, null, { cast: false });
   box(house, 3.2, 0.4, 0.4, 0, 4.1, -10.35, trimMat);
   for (const s of [-1, 1]) box(house, 0.5, 4.2, 0.5, s * 1.65, 2.6, -10.3, trimMat);
+  await loadStep('Laying out the grounds');
   // boards nailed across the door
   for (const [y, a] of [[1.6, 0.25], [2.5, -0.2], [3.3, 0.1]]) {
     const b = box(house, 3.0, 0.26, 0.06, 0, y, -10.33, plankMat, null, { cast: false }); b.rotation.z = a;
   }
+  await loadStep('Laying out the grounds');
   // steps
   for (let i = 0; i < 3; i++) box(house, 5 - i * 0.4, 0.25, 1.2 - i * 0.3, 0, 0.12 + i * 0.25, -9.6 - i * 0.15, trimMat, i === 0 ? colliders : null);
+  await loadStep('Laying out the grounds');
   // the moth mosaic: the Order of the Pale Wing
+  await loadStep('Laying out the grounds');
   // a round leaded-glass rose window in the cult's moth design: the same window the Grand
+  await loadStep('Laying out the grounds');
   // Hall shows from inside, set in a polished brass ring
   const glassTex = cultGlassTexture(tex.mosaicFloor.userData.design, 512);
   const mosaic = new THREE.Mesh(new THREE.CircleGeometry(2.0, 96), new THREE.MeshStandardMaterial({ map: glassTex, emissive: 0xffffff, emissiveMap: glassTex, emissiveIntensity: 0.22, roughness: 0.12, metalness: 0.05 }));
   mosaic.position.set(0, 7.6, -10.47); house.add(mosaic);
   const goldRing = new THREE.Mesh(new THREE.TorusGeometry(2.06, 0.11, 20, 128), new THREE.MeshStandardMaterial({ color: 0xd0a850, metalness: 1, roughness: 0.2 }));
   goldRing.position.set(0, 7.6, -10.46); house.add(goldRing);
+  await loadStep('Laying out the grounds');
   // pillars flanking the porch
   for (const s of [-1, 1]) {
     const col = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.35, 4.5, 12), trimMat);
@@ -201,6 +226,7 @@ export function buildExterior(scene, quality = 'high') {
   }
   box(house, 7.2, 0.4, 1.6, 0, 5.3, -10, trimMat);
 
+  await loadStep('Laying out the grounds');
   // ivy creeping up the walls
   const ivyMat = mat({ map: tex.grassBlade, color: 0x2a3a22, transparent: true, alphaTest: 0.3, side: THREE.DoubleSide });
   for (let i = 0; i < 26; i++) {
@@ -212,9 +238,11 @@ export function buildExterior(scene, quality = 'high') {
     house.add(ivy);
   }
 
+  await loadStep('Laying out the grounds');
   // ---------- the fence ----------
   buildFence(group, colliders, ironMat, trimMat);
 
+  await loadStep('Laying out the grounds');
   // ---------- overgrowth ----------
   buildGrass(group, 10000); // the quality setting shows a share of these (main.js)
   const bushMat = mat({ color: 0x18220f, roughness: 1 });
@@ -232,6 +260,7 @@ export function buildExterior(scene, quality = 'high') {
     t.position.set(x, 0, z); group.add(t);
     rect(colliders, x - 0.5, x + 0.5, z - 0.5, z + 0.5);
   }
+  await loadStep('Laying out the grounds');
   // broken fountain on the path
   const fountainMat = mat({ map: rep(tex.stone, 2, 0.5), color: 0x8a8a86 });
   const basin = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.4, 0.8, 24, 1, true), fountainMat);
@@ -244,14 +273,17 @@ export function buildExterior(scene, quality = 'high') {
   urn.position.set(0, 2.5, 4); urn.rotation.z = 0.5; group.add(urn);
   rect(colliders, -2.3, 2.3, 1.7, 6.3);
 
+  await loadStep('Laying out the grounds');
   // the way outside: hedge across the lane, a dead street lamp
   for (let x = -60; x < 60; x += 3) box(group, 3.1, 2.2 + Math.sin(x) * 0.3, 1.6, x, 1.1, 33, bushMat, null);
   const lamp = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.1, 4.2, 8), ironMat);
   lamp.position.set(6, 2.1, 31.5); lamp.castShadow = true; group.add(lamp);
   box(group, 0.45, 0.6, 0.45, 6, 4.4, 31.5, mat({ color: 0x1a1d20, roughness: 0.3, metalness: 0.5 }));
+  await loadStep('Laying out the grounds');
   // invisible bounds for the starting lane
   rect(colliders, -60, 60, 32, 34); rect(colliders, -54, -52, 19, 34); rect(colliders, 52, 54, 19, 34);
 
+  await loadStep('Laying out the grounds');
   // ---------- sky ----------
   buildSky(scene, group);
 

@@ -3,6 +3,7 @@
 // wings are folded round her like a shroud, and spread all at once for the reveal.
 // She stands perfectly still, then moves in fast, twitching insect jerks. Preview-only for now: not used by the game.
 import * as THREE from 'three';
+import { cachedCanvas, storeCanvas } from '../texCache.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 const clean = g => { const n = g.index ? g.toNonIndexed() : g; for (const k of Object.keys(n.attributes)) if (!['position', 'normal', 'uv'].includes(k)) n.deleteAttribute(k); return n; };
 const merge = gs => mergeGeometries(gs.map(clean), false);
@@ -102,9 +103,10 @@ function wingCanvas(kind, seed) {
     g.restore();
   });
 }
-function wingTexture(kind, seed) { const t = tex(wingCanvas(kind, seed)); t.anisotropy = 16; return t; }
+const wingCanvases = new Map(); // kind:seed -> canvas, filled ahead by prepareMother
+function wingTexture0(kind, seed) { const k = kind + ':' + seed; if (!wingCanvases.has(k)) wingCanvases.set(k, wingCanvas(kind, seed)); const t = tex(wingCanvases.get(k)); t.anisotropy = 16; return t; }
 
-function silkTexture(seed) {
+function silkTexture0(seed) {
   const r = rnd(seed);
   return tex(canvas(512, 1024, (g, w, h) => {
     g.fillStyle = '#b8a47a'; g.fillRect(0, 0, w, h);
@@ -126,7 +128,7 @@ function fuzzAlpha(seed, density = 0.35) {
   }), false);
 }
 
-function skinTexture() {
+function skinTexture0() {
   const r = rnd(9);
   return tex(canvas(512, 512, (g, w, h) => {
     g.fillStyle = '#d2c6bc'; g.fillRect(0, 0, w, h);
@@ -167,12 +169,12 @@ function headShape(nx, ny, nz) {
   }
   return [x, y, z];
 }
-function headGeo() {
+function headGeo0() {
   const g = new THREE.SphereGeometry(1, 128, 96), p = g.attributes.position;
   for (let i = 0; i < p.count; i++) { const v = headShape(p.getX(i), p.getY(i), p.getZ(i)); p.setXYZ(i, ...v); }
   g.computeVertexNormals(); return g;
 }
-function surfZ(x, y) {
+function surfZ0(x, y) {
   let best = 0, bd = 1e9;
   for (let a = -1; a <= 1; a += 0.015) for (let b = -1; b <= 1; b += 0.015) { const q = 1 - a * a - b * b; if (q <= 0) continue; const v = headShape(a, b, Math.sqrt(q)), d = (v[0] - x) ** 2 + (v[1] - y) ** 2; if (d < bd) { bd = d; best = v[2]; } }
   return best;
@@ -200,6 +202,24 @@ function limbGeo(pts, r0, r1, seg = 48, radial = 20) {
   const a = new THREE.SphereGeometry(r0, radial, 12); a.translate(...pts[0].toArray());
   const b = new THREE.SphereGeometry(r1, radial, 12); b.translate(...pts[pts.length - 1].toArray());
   return merge([g, a, b]);
+}
+
+// Painting and shaping her takes seconds on a slow machine, and three parts of the game build
+// her (the attic, the roaming hunt, the escape): the costly pieces are made once and shared.
+// Textures are handed out as clones (same image, own settings); geometry is never changed after.
+const memo = (fn, cloneTex) => { const c = new Map(); return (...a) => { const k = a.join(); if (!c.has(k)) c.set(k, fn(...a)); const v = c.get(k); return cloneTex ? v.clone() : v; }; };
+const wingTexture = memo(wingTexture0, true), silkTexture = memo(silkTexture0, true), skinTexture = memo(skinTexture0, true);
+const headGeo = memo(headGeo0), surfZ = memo(surfZ0);
+// make the costly pieces ahead, a step at a time (main.js awaits this while loading)
+export async function prepareMother(step) {
+  skinTexture(); await step('skin'); silkTexture(3); await step('silk');
+  // the wing is the slowest picture of all: kept from the last visit when the browser allows it
+  if (!wingCanvases.has('fore:21')) {
+    const W = 1536, H = 900, old = await cachedCanvas('mother-wing-fore-21', W, H);
+    if (old) wingCanvases.set('fore:21', old);
+    else { const c = wingCanvas('fore', 21); wingCanvases.set('fore:21', c); storeCanvas('mother-wing-fore-21', c); }
+  }
+  wingTexture('fore', 21); await step('wing'); headGeo(); await step('head');
 }
 
 export function buildMother() {

@@ -13,6 +13,7 @@
 // (peppered moth note), Luna Bedroom (countdown wall, M6 vanity), Leader's Bedroom
 // (four-poster, locked desk: the floor's puzzle), Linen Room (M7, ladder D locked).
 import * as THREE from 'three';
+import { loadStep } from '../loadSteps.js';
 import { tex } from '../textures.js';
 import { mat, box, rect, rep, rand } from './build.js';
 import { gasLampFixture } from './fixtures.js';
@@ -77,7 +78,7 @@ export const PEPPERED_NOTE = [
   'The desk is set to it. Change with the bark, or be eaten.”',
 ].join(' ');
 
-export function buildLowerUpper(ctx) {
+export async function buildLowerUpper(ctx) {
   const { group, local, wall, room, plane, door, light, addMirror, carpetTex, buildRubble } = ctx;
   const r = rand(3131);
   const wood = mat({ map: tex.wood, color: 0x6a5444 });
@@ -100,6 +101,7 @@ export function buildLowerUpper(ctx) {
     m.position.set(x, y, z); group.add(m); return m;
   };
 
+  await loadStep('Building the cellar and first floor');
   // ======================= CELLAR: x 30..58, z 40..56.8 =======================
   const CX0 = 30, CX1 = 58, CZ0 = 40, CZ1 = 56.8, CH = 3.2;
   room(CX0, CX1, CZ0, CZ1, CH, flag, vault);
@@ -114,16 +116,21 @@ export function buildLowerUpper(ctx) {
   door('cBoilerEgg', 'x', 46.3, 43.0, { swing: -1, openMsg: 'The air beyond is warm and still, like a held breath.' });
   door('cEggChapel', 'z', 49.25, 51.9, { swing: 1, openMsg: 'Candles, long burned down. Pews. Someone kept this place.' });
   door('cWineEgg', 'z', 39.1, 51.2, { locked: true, swing: -1, msg: 'Bolted from the other side.' });
+  await loadStep('Building the cellar and first floor');
   // vault ribs across the ceiling
   for (let x = CX0 + 1.5; x < CX1; x += 3) box(group, 0.25, 0.22, CZ1 - CZ0, x, CH - 0.11, (CZ0 + CZ1) / 2, vault, null, { cast: false });
 
+  await loadStep('Building the cellar and first floor');
   // dim fills so the rooms read in the dark (no visible source)
   for (const [x, z] of [[34.5, 50], [44.2, 43.0], [44.2, 52], [53.6, 46], [53.6, 53]]) light(x, CH - 0.4, z, 0x9a8a7a, 10, 14, false).userData.fill = true;
+  await loadStep('Building the cellar and first floor');
   // ---- Wine Cellar: x 30..39.1 ----
+  await loadStep('Building the cellar and first floor');
   // stair C rises north to the kitchen, beside the shaft of the old back stair B
   for (let i = 0; i < 9; i++) box(group, 2.0, 0.18 * (i + 1), 0.5, 31.75, 0.09 * (i + 1), 45.0 - i * 0.5, darkWood, null, { cast: i % 3 === 0 });
   rect(local, 30.7, 32.8, 40.2, 45.25);
   box(group, 0.08, 1.0, 4.6, 32.85, 1.4, 43.0, darkWood, null, { cast: false }); // handrail
+  await loadStep('Building the cellar and first floor');
   // the B shaft, behind an iron gate
   const shaftG = new THREE.Group(); shaftG.position.set(34.45, 0, 45.2); group.add(shaftG);
   for (let i = 0; i < 9; i++) { const b = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 2.4, 6), iron); b.position.set(-0.95 + i * 0.237, 1.2, 0); shaftG.add(b); }
@@ -134,6 +141,7 @@ export function buildLowerUpper(ctx) {
   box(group, 0.2, CH, 5.2, 35.6, CH / 2, 42.6, brick, local, { cast: false });
   const gateCol = { minX: 33.4, maxX: 35.5, minZ: 45.1, maxZ: 45.3, door: 'shaftGate' }; local.push(gateCol);
   rect(local, 33.4, 35.5, 40.2, 45.1);
+  await loadStep('Building the cellar and first floor');
   // racks of bottles down the west wall, barrels opposite
   const bottleGeo = new THREE.CylinderGeometry(0.035, 0.035, 0.3, 8); bottleGeo.rotateZ(Math.PI / 2);
   const bottleMat = new THREE.MeshStandardMaterial({ color: 0x1a2a1a, roughness: 0.2, metalness: 0.1 });
@@ -149,6 +157,7 @@ export function buildLowerUpper(ctx) {
     const b = add(new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 1.1, 16), wood), x, 0.55, z); b.rotation.z = Math.PI / 2; b.rotation.y = Math.PI / 2;
     rect(local, x - 0.45, x + 0.45, z - 0.55, z + 0.55);
   }
+  await loadStep('Building the cellar and first floor');
   // a collapsed rack: rubble and broken glass
   buildRubble(group, 35.5, 55.5, 1.1, r);
   rect(local, 34.6, 36.4, 54.6, 56.4);
@@ -157,6 +166,7 @@ export function buildLowerUpper(ctx) {
   addMirror({ id: 'M3', pos: new THREE.Vector3(37.2, 1.7, CZ1 - 0.02), ry: Math.PI, w: 0.8, h: 1.4, stage: 3 });
   cocoon(36.9, 41.0, 1.2, true); cocoon(38.4, 46.5, 0.9, false);
 
+  await loadStep('Building the cellar and first floor');
   // ---- Boiler Room: x 39.1..49.25, z 40..46.3 ----
   const boiler = add(new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 2.4, 24), iron), 46.8, 1.2, 42.4);
   const fire = new THREE.Mesh(new THREE.CircleGeometry(0.25, 16), new THREE.MeshBasicMaterial({ color: 0xff6a20 })); fire.position.set(46.8, 0.5, 43.31); group.add(fire);
@@ -164,6 +174,7 @@ export function buildLowerUpper(ctx) {
   for (let i = 0; i < 4; i++) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 6, 10), iron); p.rotation.z = Math.PI / 2; p.position.set(44.2, 2.5 + i * 0.15, 40.25 + i * 0.12); group.add(p); }
   light(46.8, 0.6, 43.6, 0xff6020, 3, 6, false);
   light(42.8, 2.4, 40.0, 0xffa860, 4, 8, '+z').userData.creepy = true;
+  await loadStep('Building the cellar and first floor');
   // the clothes-moth wardrobe: tall, its coats eaten to lace
   const ward = new THREE.Group(); ward.position.set(41.2, 0, 40.45); group.add(ward);
   box(ward, 1.5, 2.3, 0.6, 0, 1.15, 0.3, darkWood);
@@ -179,6 +190,7 @@ export function buildLowerUpper(ctx) {
   rect(local, 40.4, 42.0, 40.0, 41.1);
   box(group, 0.8, 0.8, 0.6, 44.5, 0.4, 45.6, wood, local); // crate
 
+  await loadStep('Building the cellar and first floor');
   // ---- Egg Room: x 39.1..49.25, z 46.3..56.8 ----
   const eggMat = new THREE.MeshStandardMaterial({ color: 0xd8dce0, roughness: 0.3, emissive: 0x24262a });
   const eggGeo = new THREE.SphereGeometry(0.06, 12, 8); eggGeo.scale(1, 1.35, 1);
@@ -195,11 +207,13 @@ export function buildLowerUpper(ctx) {
   light(44.2, 2.6, 51.5, 0xd8c8a8, 3.5, 10, { pendant: CH }).userData.creepy = true;
   cocoon(40.0, 56.2, 1.3, true); cocoon(48.6, 47.0, 1.1, true); cocoon(48.5, 56.2, 1.0, false);
 
+  await loadStep('Building the cellar and first floor');
   // ---- Ritual Chapel: x 49.25..58, z 40..56.8 ----
   box(group, 3.0, 1.0, 1.0, 53.65, 0.5, 40.6, mat({ map: rep(tex.stone, 1, 0.5), color: 0x9a948a }), local); // altar
   box(group, 3.4, 0.08, 1.2, 53.65, 1.04, 40.6, mat({ color: 0xd8d0c0, roughness: 0.9 }), null, { cast: false }); // altar cloth
   const altarMosaic = new THREE.Mesh(new THREE.PlaneGeometry(2.0, 2.0), mat({ map: tex.mosaic, roughness: 0.55 }));
   altarMosaic.position.set(53.65, 2.1, 40.02); group.add(altarMosaic);
+  await loadStep('Building the cellar and first floor');
   // the four carved stones set into the altar front
   const tiles = ALTAR_TILES.map((k, i) => {
     const m = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.08), new THREE.MeshStandardMaterial({ map: stoneIcon(k), roughness: 0.9 }));
@@ -221,6 +235,7 @@ export function buildLowerUpper(ctx) {
       rect(local, x - 1.3, x + 1.3, z - 0.28, z + 0.3);
     }
   }
+  await loadStep('Building the cellar and first floor');
   // stair E: steps going down, closed off by a grille
   for (let i = 0; i < 6; i++) box(group, 2.0, 0.06, 0.5, 56.25, -0.18 * i, 53.4 + i * 0.5, flag, null, { cast: false });
   plane(2.1, 3.2, 56.25, 0.005, 54.8, mat({ color: 0x050505 }));
@@ -228,14 +243,17 @@ export function buildLowerUpper(ctx) {
   for (let i = 0; i < 8; i++) { const b = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 1.2, 6), iron); b.position.set(-0.9 + i * 0.26, 0.6, 0); grille.add(b); }
   for (const y of [0.1, 1.15]) { const b = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.05, 0.04), iron); b.position.y = y; grille.add(b); }
   rect(local, 55.2, 57.3, 53.0, 56.6);
+  await loadStep('Building the cellar and first floor');
   // a glow from below once the grille lifts, so the way down is plain to see
   const stairGlow = new THREE.PointLight(0xffb070, 0, 5, 1.4); stairGlow.position.set(56.25, 0.3, 54.6); stairGlow.userData.noLimit = true; group.add(stairGlow);
   addMirror({ id: 'M4', pos: new THREE.Vector3(CX1 - 0.02, 1.8, 47.0), ry: -Math.PI / 2, w: 1.0, h: 1.8, stage: 4 });
   cocoon(50.0, 55.9, 1.5, true); cocoon(57.4, 41.0, 1.2, true); cocoon(50.2, 41.2, 0.9, false);
 
+  await loadStep('Building the cellar and first floor');
   // ======================= FIRST FLOOR: x 30..58, z 80..96.8 =======================
   const FX0 = 30, FX1 = 58, FZ0 = 80, FZ1 = 96.8, FH = 3.6;
   const wp = wallpaper(4, 1.4, 0x7a7276), wpN = wallpaper(3, 1.4, 0x8a8478), wpL = wallpaper(3, 1.4, 0x6a7a8a);
+  await loadStep('Building the cellar and first floor');
   // floors (the gallery's around its open well), ceilings
   plane(9.1, FZ1 - FZ0, 34.55, 0, (FZ0 + FZ1) / 2, floorMat(4, 6));
   plane(FX1 - 49.25, FZ1 - FZ0, (49.25 + FX1) / 2, 0, (FZ0 + FZ1) / 2, floorMat(4, 6));
@@ -266,11 +284,13 @@ export function buildLowerUpper(ctx) {
   door('fLeaderLinen', 'x', 86.3, 55.6, { w: 1.0, locked: true, swing: -1, msg: 'Locked. A brass plate reads LINEN. The key must be somewhere in this room.', openMsg: 'Shelves of yellowed linen, and a ladder going up into the dark.' });
 
   for (const [x, z] of [[34.5, 84], [44.2, 82], [42, 92], [34.5, 92.5], [53.6, 83], [53.6, 93]]) light(x, FH - 0.4, z, 0x9a8a80, 10, 14, false).userData.fill = true;
+  await loadStep('Building the cellar and first floor');
   // ---- Cocoon Room: x 30..39.1, z 80..88.4 (stair B arrives here) ----
   for (let i = 0; i < 9; i++) box(group, 2.0, 0.06, 0.5, 34.45, -0.2 * (i + 1), 85.5 - i * 0.5, wood, null, { cast: false });
   plane(2.1, 4.8, 34.45, 0.004, 83.4, mat({ color: 0x080706 }));
   for (const x of [33.35, 35.55]) box(group, 0.06, 0.9, 4.8, x, 0.45, 83.3, darkWood, null, { cast: false });
   rect(local, 33.3, 35.6, 80.6, 85.8);
+  await loadStep('Building the cellar and first floor');
   // silk frames along the walls, and the wrapped ones
   for (let i = 0; i < 4; i++) {
     const fx = 30.5 + i * 0.75;
@@ -285,6 +305,7 @@ export function buildLowerUpper(ctx) {
   light(38.9, 2.6, 84.0, 0xffa860, 4, 9, '-x').userData.creepy = true;
   light(30.15, 2.6, 85.5, 0xffa860, 3, 7, '+x');
 
+  await loadStep('Building the cellar and first floor');
   // ---- Nursery: x 39.1..49.25, z 80..84.2 ----
   const nursFloor = floorMat(3, 2, 0xb0a898);
   plane(10.1, 4.1, 44.2, 0.004, 82.1, nursFloor);
@@ -301,6 +322,7 @@ export function buildLowerUpper(ctx) {
   light(44.5, 2.9, 82.0, 0xffb878, 4, 8, { pendant: FH }).userData.creepy = true;
   cocoon(40.0, 80.6, 0.8, true);
 
+  await loadStep('Building the cellar and first floor');
   // ---- Gallery Landing: open well over the Grand Hall, stair A's head under rubble ----
   const railMat = darkWood, balPos = [];
   const well = { x0: 44.4, x1: 48.0, z0: 85.6, z1: 96.0 };
@@ -311,12 +333,14 @@ export function buildLowerUpper(ctx) {
   }
   { const bal = new THREE.InstancedMesh(new THREE.BoxGeometry(0.04, 1.0, 0.04), railMat, balPos.length); balPos.forEach(([x, z], i) => { m4.makeTranslation(x, 0.5, z); bal.setMatrixAt(i, m4); }); group.add(bal); }
   rect(local, well.x0 - 0.05, well.x1 + 0.05, well.z0 - 0.05, well.z1 + 0.05);
+  await loadStep('Building the cellar and first floor');
   // looking down: the hall far below, the carpet catching coloured light
   const deep = new THREE.Mesh(new THREE.PlaneGeometry(well.x1 - well.x0, well.z1 - well.z0), new THREE.MeshBasicMaterial({ map: carpetTex(), color: 0x3a3436 }));
   deep.rotation.x = -Math.PI / 2; deep.position.set((well.x0 + well.x1) / 2, -7.2, (well.z0 + well.z1) / 2); group.add(deep);
   for (const [x0, z0, w, d, ry] of [[well.x0, (well.z0 + well.z1) / 2, well.z1 - well.z0, 7.2, Math.PI / 2], [well.x1, (well.z0 + well.z1) / 2, well.z1 - well.z0, 7.2, -Math.PI / 2], [(well.x0 + well.x1) / 2, well.z0, well.x1 - well.x0, 7.2, 0], [(well.x0 + well.x1) / 2, well.z1, well.x1 - well.x0, 7.2, Math.PI]]) {
     const sh = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshBasicMaterial({ color: 0x0c0a0a })); sh.position.set(x0, -3.6, z0); sh.rotation.y = ry; group.add(sh);
   }
+  await loadStep('Building the cellar and first floor');
   // stair A comes up here, choked with the collapsed landing
   for (let i = 0; i < 5; i++) box(group, 2.2, 0.06, 0.4, 42.1, -0.22 * (i + 1), 86.0 + i * 0.4, wood, null, { cast: false });
   buildRubble(group, 42.1, 88.2, 1.2, r);
@@ -325,6 +349,7 @@ export function buildLowerUpper(ctx) {
   light(49.0, 2.6, 88.0, 0xffa860, 3.5, 9, '-x');
   cocoon(48.8, 95.8, 1.2, true);
 
+  await loadStep('Building the cellar and first floor');
   // ---- Library: x 30..39.1, z 88.4..96.8 ----
   const bookCols = [0x5a2a22, 0x2a3a4a, 0x3a4a2a, 0x6a5a3a, 0x4a2a3a, 0x2a2a2a, 0x7a6a4a];
   const NBK = 900, books = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ roughness: 0.8 }), NBK); let nbk = 0;
@@ -343,6 +368,7 @@ export function buildLowerUpper(ctx) {
   light(34.6, 2.9, 92.6, 0xffc080, 4, 9, { pendant: FH }).userData.creepy = true;
   light(38.9, 2.4, 95.4, 0xffa860, 2.5, 6, '-x');
 
+  await loadStep('Building the cellar and first floor');
   // ---- Leader's Bedroom: x 49.25..58, z 80..86.3 ----
   const bed = new THREE.Group(); bed.position.set(55.2, 0, 81.27); group.add(bed); // headboard to the north wall
   box(bed, 2.0, 0.55, 2.3, 0, 0.3, 0, darkWood); box(bed, 1.9, 0.18, 2.2, 0, 0.66, 0, mat({ color: 0x7a2a2a, roughness: 0.95 }));
@@ -361,9 +387,11 @@ export function buildLowerUpper(ctx) {
   light(57.8, 2.6, 84.5, 0xffa860, 3.5, 8, '-x').userData.creepy = true;
   cocoon(57.4, 80.6, 1.0, true);
 
+  await loadStep('Building the cellar and first floor');
   // ---- Linen Room: x 53.45..58, z 86.3..89.1 ----
   for (let s = 0; s < 4; s++) { box(group, 0.5, 0.04, 2.6, 53.8, 0.4 + s * 0.55, 87.7, wood, null, { cast: false }); for (let k = 0; k < 4; k++) box(group, 0.4, 0.14 + r() * 0.1, 0.5, 53.8, 0.5 + s * 0.55, 86.7 + k * 0.62, mat({ color: 0xd8d0b8, roughness: 1 }), null, { cast: false }); }
   rect(local, 53.5, 54.1, 86.4, 89.0);
+  await loadStep('Building the cellar and first floor');
   // ladder D, up to a hatch, padlocked
   const lad = new THREE.Group(); lad.position.set(57.4, 0, 87.7); lad.rotation.z = 0.12; group.add(lad);
   for (const s of [-0.25, 0.25]) box(lad, 0.06, 3.7, 0.06, 0, 1.85, s, wood);
@@ -373,6 +401,7 @@ export function buildLowerUpper(ctx) {
   light(55.6, 2.8, 87.7, 0xffb070, 2.5, 6, { pendant: FH });
   addMirror({ id: 'M7', pos: new THREE.Vector3(54.12, 1.7, 87.7), ry: Math.PI / 2, w: 0.7, h: 1.3, stage: 7 });
 
+  await loadStep('Building the cellar and first floor');
   // ---- Luna Bedroom: x 49.25..58, z 89.1..96.8 ----
   const luna = new THREE.Group(); luna.position.set(51.2, 0, 95.74); group.add(luna); // headboard to the south wall
   box(luna, 1.2, 0.5, 2.0, 0, 0.25, 0, wood); box(luna, 1.1, 0.15, 1.9, 0, 0.57, 0, mat({ color: 0x9ab8a0, roughness: 0.95 }));
@@ -388,6 +417,7 @@ export function buildLowerUpper(ctx) {
   light(55.4, 1.4, 96.5, 0xffd0a0, 1.5, 4, 'candle');
   cocoon(57.4, 89.8, 1.2, true); cocoon(49.8, 96.2, 0.9, false);
 
+  await loadStep('Building the cellar and first floor');
   // ---- places to hide on the First Floor (FIRST_HIDES): wardrobes, low tables, desks, curtained alcoves ----
   { const curtainM = new THREE.MeshStandardMaterial({ map: lacyTex(11), color: 0x4a2226, transparent: true, alphaTest: 0.2, side: THREE.DoubleSide, roughness: 0.95 });
     const heavyM = mat({ color: 0x3a1c1e, roughness: 0.98 });
@@ -413,6 +443,7 @@ export function buildLowerUpper(ctx) {
     }
   }
 
+  await loadStep('Building the cellar and first floor');
   // ---------- merge all spun silk into one mesh, all anchor threads into one line set ----------
   {
     const merged = mergeSilk(mergeGeometries, silkGeos);
@@ -421,6 +452,7 @@ export function buildLowerUpper(ctx) {
     group.add(new THREE.LineSegments(tg, new THREE.LineBasicMaterial({ color: 0xd8d0c0, transparent: true, opacity: 0.35 })));
   }
 
+  await loadStep('Building the cellar and first floor');
   // ---------- state ----------
   const shaftOpen = { v: false }, stairEOpen = { v: false }, deskOpen = { v: false }, altar = { seq: [], solved: false, shake: 0 };
   let wardOpen = false, wardAnim = 0;
@@ -464,9 +496,13 @@ export function buildLowerUpper(ctx) {
   api.bindColliders = (rem, addB) => { removeLocal = rem; addLocal = addB; };
   return api;
 
+  await loadStep('Building the cellar and first floor');
   // ---------- local builders ----------
+  await loadStep('Building the cellar and first floor');
   // Spun cocoons: a fibrous silk body wrapped in criss-crossing strands, with anchor threads
+  await loadStep('Building the cellar and first floor');
   // fanning out to the ceiling (or the floor). All cocoons and threads are merged into one
+  await loadStep('Building the cellar and first floor');
   // mesh and one line set when the floors are finished, so they cost two draw calls.
   function cocoon(x, z, h, hanging) { spunCocoon(x, z, h, hanging, z > 70 ? FH : CH, silkGeos, threadPts); }
   function wrapped(x, z, ry) {

@@ -13,6 +13,7 @@
 //                  cabinet that wants the keys from the mildest poison to the deadliest
 //   Back Stair   - stair B, up to the First Floor (the only way up to it)
 import * as THREE from 'three';
+import { loadStep } from '../loadSteps.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { tex } from '../textures.js';
 import { mat, rep, rect, rand } from './build.js';
@@ -58,9 +59,10 @@ export const DRAWERS = {
 };
 export { POISON_ORDER };
 
-export function buildCatacombs(ctx) {
+export async function buildCatacombs(ctx) {
   const { group, local, light, door } = ctx;
   const r = rand(4471);
+  await loadStep('Digging the catacombs');
   // ---------- materials ----------
   const stone = mat({ map: rep(tex.stone, 1, 1), color: 0x5e5a54, roughness: 0.8 });
   const floorStone = mat({ map: rep(tex.stone, 1, 1), color: 0x4a4744, roughness: 0.7 });
@@ -74,6 +76,7 @@ export function buildCatacombs(ctx) {
   const wax = new THREE.MeshStandardMaterial({ color: 0xe8e0c8, roughness: 0.7 });
   const silk = new THREE.MeshStandardMaterial({ map: silkTex(), color: 0xd8d8d8, roughness: 0.85, emissive: 0x1a1814, side: THREE.DoubleSide });
 
+  await loadStep('Digging the catacombs');
   // ---------- merged static geometry, one mesh per material ----------
   const lists = new Map();
   const m4 = new THREE.Matrix4(), eul = new THREE.Euler(), qq = new THREE.Quaternion(), one = new THREE.Vector3(1, 1, 1), pp = new THREE.Vector3();
@@ -86,6 +89,7 @@ export function buildCatacombs(ctx) {
     if (!L.has(material)) L.set(material, []);
     L.get(material).push(g);
   }
+  await loadStep('Digging the catacombs');
   // the sealed tunnel's door, chains and bricks are kept out of the static merge (escape.js opens them)
   let tunnelPart = null; const tunnelLists = { door: new Map(), bricks: new Map() };
   const tunnelDoor = new THREE.Group(), tunnelBricks = new THREE.Group(); tunnelDoor.name = 'tunnelDoor'; tunnelBricks.name = 'tunnelBricks';
@@ -94,6 +98,7 @@ export function buildCatacombs(ctx) {
     for (const [m, gs] of lists) { const mesh = new THREE.Mesh(mergeGeometries(gs, false), m); mesh.receiveShadow = true; mesh.castShadow = false; group.add(mesh); }
     lists.clear();
   }
+  await loadStep('Digging the catacombs');
   // walls along x (at z) or along z (at x), with gaps [centre, width, headerHeight]
   function wallX(z, x0, x1, gaps = [], y0 = 0, m = stone) {
     let s = x0;
@@ -120,13 +125,16 @@ export function buildCatacombs(ctx) {
   };
   const puddle = (x, z, s) => addGeo(wet, new THREE.CircleGeometry(s, 14).scale(1, 0.6 + r() * 0.4, 1), x, 0.004, z, r() * 3, -Math.PI / 2);
 
+  await loadStep('Digging the catacombs');
   // ---------- instanced bones and skulls ----------
   const skullGeo = makeSkull();
+  await loadStep('Digging the catacombs');
   // the femur courses are a texture (bone ends in rows, with a bump map); skulls are 3D
   const boneTex = boneEndsTex(); boneTex.wrapS = boneTex.wrapT = THREE.RepeatWrapping;
   const boneFace = new THREE.MeshStandardMaterial({ map: boneTex, bumpMap: boneTex, bumpScale: 3, roughness: 0.9 });
   const skullMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8, vertexColors: true });
   const skulls = [];
+  await loadStep('Digging the catacombs');
   // a stacked ossuary wall: femur heads in courses, with rows of skulls between
   function boneWall(axis, at, a, b, facing, y0 = 0.1, y1 = 1.75) {
     const depth = 0.34, inward = facing; // facing: +1 or -1 along the wall normal
@@ -151,6 +159,7 @@ export function buildCatacombs(ctx) {
     for (let s = a + 0.12; s < b - 0.1; s += 0.2) skulls.push([axis === 'x' ? s : front - inward * 0.12, y1 + 0.11, axis === 'x' ? front - inward * 0.12 : s, yaw + (r() - 0.5) * 0.5, 0.95 + r() * 0.1]);
   }
 
+  await loadStep('Digging the catacombs');
   // ---------- cocoons: static hanging ones (merged) and twitching wall ones ----------
   const silkGeos = [], threadPts = [], wallCocoons = [];
   const crackMat = new THREE.MeshStandardMaterial({ color: 0x120c08, emissive: 0x2a1408, emissiveIntensity: 0.6, roughness: 1, side: THREE.DoubleSide });
@@ -173,21 +182,25 @@ export function buildCatacombs(ctx) {
     wallCocoons.push({ g: lean, crack, t: cr() * 8, tw: 0, h });
   }
 
+  await loadStep('Digging the catacombs');
   // ======================= BONE GALLERY: x 30..40, z 120..128 =======================
   floor(30, 40, 120, 128); ceil(30, 40, 120, 128);
   wallX(120, 30, 40, [[33.5, 1.6]]);
   wallX(128, 30, 40);
   wallZ(30, 120, 128, [[125.0, 1.6, 2.2]], 0, brick);
   wallZ(40, 120, 128, [[124.0, 1.4]]);
+  await loadStep('Digging the catacombs');
   // stair E: steps rising north into a recess, up to the chapel
   for (let i = 0; i < 8; i++) B(floorStone, 1.6, 0.18 * (i + 1), 0.36, 33.5, 0.09 * (i + 1), 119.78 - i * 0.36);
   B(stone, 0.2, H, 3.2, 32.6, H / 2, 118.4); B(stone, 0.2, H, 3.2, 34.4, H / 2, 118.4); B(stone, 1.8, H, 0.2, 33.5, H / 2, 116.8);
   B(stone, 1.8, 0.1, 3.2, 33.5, H + 0.05, 118.4);
   addGeo(new THREE.MeshBasicMaterial({ color: 0x030303 }), new THREE.PlaneGeometry(1.6, 1.3), 33.5, 2.0, 116.95);
   rect(local, 32.6, 34.4, 116.8, 120.05);
+  await loadStep('Digging the catacombs');
   // the sealed tunnel: an arched passage west, bricked up behind an iron door, chained
   B(stone, 2.6, H, 0.2, 28.7, H / 2, 124.1); B(stone, 2.6, H, 0.2, 28.7, H / 2, 125.9); B(stone, 2.6, 0.1, 1.8, 28.7, 2.25, 125.0);
   tunnelPart = 'bricks'; B(brick, 0.3, 2.2, 1.6, 27.6, 1.1, 125.0, 0, 0.9);
+  await loadStep('Digging the catacombs');
   // (kept apart from the merge as api.tunnelDoor / api.tunnelBricks; escape.js opens it: its collider is 'catTunnel')
   tunnelPart = 'door';
   { const TX = 29.0, TZ = 125.0;
@@ -205,15 +218,18 @@ export function buildCatacombs(ctx) {
   wallCocoon(36.4, 120.1, 0, 1, 0.9, 1.0); wallCocoon(39.9, 126.8, -1, 0, 0.5, 0.8);
   spunCocoon(35.8, 124.6, 1.1, true, H, silkGeos, threadPts);
   light(35, H - 0.4, 124, 0x8a7a6a, 6, 12, false).userData.fill = true;
+  await loadStep('Digging the catacombs');
   // a candle on a skull at the end of the bone wall
   B(wax, 0.05, 0.2, 0.05, 38.9, 1.95, 127.45); light(38.9, 2.07, 127.45, 0xffa050, 2.2, 6, 'candle').userData.creepy = true;
 
+  await loadStep('Digging the catacombs');
   // ======================= OSSUARY: x 40..50, z 120..128 =======================
   floor(40, 50, 120, 128); ceil(40, 50, 120, 128);
   wallX(120, 40, 50);
   wallX(128, 40, 50, [[45.1, 1.4]]);
   wallZ(50, 120, 128);
   boneWall('z', 50, 122.6, 127.7, -1);
+  await loadStep('Digging the catacombs');
   // the niche wall: four bays of nine numbered niches, a skull in each
   const BAYS = [41.3, 43.8, 46.3, 48.8], NZ = 120.1, ND = 0.42;
   const nicheSkulls = [], restMoths = [];
@@ -238,17 +254,20 @@ export function buildCatacombs(ctx) {
   }
   for (const x of [40.21, 42.55, 45.05, 47.55, 49.8]) B(stone, x === 40.21 || x === 49.8 ? 0.22 : 0.74, H, ND, x, H / 2, NZ + ND / 2);
   rect(local, 40, 50, 120, NZ + ND);
+  await loadStep('Digging the catacombs');
   // the moths resting on their skulls
   const restTex = mothPlaneTex('maura');
   const resting = restMoths.map(([x, y, z], i) => {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(0.11, 0.11), new THREE.MeshStandardMaterial({ map: restTex, transparent: true, alphaTest: 0.3, roughness: 0.8, side: THREE.DoubleSide }));
     m.position.set(x, y, z); m.rotation.set(-1.2, 0, (i % 2 ? 0.3 : -0.25)); group.add(m); return { m, t: i * 2.3 };
   });
+  await loadStep('Digging the catacombs');
   // an iron candle stand before the niches
   B(iron, 0.04, 1.35, 0.04, 45.05, 0.675, 121.4); B(iron, 0.3, 0.03, 0.3, 45.05, 0.015, 121.4); B(iron, 0.14, 0.02, 0.14, 45.05, 1.36, 121.4);
   B(wax, 0.05, 0.16, 0.05, 45.05, 1.45, 121.4); light(45.05, 1.55, 121.4, 0xffa050, 3, 7, 'candle').userData.creepy = true;
   rect(local, 44.9, 45.2, 121.25, 121.55);
   light(45, H - 0.4, 124.5, 0x8a7a6a, 6, 12, false).userData.fill = true;
+  await loadStep('Digging the catacombs');
   // the gate south, onto the crypt, with a four-figure lock
   const gate = new THREE.Group(); gate.position.set(45.1, 0, 128); group.add(gate);
   { const parts = []; for (let i = 0; i < 7; i++) parts.push(new THREE.CylinderGeometry(0.018, 0.018, 2.28, 6).translate(-0.6 + i * 0.2, 1.14, 0));
@@ -260,17 +279,20 @@ export function buildCatacombs(ctx) {
   wallCocoon(49.6, 121.6, -1, 0, 0.7, 1.1);
   spunCocoon(42.0, 126.4, 0.9, true, H, silkGeos, threadPts);
 
+  await loadStep('Digging the catacombs');
   // ======================= FLOODED CRYPT: x 43.4..46.8, z 128..142 =======================
   wallZ(43.3, 128.1, 141.9, [], -1.4); wallZ(46.9, 128.1, 141.9, [], -1.4);
   ceil(43.4, 46.8, 128.1, 141.9);
   B(floorStone, 3.4, 1.4, 1.6, 45.1, -0.7, 128.9, 0, 0.5);
   B(floorStone, 3.4, 1.4, 1.3, 45.1, -0.7, 141.35, 0, 0.5);
   B(stone, 3.4, 0.05, CRYPT.z1 - CRYPT.z0, 45.1, -1.4, (CRYPT.z0 + CRYPT.z1) / 2);
+  await loadStep('Digging the catacombs');
   // burial niches (loculi) in the crypt walls, half under the water
   for (const x of [43.42, 46.78]) for (let z = 129.5; z < 141; z += 1.4) for (const y of [0.3, 1.2]) B(boneBack, 0.04, 0.5, 1.0, x, y + 0.25, z);
   const water = new THREE.Mesh(new THREE.PlaneGeometry(CRYPT.x1 - CRYPT.x0, CRYPT.z1 - CRYPT.z0), new THREE.MeshStandardMaterial({ color: 0x0a1010, roughness: 0.04, metalness: 0.55, transparent: true, opacity: 0.92 }));
   water.rotation.x = -Math.PI / 2; water.position.set(45.1, -0.14, (CRYPT.z0 + CRYPT.z1) / 2); group.add(water);
   const ripple = new THREE.Mesh(new THREE.RingGeometry(0.9, 1, 32), new THREE.MeshBasicMaterial({ color: 0x8a9a9a, transparent: true, opacity: 0, depthWrite: false }));
+  await loadStep('Digging the catacombs');
   // (everything starts where it lives: firstRoom.js files objects into floors by position)
   ripple.rotation.x = -Math.PI / 2; ripple.position.set(45.1, -0.135, 135); group.add(ripple);
   const lidTex = coffinLidTex();
@@ -292,12 +314,14 @@ export function buildCatacombs(ctx) {
   light(45.1, H - 0.4, 136, 0x6a7a7a, 4, 10, false).userData.fill = true;
   wallCocoon(43.4, 134.6, 1, 0, 0.8, 1.0); wallCocoon(46.8, 138.4, -1, 0, 1.0, 0.9);
 
+  await loadStep('Digging the catacombs');
   // ======================= TOMB HALL: x 38..52, z 142..148 =======================
   floor(38, 52, 142, 148); ceil(38, 52, 142, 148);
   wallX(142, 38, 43.3, [[42.1, 1.1]]); wallX(142, 46.9, 52, [[50.6, 1.2]]); // ways into the Burial Niches and the Bogong Cave (extraRooms.js)
   wallX(148, 38, 52, [[45.0, 1.2, 2.3]]);
   wallZ(38, 142, 148); wallZ(52, 142, 148);
   boneWall('z', 38, 142.3, 147.7, 1);
+  await loadStep('Digging the catacombs');
   // the tomb front: pilasters, lintel, pediment and an inscription
   for (const x of [44.1, 45.9]) B(stone, 0.32, 2.5, 0.26, x, 1.25, 147.77);
   B(stone, 2.4, 0.34, 0.3, 45, 2.47, 147.76);
@@ -305,6 +329,7 @@ export function buildCatacombs(ctx) {
   const insc = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.18), new THREE.MeshStandardMaterial({ map: textTex('DORMIUNT · NON · MORTUI', 30, 'rgba(26,20,14,0.85)', '', 512, 64), transparent: true, alphaTest: 0.2 }));
   insc.position.set(45, 2.47, 147.6); insc.rotation.y = Math.PI; group.add(insc);
   rect(local, 43.9, 44.3, 147.6, 148); rect(local, 45.7, 46.1, 147.6, 148); // the two pilasters (the doorway between stays open once the slab goes)
+  await loadStep('Digging the catacombs');
   // the slab door, the wax seal, and the cocoon pressed into it
   const slab = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.3, 0.16), mat({ map: rep(tex.stone, 1, 1.6), color: 0x8a847a }));
   slab.position.set(45, 1.15, 148); slab.castShadow = true; group.add(slab);
@@ -319,6 +344,7 @@ export function buildCatacombs(ctx) {
   const sealCrack = new THREE.Mesh(new THREE.PlaneGeometry(0.012, 0.08), crackMat); sealCrack.position.set(0.0, 0.14, -0.061); sealCrack.rotation.set(0, Math.PI, Math.PI / 2); sealCocoon.add(sealCrack);
   const hatchling = new THREE.Mesh(new THREE.PlaneGeometry(0.12, 0.12), new THREE.MeshStandardMaterial({ map: mothPlaneTex('humuli'), transparent: true, alphaTest: 0.3, side: THREE.DoubleSide }));
   hatchling.visible = false; hatchling.position.set(44.9, 1.24, 147.84); group.add(hatchling);
+  await loadStep('Digging the catacombs');
   // sarcophagi with candles
   for (const x of [40.6, 49.6]) {
     B(stone, 2.1, 0.8, 0.9, x, 0.4, 146.6); B(stone, 2.2, 0.08, 1.0, x, 0.84, 146.6);
@@ -330,10 +356,12 @@ export function buildCatacombs(ctx) {
   spunCocoon(47.6, 143.6, 1.2, true, H, silkGeos, threadPts);
   for (const [x, z, s] of [[43.2, 144.8, 0.45], [47.4, 145.2, 0.3]]) puddle(x, z, s);
 
+  await loadStep('Digging the catacombs');
   // ======================= APOTHECARY: x 38..52, z 148..157 =======================
   floor(38, 52, 148, 157); ceil(38, 52, 148, 157);
   wallX(157, 38, 52);
   wallZ(38, 148, 157); wallZ(52, 148, 157, [[153.5, 1.2, 2.5]]);
+  await loadStep('Digging the catacombs');
   // shelves of bottles along the west wall
   const bottleCols = [0x1a3a2a, 0x3a1a14, 0x2a2a4a, 0x4a3a1a, 0x1a2a2a, 0x5a4a3a];
   const bottleGeo = new THREE.CylinderGeometry(0.035, 0.04, 0.16, 8);
@@ -349,12 +377,14 @@ export function buildCatacombs(ctx) {
   for (const z of [149.2, 154.8]) B(darkWood, 0.36, 1.9, 0.05, 38.3, 0.95, z);
   bottleMesh.count = nbt; bottleMesh.instanceColor.needsUpdate = true; bottleMesh.computeBoundingSphere(); group.add(bottleMesh);
   rect(local, 38.1, 38.5, 149.2, 154.8);
+  await loadStep('Digging the catacombs');
   // the counter, the half-burnt ledger, a candle
   B(darkWood, 2.4, 0.9, 0.7, 44.6, 0.45, 151.6); B(wood, 2.5, 0.04, 0.8, 44.6, 0.9, 151.6);
   rect(local, 43.35, 45.85, 151.2, 152.0);
   const ledger = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.3), new THREE.MeshStandardMaterial({ map: ledgerTex(), transparent: true, alphaTest: 0.1, roughness: 0.95 }));
   ledger.rotation.set(-Math.PI / 2, 0, 0.12); ledger.position.set(43.8, 0.925, 151.6); group.add(ledger);
   B(wax, 0.05, 0.12, 0.05, 45.9, 0.98, 151.4); light(45.9, 1.07, 151.4, 0xffa050, 3, 7, 'candle').userData.creepy = true;
+  await loadStep('Digging the catacombs');
   // the drawer cabinet: thirty small drawers, each carved with a skull
   const DC = DRAWERS, dw = 0.29, dh = 0.22, ddp = 0.32, pitchX = 0.33, pitchY = 0.27;
   const dX = c => DC.x + (c - (DC.cols - 1) / 2) * pitchX, dY = row => 1.42 - row * pitchY;
@@ -369,6 +399,7 @@ export function buildCatacombs(ctx) {
     const d = { i, id, c, row, x: dX(c), y: dY(row), moth: DC.moths[id] || null, label: null, trap: DC.traps.includes(id), open: 0, target: 0, keyTaken: false, sprung: false };
     drawers.push(d);
   }
+  await loadStep('Digging the catacombs');
   // every drawer front: a paper label with a painted moth and its names (the six poisons, or a decoy)
   { let k = 0; for (const d of drawers) d.label = d.moth || DECOY_KEYS[k++ % DECOY_KEYS.length]; }
   for (const d of drawers) {
@@ -377,6 +408,7 @@ export function buildCatacombs(ctx) {
   }
   const setDrawer = d => { m4.makeTranslation(d.x, d.y, DC.front + ddp / 2 + 0.002 - d.open * 0.24); drawerMesh.setMatrixAt(d.i, m4); if (d.labelMesh) d.labelMesh.position.set(d.x, d.y, DC.front - 0.0015 - d.open * 0.24); };
   drawers.forEach(setDrawer); drawerMesh.computeBoundingSphere(); group.add(drawerMesh);
+  await loadStep('Digging the catacombs');
   // inside the six moth drawers: a card with the moth, its Latin and common names, and a key
   const keyGeo = makeKeyGeo();
   for (const d of drawers) if (d.moth) {
@@ -387,12 +419,15 @@ export function buildCatacombs(ctx) {
     card.position.set(d.x, d.y, DC.front + 0.17); key.position.set(d.x, d.y, DC.front + 0.17); card.visible = key.visible = false;
     d.card = card; d.key = key;
   }
+  await loadStep('Digging the catacombs');
   // stains seeping from under the needled drawers
   const stainMat = new THREE.MeshStandardMaterial({ map: stainTex(), transparent: true, depthWrite: false, roughness: 0.6, polygonOffset: true, polygonOffsetFactor: -2 });
   for (const d of drawers) if (d.trap) addGeo(stainMat, new THREE.PlaneGeometry(0.09, 0.3), d.x + 0.135, d.y - dh / 2 - 0.1, DC.front - 0.004, Math.PI); // dark weeping stains, hard to miss
+  await loadStep('Digging the catacombs');
   // the needle that springs out of a drawer
   const needle = new THREE.Mesh(new THREE.CylinderGeometry(0.0015, 0.004, 0.12, 5), new THREE.MeshStandardMaterial({ color: 0xc8c8c0, metalness: 0.9, roughness: 0.2 }));
   needle.rotation.x = Math.PI / 2; needle.visible = false; needle.position.set(DC.x, 1, DC.front); group.add(needle);
+  await loadStep('Digging the catacombs');
   // the dead rat on its back under the needled bottom drawer
   { const rx = dX(2), rz = 155.95; const fur = new THREE.MeshStandardMaterial({ color: 0x7a6a5a, roughness: 1, emissive: 0x1a1410 });
     addGeo(fur, new THREE.SphereGeometry(0.08, 12, 10).scale(1, 0.75, 2.0), rx, 0.06, rz, 0.5);
@@ -400,6 +435,7 @@ export function buildCatacombs(ctx) {
     const tail = []; for (let i = 0; i <= 10; i++) tail.push(new THREE.Vector3(rx - Math.sin(0.5) * (0.11 + i * 0.02) + Math.sin(i * 0.8) * 0.02, 0.02, rz - Math.cos(0.5) * (0.11 + i * 0.02)));
     addGeo(new THREE.MeshStandardMaterial({ color: 0x8a6a62, roughness: 0.8 }), new THREE.TubeGeometry(new THREE.CatmullRomCurve3(tail), 16, 0.006, 4), 0, 0, 0);
     for (const s of [-1, 1]) addGeo(new THREE.MeshStandardMaterial({ color: 0xa87a72 }), new THREE.CylinderGeometry(0.004, 0.006, 0.05, 4), rx + s * 0.05, 0.08, rz + s * 0.02, 0, 0.6 * s, 0.3); }
+  await loadStep('Digging the catacombs');
   // the iron cabinet: six keyholes, I to VI
   const IC = { x: 48.6, z: 156.75 };
   B(iron, 1.3, 1.9, 0.5, IC.x, 0.95, IC.z);
@@ -410,20 +446,25 @@ export function buildCatacombs(ctx) {
     leaf.position.set(-s * 0.31, 0.95, 0); piv.add(leaf); return { piv, s };
   });
   const insertedKeys = [];
+  await loadStep('Digging the catacombs');
   // a key standing in each keyhole once inserted (keyhole i at the texture's escutcheon)
   for (let i = 0; i < 6; i++) {
     const k = new THREE.Mesh(keyGeo, iron); k.rotation.set(0, -Math.PI / 2, 0); k.visible = false; group.add(k); insertedKeys.push(k);
     k.position.set(i < 3 ? IC.x + 0.535 - 0.186 * i : IC.x - 0.07 - 0.186 * (i - 3), 1.114 - 0.03, IC.z - 0.29);
   }
+  await loadStep('Digging the catacombs');
   // inside the iron cabinet: a lever that draws the bolt on the back-stair door
   B(new THREE.MeshStandardMaterial({ color: 0x0a0908, roughness: 1 }), 1.2, 1.7, 0.02, IC.x, 0.95, IC.z - 0.235);
   light(45, H - 0.4, 152.5, 0x8a7a6a, 5, 11, false).userData.fill = true;
   wallCocoon(51.9, 149.8, -1, 0, 0.9, 1.0);
+  await loadStep('Digging the catacombs');
   // once the cabinet opens: lamplight from the stair room shows the way
   const stairBGlow = new THREE.PointLight(0xffb070, 0, 6, 1.4); stairBGlow.position.set(53.2, 1.6, 153.5); stairBGlow.userData.noLimit = true; group.add(stairBGlow);
   door('catStairB', 'z', 52, 153.5, { locked: true, swing: -1, msg: 'An iron-bound door with no handle on this side. Something inside the wall is holding it: you can hear a bolt rest in its keeper when you push.', openMsg: 'A narrow room beyond, and a stair going up into the dark.' });
 
+  await loadStep('Digging the catacombs');
   // ======================= BIERS: low stone shelves against the walls, room to lie beneath =======================
+  await loadStep('Digging the catacombs');
   // (the catacombs' hiding places from the Mother: motherPlay.js HIDE_SPOTS)
   for (const [x, z, alongX] of CATA_BIERS) {
     const w = alongX ? 1.9 : 0.8, d = alongX ? 0.8 : 1.9;
@@ -433,6 +474,7 @@ export function buildCatacombs(ctx) {
     rect(local, x - w / 2, x + w / 2, z - d / 2, z + d / 2);
   }
 
+  await loadStep('Digging the catacombs');
   // ======================= BACK STAIR B: x 52..58, z 148..157 =======================
   floor(52, 58, 148, 157); ceil(52, 58, 148, 157);
   wallX(148, 52, 58, [[55, 2.0, 2.4]]); wallX(157, 52, 58); wallZ(58, 148, 157);
@@ -447,6 +489,7 @@ export function buildCatacombs(ctx) {
   wallCocoon(57.9, 151.2, -1, 0, 0.7, 1.1);
   puddle(54.2, 155.4, 0.4);
 
+  await loadStep('Digging the catacombs');
   // ---------- finish: instanced bones and skulls, merged silk and threads, merged static ----------
   {
     const q = new THREE.Quaternion(), s = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
@@ -459,6 +502,7 @@ export function buildCatacombs(ctx) {
     flush();
   }
 
+  await loadStep('Digging the catacombs');
   // ---------- state ----------
   const st = { ossOpen: false, crossed: false, tombOpen: false, heat: 0, hatch: 0, cabinetOpen: false, inserted: [] };
   let removeLocal = () => {}, addLocal = () => {}, gateY = 0, rippleT = 0, slabSlide = 0, cabAnim = 0;

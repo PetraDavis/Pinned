@@ -16,7 +16,9 @@ export function detectCaps() {
     const lose = gl && gl.getExtension('WEBGL_lose_context'); if (lose) lose.loseContext();
   } catch { /* no WebGL info */ }
   const software = /SwiftShader|llvmpipe|Software|Basic Render/i.test(gpu);
-  const weak = software || /Intel.*(HD|UHD) Graphics [2-6]\d\d\b|Mali-[GT][0-7]\d\b|Adreno \(TM\) [3-5]\d\d/i.test(gpu);
+  // Chromebooks and small machines (few cores, little memory) are weak whatever the GPU says
+  const cros = /\bCrOS\b/.test(ua), cores = navigator.hardwareConcurrency || 8, mem = navigator.deviceMemory || 8;
+  const weak = software || cros || cores <= 2 || mem <= 4 || /Intel.*(HD|UHD) Graphics [2-6]\d\d\b|Mali-[GT][0-7]\d\b|Adreno \(TM\) [3-5]\d\d/i.test(gpu);
   const defaultQuality = software ? 'xlow' : weak ? 'low' : (firefox || safari) ? 'medium' : 'high';
   // nearest-N point lights (a fixed count, so three.js never recompiles shaders on the move)
   const maxLights = weak ? 8 : (firefox || safari) ? 8 : 12;

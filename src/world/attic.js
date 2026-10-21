@@ -19,6 +19,7 @@
 // THE MOTHER IS NOT BUILT YET. Her chamber has an empty nest and an anchor group,
 // `api.motherAnchor`, at ATTIC.motherSpawn: add her model as a child of that group.
 import * as THREE from 'three';
+import { loadStep } from '../loadSteps.js';
 import { tex } from '../textures.js';
 import { mat, box, rect, rep, rand } from './build.js';
 import { gasLampFixture } from './fixtures.js';
@@ -84,7 +85,7 @@ export const CLOCK_LOG = [
 ].join(' ');
 export const RACK_PLATE = 'A brass plate screwed to the rack: “From the least of them to the White Witch, as she taught us to grow.” Five hooks, numbered I to V, left to right.';
 
-export function buildAttic(ctx) {
+export async function buildAttic(ctx) {
   const { group, local, wall, plane, door, light, addMirror, doors } = ctx;
   const r = rand(4104);
   const X0 = 30, X1 = 58, Z0 = 171.4, Z1 = 185.4, ZR = 178.4, RH = 4.6, KH = 1.3;
@@ -104,8 +105,10 @@ export function buildAttic(ctx) {
   const silkGeos = [], threadPts = [], veils = [];
   const add = (m, x, y, z, ry = 0) => { m.position.set(x, y, z); m.rotation.y = ry; m.castShadow = m.receiveShadow = true; group.add(m); return m; };
 
+  await loadStep('Building the attic');
   // ======================= shell: floor, roof, knee walls, gables =======================
   plane(X1 - X0, Z1 - Z0, (X0 + X1) / 2, 0, ZR, boards);
+  await loadStep('Building the attic');
   // roof slopes (one quad each), carried a little past the knee walls
   const quad = (pts, m, ru, rv) => {
     const g = new THREE.BufferGeometry();
@@ -119,6 +122,7 @@ export function buildAttic(ctx) {
   quad([[X0, RH, ZR], [X1, RH, ZR], [X1, KH - ye, Z1 + ze], [X0, KH - ye, Z1 + ze]], roofBoards, 1, 1);
   wall('x', Z0 - 0.1, X0, X1, KH, partition);
   wall('x', Z1 + 0.1, X0, X1, KH, partition);
+  await loadStep('Building the attic');
   // gable-shaped walls across the roof: the end walls and the two partitions
   function gable(x, m, gaps = []) {
     // outline along the floor, notched up and over each opening, then up the roof line
@@ -141,9 +145,11 @@ export function buildAttic(ctx) {
   wall('x', ZR, 39, 48, RH, partition, [[43.5, 1.2]]); // Egg Store / Clock Room: padlocked door
   door('aEggClock', 'x', ZR, 43.5, { locked: true, swing: 1, msg: 'Padlocked: a brass lock with four number dials.' });
   doors.aEggClock.custom = true;
+  await loadStep('Building the attic');
   // the chimney stack rising through the Landing
   box(group, 0.9, RH, 0.7, 54.9, RH / 2, 185.0, brick, local);
 
+  await loadStep('Building the attic');
   // ======================= rafters, ridge, purlins, collar ties (one merged mesh) =======================
   {
     const geos = [];
@@ -161,6 +167,7 @@ export function buildAttic(ctx) {
     const m = new THREE.Mesh(mergeGeometries(geos, false), timber); m.castShadow = true; m.receiveShadow = true; group.add(m);
   }
 
+  await loadStep('Building the attic');
   // ======================= moonlight: skylights, shafts, patches =======================
   const skyTexture = skylightTex();
   const shaftMat = new THREE.MeshBasicMaterial({ color: 0x8aa0c8, transparent: true, opacity: 0.05, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
@@ -182,23 +189,29 @@ export function buildAttic(ctx) {
     return { top, foot };
   }
   const beams = [skylight(53.2, 1), skylight(53.2, -1), skylight(43.5, 1), skylight(43.5, -1), skylight(34.5, -1), skylight(34.5, 1)];
+  await loadStep('Building the attic');
   // dust motes turning in the moonlight
   const ND = 320, dpos = new Float32Array(ND * 3);
   for (let i = 0; i < ND; i++) { const b = beams[i % beams.length], t = r(); dpos.set([b.top.x + (b.foot.x - b.top.x) * t + (r() - 0.5) * 0.9, b.top.y + (b.foot.y - b.top.y) * t, b.top.z + (b.foot.z - b.top.z) * t + (r() - 0.5) * 0.9], i * 3); }
   const dg = new THREE.BufferGeometry(); dg.setAttribute('position', new THREE.BufferAttribute(dpos, 3));
   const dust = new THREE.Points(dg, new THREE.PointsMaterial({ color: 0xc8d4ec, size: 0.006, transparent: true, opacity: 0.5, depthWrite: false }));
   dust.userData.dust = ND; dust.userData.noAO = true; group.add(dust);
+  await loadStep('Building the attic');
   // room fills (no visible source), cool and low, so the attic reads in the dark
   for (const [x, z] of [[53, 182], [53, 174.6], [43.5, 182], [43.5, 174.8], [34.5, 178.4]]) light(x, 2.6, z, 0x8a8a9a, 10, 14, false).userData.fill = true;
 
+  await loadStep('Building the attic');
   // ======================= Landing (SE): ladder D, hymn book, Wingspan Rack =======================
+  await loadStep('Building the attic');
   // ladder D comes up through a square hole in the boards
   plane(1.1, 1.0, 57.0, 0.004, 183.9, mat({ color: 0x050404 }));
   for (const s of [-0.25, 0.25]) box(group, 0.06, 1.0, 0.06, 57.3, 0.5, 183.9 + s, timber, null, { cast: false });
   for (const [w, d, x, z] of [[1.2, 0.08, 57.0, 183.36], [1.2, 0.08, 57.0, 184.44], [0.08, 1.16, 56.42, 183.9]]) box(group, w, 0.06, d, x, 0.03, z, darkWood, null, { cast: false });
   rect(local, 56.6, 57.6, 183.45, 184.35);
+  await loadStep('Building the attic');
   // the hatch cover, thrown back against the knee wall
   box(group, 1.0, 0.05, 0.9, 57.2, 0.62, 184.95, darkWood, null).rotation.x = -1.2;
+  await loadStep('Building the attic');
   // lectern with the hymn book
   const lect = new THREE.Group(); lect.position.set(55.2, 0, 179.1); group.add(lect);
   box(lect, 0.08, 1.05, 0.08, 0, 0.52, 0, darkWood); box(lect, 0.5, 0.04, 0.4, 0, 0.02, 0, darkWood);
@@ -208,6 +221,7 @@ export function buildAttic(ctx) {
   light(55.0, 1.25, 179.0, 0xffc890, 3, 5, 'candle');
   { const c = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.025, 0.14, 8), mat({ color: 0xe8e0c8 })); c.position.set(55.0, 1.17, 179.0); group.add(c); }
 
+  await loadStep('Building the attic');
   // The Wingspan Rack: a gallows of dark wood, five hooks on threads, an oil lamp behind.
   const LAMP = new THREE.Vector3(50.55, 1.05, 182.0), HY = 1.4, RX = 49.75, WALLX = 48.115;
   const hookZ = i => 182.72 - i * 0.36; // I (left, as you face the wall) .. V (right)
@@ -218,6 +232,7 @@ export function buildAttic(ctx) {
   const plate = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.08), paper(plateTex())); plate.position.set(RX + 0.04, 1.96, 182.0); plate.rotation.y = Math.PI / 2; group.add(plate);
   rect(local, RX - 0.25, RX + 0.25, 180.8, 183.2);
   const threadGeo = [], hooks = [], pickables = [];
+  await loadStep('Building the attic');
   // each hook carries an engraved brass name plate, not the specimen itself: Latin and common name only
   const rackTex = {}; const mothCut = key => rackTex[key] || (rackTex[key] = canvasTexture(rackPlateCanvas(key)));
   let plateShadowT = null; const mothShadow = () => plateShadowT || (plateShadowT = plateShadowTex());
@@ -233,25 +248,30 @@ export function buildAttic(ctx) {
     hooks.push({ i, z, spec, sh, pick });
   }
   { const tg = new THREE.BufferGeometry(); tg.setAttribute('position', new THREE.Float32BufferAttribute(threadGeo, 3)); group.add(new THREE.LineSegments(tg, new THREE.LineBasicMaterial({ color: 0xd8d0c0, transparent: true, opacity: 0.5 }))); }
+  await loadStep('Building the attic');
   // the oil lamp on its stand, between the rack and the room
   box(group, 0.06, 0.92, 0.06, LAMP.x, 0.46, LAMP.z, darkWood); box(group, 0.36, 0.04, 0.36, LAMP.x, 0.02, LAMP.z, darkWood); box(group, 0.24, 0.03, 0.24, LAMP.x, 0.93, LAMP.z, darkWood);
   { const font = new THREE.Mesh(new THREE.SphereGeometry(0.06, 14, 10), brass); font.scale.y = 0.8; font.position.set(LAMP.x, 0.99, LAMP.z); group.add(font); }
   gasLampFixture(group, LAMP.x, LAMP.y, LAMP.z, 'candle');
   { const ch = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.05, 0.2, 14, 1, true), new THREE.MeshStandardMaterial({ color: 0xfff0d8, transparent: true, opacity: 0.3, emissive: 0xffa050, emissiveIntensity: 0.4, side: THREE.DoubleSide, depthWrite: false })); ch.position.set(LAMP.x, LAMP.y + 0.04, LAMP.z); group.add(ch); }
   light(LAMP.x + 0.05, LAMP.y + 0.1, LAMP.z, 0xffb060, 6, 7, false);
+  await loadStep('Building the attic');
   // the pool of lamplight on the partition, which the shadows fall across
   const glow = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 2.9), new THREE.MeshBasicMaterial({ map: patchTex(), color: 0x6a4420, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
   glow.position.set(WALLX + 0.002, 1.75, 182.0); glow.rotation.y = Math.PI / 2; glow.renderOrder = 1; glow.userData.noAO = true; group.add(glow);
   rect(local, LAMP.x - 0.2, LAMP.x + 0.2, LAMP.z - 0.2, LAMP.z + 0.2);
+  await loadStep('Building the attic');
   // the shape the five shadows make when they are hung right: a door
   const doorShadow = new THREE.Mesh(new THREE.PlaneGeometry(1.06, 2.16), new THREE.MeshBasicMaterial({ map: doorShadowTex(), transparent: true, opacity: 0, depthWrite: false }));
   doorShadow.position.set(WALLX + 0.004, 1.06, 182.0); doorShadow.rotation.y = Math.PI / 2; doorShadow.renderOrder = 3; group.add(doorShadow);
+  await loadStep('Building the attic');
   // the door itself: boards flush with the partition, hinged at its south edge
   const sdPivot = new THREE.Group(); sdPivot.position.set(48, 0, 182.5); group.add(sdPivot);
   box(sdPivot, 0.16, 2.1, 0.99, 0, 1.05, -0.5, partition);
   const sdCol = { minX: 47.9, maxX: 48.1, minZ: 181.5, maxZ: 182.5, door: 'aShadow' }; local.push(sdCol);
   cocoon(56.8, 180.0, 0.9, true); cocoon(50.6, 184.6, 1.0, true);
 
+  await loadStep('Building the attic');
   // ======================= Sleepers' Loft (NE): cots, M8 =======================
   for (let k = 0; k < 4; k++) {
     const x = 49.6 + k * 2.1, cot = new THREE.Group(); cot.position.set(x, 0, 172.45); group.add(cot); // head to the knee wall
@@ -270,7 +290,9 @@ export function buildAttic(ctx) {
   cocoon(50.4, 176.6, 1.1, true); cocoon(55.4, 175.0, 1.3, true); cocoon(57.2, 173.4, 0.8, false);
   light(57.6, 1.9, 174.6, 0xffa860, 2.4, 6, '-x').userData.creepy = true;
 
+  await loadStep('Building the attic');
   // ======================= Egg Store (S mid): the jars and the ledger =======================
+  await loadStep('Building the attic');
   // shelves of small jars under the eaves, each furred with eggs
   const jarGlass = new THREE.MeshStandardMaterial({ color: 0xcfe0d8, transparent: true, opacity: 0.28, roughness: 0.05, metalness: 0.2, depthWrite: false, side: THREE.DoubleSide });
   const eggMat = new THREE.MeshStandardMaterial({ color: 0xe0dcc8, roughness: 0.4, emissive: 0x1a1a14 });
@@ -282,10 +304,12 @@ export function buildAttic(ctx) {
     for (let i = 0; i < NJ; i++) { const x = 39.6 + (i % 15) * 0.55 + r() * 0.1, y = i < 15 ? 0.46 : 0.91, h = 0.03 + r() * 0.12; m4.makeTranslation(x, y, 185.1); small.setMatrixAt(i, m4); m4.compose(v.set(x, y - 0.09 + h / 2, 185.1), q, sc.set(1, h, 1)); fill.setMatrixAt(i, m4); }
     group.add(small, fill);
   }
+  await loadStep('Building the attic');
   // the four great jars on the table, each labelled
   box(group, 2.6, 0.06, 0.9, 43.4, 0.78, 181.4, timber); for (const [dx, dz] of [[-1.2, -0.38], [1.2, -0.38], [-1.2, 0.38], [1.2, 0.38]]) box(group, 0.06, 0.78, 0.06, 43.4 + dx, 0.39, 181.4 + dz, timber, null, { cast: false });
   rect(local, 42.05, 44.75, 180.9, 181.9);
   const eggGeo = new THREE.SphereGeometry(0.012, 6, 4);
+  await loadStep('Building the attic');
   // the jars stand on four numbered places along the table front; they can be lifted and swapped
   const JAR_X = i => 42.5 + i * 0.6, jars = {}, jarPicks = [], carry = new THREE.Group();
   carry.position.set(0.3, -0.36, -0.62); carry.rotation.y = -0.3;
@@ -309,6 +333,7 @@ export function buildAttic(ctx) {
     pl.rotation.x = -Math.PI / 2; pl.position.set(JAR_X(i), 0.8125, 181.72); group.add(pl);
     const pick = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.5, 0.5), new THREE.MeshBasicMaterial({ visible: false })); pick.position.set(JAR_X(i), 1.05, 181.4); pick.userData.jarSlot = i; group.add(pick); jarPicks.push(pick);
   }
+  await loadStep('Building the attic');
   // the ledger, open on a clerk's desk
   const ld = new THREE.Group(); ld.position.set(44.6, 0, 184.45); group.add(ld);
   box(ld, 1.2, 0.05, 0.6, 0, 0.82, 0, darkWood); for (const [dx, dz] of [[-0.55, -0.25], [0.55, -0.25], [-0.55, 0.25], [0.55, 0.25]]) box(ld, 0.05, 0.82, 0.05, dx, 0.41, dz, darkWood, null, { cast: false });
@@ -316,11 +341,14 @@ export function buildAttic(ctx) {
   rect(local, 43.95, 45.25, 184.1, 184.8);
   light(44.2, 0.98, 184.5, 0xffc890, 3, 6, 'candle');
   { const c = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.025, 0.12, 8), mat({ color: 0xe8e0c8 })); c.position.set(44.2, 0.91, 184.5); group.add(c); }
+  await loadStep('Building the attic');
   // the padlock hanging on the door north
   const eggLock = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.13, 0.05), brass); eggLock.position.set(44.0, 1.05, ZR + 0.14); group.add(eggLock);
   cocoon(40.2, 183.6, 1.0, true); cocoon(47.0, 180.0, 1.2, true);
 
+  await loadStep('Building the attic');
   // ======================= Clock Room (N mid) =======================
+  await loadStep('Building the attic');
   // the Night Clock on the partition's west face: a big plain dial, four moths on pins round the rim
   const CLK = new THREE.Vector3(47.88, 1.75, 175.0), CR = 0.62;
   const clockG = new THREE.Group(); clockG.position.copy(CLK); clockG.rotation.y = -Math.PI / 2; group.add(clockG);
@@ -333,22 +361,27 @@ export function buildAttic(ctx) {
     const t = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.16), new THREE.MeshStandardMaterial({ map: cutoutTex(c.key, false), transparent: true, alphaTest: 0.3, side: THREE.DoubleSide }));
     t.position.z = 0.075; clockG.add(t); return t;
   });
+  await loadStep('Building the attic');
   // twelve hour places round the rim to aim at: lift a moth off one, set it on another
   const clockPicks = []; for (let h = 1; h <= 12; h++) { const a = Math.PI / 2 - (h % 12) / 12 * Math.PI * 2, pk = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.12), new THREE.MeshBasicMaterial({ visible: false })); pk.position.set(Math.cos(a) * CR * 0.68, Math.sin(a) * CR * 0.68, 0.08); pk.userData.hour = h; clockG.add(pk); clockPicks.push(pk); }
   const placeToken = (i, h) => { clockTokens[i].visible = S.clockHeld !== i; const a = Math.PI / 2 - (h % 12) / 12 * Math.PI * 2, rr = CR * 0.62 + (i % 2) * 0.08; clockTokens[i].position.set(Math.cos(a) * rr, Math.sin(a) * rr, 0.075 + i * 0.002); };
+  await loadStep('Building the attic');
   // the collector's record pinned beside it (the clue)
   const log = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.4), paper(noteTex(r))); log.position.set(47.885, 1.55, 173.4); log.rotation.y = -Math.PI / 2; group.add(log);
   light(47.75, 2.35, 176.4, 0xffa860, 2.6, 6, '-x').userData.creepy = true;
+  await loadStep('Building the attic');
   // the cipher wheel on the opposite wall: letters round the outside, moth symbols on a turning ring
   const WH = new THREE.Vector3(39.115, 1.5, 177.2);
   const wheelG = new THREE.Group(); wheelG.position.copy(WH); wheelG.rotation.y = Math.PI / 2; group.add(wheelG);
   const wb = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 0.03, 40), brass); wb.rotation.x = Math.PI / 2; wheelG.add(wb);
   const outer = new THREE.Mesh(new THREE.CircleGeometry(0.34, 48), new THREE.MeshStandardMaterial({ map: wheelTex(false), transparent: true, roughness: 0.4, metalness: 0.3 })); outer.position.z = 0.017; wheelG.add(outer);
   const inner = new THREE.Mesh(new THREE.CircleGeometry(0.25, 48), new THREE.MeshStandardMaterial({ map: wheelTex(true), roughness: 0.4, metalness: 0.4, color: 0xd8c090 })); inner.position.z = 0.019; wheelG.add(inner);
+  await loadStep('Building the attic');
   // the marks on the rafters: a brace board nailed across them, chalked with symbols
   const brace = new THREE.Group(); brace.position.set(43.5, 2.3, 174.35); group.add(brace);
   box(brace, 8.6, 0.3, 0.05, 0, 0, 0, timber, null, { cast: false });
   const msg = new THREE.Mesh(new THREE.PlaneGeometry(8.4, 0.28), new THREE.MeshBasicMaterial({ map: rafterTex(), transparent: true, color: 0xb8b0a0 })); msg.position.z = 0.027; brace.add(msg);
+  await loadStep('Building the attic');
   // the brass box with a letter-lock, on a stool by the knee wall
   box(group, 0.5, 0.5, 0.5, 41.2, 0.25, 172.0, darkWood, local);
   const bx = new THREE.Group(); bx.position.set(41.2, 0.5, 172.0); group.add(bx);
@@ -356,6 +389,7 @@ export function buildAttic(ctx) {
   const lidPivot = new THREE.Group(); lidPivot.position.set(0, 0.14, -0.11); bx.add(lidPivot); box(lidPivot, 0.34, 0.04, 0.22, 0, 0.02, 0.11, darkWood);
   for (let k = 0; k < 4; k++) { const dl = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.03, 10), brass); dl.rotation.z = Math.PI / 2; dl.position.set(-0.06 + k * 0.04, 0.07, 0.115); bx.add(dl); }
   const boxHands = new THREE.Group(); bx.add(boxHands); box(boxHands, 0.03, 0.01, 0.2, -0.05, 0.13, 0, iron, null, { cast: false }); box(boxHands, 0.02, 0.01, 0.28, 0.05, 0.13, 0, iron, null, { cast: false });
+  await loadStep('Building the attic');
   // the crawl hatch west, into her chamber; EMERGENCE cut above it
   const hatchPivot = new THREE.Group(); hatchPivot.position.set(39.0, 0, 173.75); group.add(hatchPivot);
   box(hatchPivot, 0.06, 1.1, 0.9, 0.1, 0.55, 0.45, darkWood);
@@ -366,8 +400,10 @@ export function buildAttic(ctx) {
   const carve = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.2), new THREE.MeshStandardMaterial({ map: carveTex('EMERGENCE'), transparent: true, roughness: 0.9 })); carve.position.set(39.115, 1.42, 174.2); carve.rotation.y = Math.PI / 2; group.add(carve);
   cocoon(45.6, 173.2, 0.9, true); cocoon(40.4, 177.4, 1.1, true);
 
+  await loadStep('Building the attic');
   // ======================= Mother's Chamber (W) =======================
   plane(8.6, 13.6, 34.6, 0.006, ZR, new THREE.MeshStandardMaterial({ map: rep(silk.map, 4, 6), color: 0x8a857a, roughness: 0.95, transparent: true, opacity: 0.8, depthWrite: false })); // silk over the boards
+  await loadStep('Building the attic');
   // her nest against the west gable: a broad shallow cup of silk, slung from the rafters, EMPTY
   {
     // profile: a low hollow in the middle, a thick heaped lip, sloping back down to the boards
@@ -389,12 +425,15 @@ export function buildAttic(ctx) {
   }
   const motherAnchor = new THREE.Group(); motherAnchor.name = 'motherAnchor'; motherAnchor.position.copy(ATTIC.motherSpawn); group.add(motherAnchor);
   rect(local, 30.6, 34.6, 176.6, 180.2);
+  await loadStep('Building the attic');
   // static spun cocoons, crowding the rafters
   for (const [x, z, h] of [[31.4, 173.0, 1.2], [33.0, 183.6, 1.4], [35.2, 172.6, 1.0], [36.4, 184.2, 1.3], [37.8, 180.6, 1.1], [31.8, 184.4, 0.9], [37.6, 176.0, 1.0]]) cocoon(x, z, h, true);
+  await loadStep('Building the attic');
   // and the waking ones: separate meshes that twitch, some splitting open
   const waking = [];
   for (const [x, z, h, crack] of [[34.2, 174.6, 1.5, true], [36.0, 178.6, 1.7, false], [33.4, 181.8, 1.6, true], [37.2, 173.4, 1.3, false], [35.6, 182.6, 1.4, true], [32.0, 175.4, 1.2, false]]) waking.push(wakingCocoon(x, z, h, crack));
   light(35.0, 2.6, 178.4, 0x9a8a9a, 6, 12, false).userData.fill = true;
+  await loadStep('Building the attic');
   // the preserved: the Order's faithful, hung on strings like marionettes (bodies.js)
   let marionettes = null;
   {
@@ -409,6 +448,7 @@ export function buildAttic(ctx) {
     rect(local, 36.7, 37.3, 179.1, 179.7); rect(local, 38.0, 38.6, 177.1, 177.7); rect(local, 33.9, 34.9, 182.9, 184.8); rect(local, 30.0, 30.6, 181.0, 182.2); rect(local, 32.7, 33.8, 171.4, 172.8);
   }
 
+  await loadStep('Building the attic');
   // ---------- merge silk ----------
   {
     const merged = mergeSilk(mergeGeometries, silkGeos);
@@ -417,6 +457,7 @@ export function buildAttic(ctx) {
     group.add(new THREE.LineSegments(tg, new THREE.LineBasicMaterial({ color: 0xd8d0c0, transparent: true, opacity: 0.35 })));
   }
 
+  await loadStep('Building the attic');
   // ======================= state =======================
   const S = {};
   const JAR_START = EGG_JARS.map(j => j.key), JAR_ORDER = [...EGG_JARS].sort((a, b) => a.eggs - b.eggs).map(j => j.key);
@@ -559,9 +600,12 @@ export function buildAttic(ctx) {
   api.reset();
   return api;
 
+  await loadStep('Building the attic');
   // ---------- local builders ----------
   function cocoon(x, z, h, hanging) { spinCocoon(silkGeos, threadPts, x, z, h, hanging, hanging ? roofY(z) - 0.1 : 0); }
+  await loadStep('Building the attic');
   // A cocoon of its own mesh, pivoting at its anchor so it can twitch; split ones show a dark
+  await loadStep('Building the attic');
   // seam down one side, edged with torn silk.
   function wakingCocoon(x, z, h, crack) {
     const top = roofY(z) - 0.1, geos = [], pts = [];

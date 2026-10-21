@@ -225,6 +225,13 @@ export function createMotherRoam(G) {
   return {
     get mode() { return S.mode; },
     get floor() { return S.floor; },
+    // for her breathing (audio/mother.js): where she is when she is on your floor, else null
+    get sound() {
+      if (G.escapeOwns && G.escapeOwns()) return null;
+      const c = isClient(), m = c ? R.m : S.mode, f = c ? R.f : S.floor;
+      if (m === 'off' || f !== floorOf(P().y)) return null;
+      return { x: S.pos.x, z: S.pos.y, dist, mode: m === 'chase' ? 'chase' : 'patrol' };
+    },
     // for the moth swarm: metres to her when she is on your floor, 99 otherwise or while stunned
     get warnDist() {
       if (G.escapeOwns && G.escapeOwns()) return 99;
@@ -271,11 +278,15 @@ export function createMotherRoam(G) {
         // time on each floor (anyone's) counts toward her next visit there
         const fl = new Set(all.map(q => floorOf(q.pos.y)));
         for (const f of fl) { S.timers[f] = (S.timers[f] ?? -FREQ[f].first) + dt * (1 + 0.5 * k) * (HARD() > 1 ? 2 : 1); /* Hardcore: she comes twice as often */ }
-        for (const f of fl) if (S.timers[f] >= 0) { const q = all.filter(q => floorOf(q.pos.y) === f).sort(() => Math.random() - 0.5)[0]; if (arrive(f, q)) break; S.timers[f] = -10; }
+        // only one of her: not while she is awake up in the attic with one of you
+        const upstairs = !!(G.motherPlay && G.motherPlay.busy);
+        if (!upstairs) for (const f of fl) if (S.timers[f] >= 0) { const q = all.filter(q => floorOf(q.pos.y) === f).sort(() => Math.random() - 0.5)[0]; if (arrive(f, q)) break; S.timers[f] = -10; }
         broadcast(dt); return;
       }
       const up = all.filter(q => floorOf(q.pos.y) === S.floor);
       if (!up.length && S.mode !== 'leave') { gone(0.5); broadcast(dt); return; }
+      // one of you has woken her in the attic: she goes back up (one Mother, seen the same by all)
+      if (G.motherPlay && G.motherPlay.busy && S.mode !== 'stun') { gone(0.5); broadcast(dt); return; }
       let T = up.find(q => q.id === S.tid) || up.slice().sort((a, b) => a.pos.distanceTo(S.pos) - b.pos.distanceTo(S.pos))[0];
       const me = P(); dist = floorOf(me.y) === S.floor ? S.pos.distanceTo(me) : 99;
       ensureModel(); model.visible = floorOf(me.y) === S.floor;

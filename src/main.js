@@ -35,6 +35,7 @@ import { startHomeBackdrop } from './homeScreen.js';
 import { createAtticPlay } from './atticPlay.js';
 import { SPAN_MM, rackPlateCanvas } from './world/attic.js';
 import { createMotherPlay } from './motherPlay.js';
+import { prepareMother } from './characters/mother.js';
 import { createMotherRoam } from './motherRoam.js';
 import { createHallucinations, initAccessibilitySettings } from './hallucinate.js';
 import { captionSound } from './captions.js';
@@ -46,6 +47,7 @@ import { createEnding } from './ending.js';
 import { createCredits } from './credits.js';
 let mp = null; // multiplayer session (src/net/), set up at the end of this file
 
+const LOAD_START = performance.now(); // main.js starts running (all modules fetched)
 const $ = id => document.getElementById(id);
 const canvas = $('game');
 
@@ -56,6 +58,7 @@ let settings = loadSettings();
 // High: full DPR (cap 2), 4096 soft shadows, ambient occlusion, bloom, dense grass and dust.
 // Texture canvases are 512 / 1024 / 2048 px (see textures.js) and need a restart to change.
 import { detectCaps, createLightLimiter } from './caps.js';
+import { loadStep, loadTimes } from './loadSteps.js';
 const CAPS = detectCaps();
 // first run on this browser: pick a safe default
 if (!settings.qualityChosen) { settings.quality = CAPS.defaultQuality; settings.qualityChosen = true; saveSettings(settings); }
@@ -83,11 +86,13 @@ const FOG_OUT = new THREE.FogExp2(0x6a5a6a, 0.011), FOG_IN = new THREE.FogExp2(0
 scene.background = new THREE.Color(0x3a3048);
 const camera = new THREE.PerspectiveCamera(72, innerWidth / innerHeight, 0.08, 600);
 
-buildTextures(settings.quality);
-const exterior = buildExterior(scene, settings.quality);
-const room = buildFirstRoom(scene, QUALITY.shadow, settings.quality);
+await buildTextures(settings.quality);
+const exterior = await buildExterior(scene, settings.quality);
+const room = await buildFirstRoom(scene, QUALITY.shadow, settings.quality);
 const ground = room.ground;
+await loadStep('Waking the house', 'lightLimiter');
 const lightLimiter = createLightLimiter(scene, CAPS.maxLights);
+await loadStep('Waking the house', 'lampMoths');
 const lampMoths = createLampMoths(scene, settings.quality);
 
 // low dusk sun: warm, raking, long shadows
@@ -109,8 +114,10 @@ const lsGet = (k) => { try { return localStorage.getItem(k); } catch { return nu
 const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
 // flashlight (F): held in the right hand, battery-limited (see flashlight.js)
 scene.add(camera);
+await loadStep('Waking the house', 'flashlight');
 const flashlight = createFlashlight(camera, scene, { playClick });
 // the lights gutter as the Mother comes (src/lightsFlicker.js): applied around each render
+await loadStep('Waking the house', 'flicker');
 const flicker = createLightsFlicker({ scene, renderer, camera, flashlight });
 // battery pickups: one in the grounds, one in the first room, one in the hallway
 const BATTERIES = [
@@ -124,7 +131,9 @@ for (const b of BATTERIES) {
   const par = b.parent(); par.updateMatrixWorld(true); b.mesh.position.copy(par.worldToLocal(b.pos.clone())); par.add(b.mesh);
 }
 // lanterns: carried in the same (right) hand as the torch; specimens go in the left
+await loadStep('Waking the house', 'lantern');
 const lantern = createLantern(camera);
+await loadStep('Waking the house', 'motherMoths');
 const motherMoths = createMotherMoths(camera, settings.quality); // the swarm that means she is near
 const LANTERNS = [
   { id: 'l1', zone: 'room', pos: new THREE.Vector3(ROOM_ORIGIN.x + 4.2, 0, ROOM_ORIGIN.z + 3.8) },
@@ -268,6 +277,7 @@ function say(text, ms = 4000) {
 }
 
 // ---------- the Catacombs (catacombsPlay.js): their interactions, puzzles, hints and save ----------
+await loadStep('Waking the house', 'catPlay');
 const catPlay = createCatacombsPlay({
   cat: ground.cat, ROOM_ORIGIN, player, camera, lantern, flashlight, say, canvas, fogIn: FOG_IN,
   sfx: { playThud, playCreak, playGrind, playClick, playSoftClicks },
@@ -283,6 +293,7 @@ const catPlay = createCatacombsPlay({
   toFirstFloor: () => transition(() => { player.place(ROOM_ORIGIN.x + FIRST.spawn.x, ROOM_ORIGIN.z + FIRST.spawn.z, Math.PI); playThud(); if (!visited.first) { visited.first = true; save('firstfloor'); say('The first floor. Silk everywhere, on the walls, in the corners, over the shapes on the trestles.', 7000); } }),
 });
 // ---------- the attic (see atticPlay.js, world/attic.js) ----------
+await loadStep('Waking the house', 'atticPlay');
 const atticPlay = createAtticPlay({
   ground, room, origin: ROOM_ORIGIN, firstLadder: FIRST.ladderD, player, camera, say, save, transition, updateHeld, openPadlock,
   sfx: { thud: playThud, creak: playCreak, grind: playGrind, clicks: playSoftClicks },
@@ -290,9 +301,16 @@ const atticPlay = createAtticPlay({
   visited: () => visited,
 });
 // ---------- the extra rooms (roomsPlay.js, world/extraRooms.js) ----------
+await loadStep('Waking the house', 'roomsPlay');
 const roomsPlay = createRoomsPlay({ origin: ROOM_ORIGIN, player, say, transition, sfx: { thud: playThud, creak: playCreak } });
 // ---------- The Mother (motherPlay.js) ----------
+await prepareMother((t) => loadStep('Waking the house', t));
+await loadStep('Waking the house', 'motherPlay');
+// her breathing follows whichever of her is near: roaming below, else the attic
+const motherSound = { get debug() { const r = roamRef && roamRef.sound; return r || motherPlay.debug; } };
+let roamRef = null; // motherRoam, made further down: while she roams below, she is not in the attic too
 const motherPlay = createMotherPlay({
+  roamActive: () => !!(roamRef && roamRef.mode !== 'off'),
   ground, origin: ROOM_ORIGIN, player, camera, flashlight, lantern, say, colliders: () => colliders(), escapeOwns: () => escape.ownsMother, flicker, hardcore: () => hardcore,
   sfx: { flutter: (l) => { captionSound('[wings fluttering]'); playFlutter(l); }, clicks: (l, n) => { captionSound('[clicking nearby]'); playClicksAt(l, n); }, shriek: (l) => { captionSound('[a thin, rising shriek]'); playShriek(l); } }, detectScale: () => catPlay.detectScale,
   active: () => state === 'playing' && zone === 'room', playerCount: () => playerCount(),
@@ -336,6 +354,7 @@ function floorWakeSpot() {
   return sp ? { x: sp.x, z: sp.z, yaw: Math.PI } : escape.spawn();
 }
 // ---------- the escape: the finale chase (escape.js) and the ending (ending.js) ----------
+await loadStep('Waking the house', 'escape');
 const escape = createEscape({
   room, ground, origin: ROOM_ORIGIN, player, camera, flashlight, lantern, say, motherPlay, flicker, hardcore: () => hardcore,
   sfx: { flutter: playFlutter, clicks: playClicksAt, shriek: (l) => { captionSound('[a thin, rising shriek]'); playShriek(l); }, thud: playThud, creak: playCreak, grind: playGrind, glass: playGlass, softClicks: playSoftClicks },
@@ -369,10 +388,12 @@ const escape = createEscape({
     } : null });
   },
 });
+await loadStep('Waking the house', 'ending');
 const ending = createEnding({ renderer, quality: settings.quality, sfx: { click: playClick, flutter: playFlutter },
   // then the credits, locally for each player, and back to the home screen
   onDone: () => { if (mp && mp.active) mp.leave(); show('hud', false); state = 'home'; player.enabled = false;
     credits.play(() => { show('home', true); backdrop.start(); refreshHome(); }); } });
+await loadStep('Waking the house', 'credits');
 const credits = createCredits();
 const interactables = [
   ...escape.interactables,
@@ -846,9 +867,12 @@ function spawnAt(checkpoint, saved = {}) {
 }
 
 // ---------- moth specimens & the Moth Journal ----------
+await loadStep('Waking the house', 'mothNotes');
 const mothNotes = buildMothNotes(room.group);
+await loadStep('Waking the house', 'halluc');
 const halluc = createHallucinations({ scene, camera, room, ground, settings, saveSettings, volume: () => settings.volume });
 let mothsTaken = [];
+await loadStep('Waking the house', 'tutorial');
 const tutorial = createTutorial({ player, enabled: () => settings.tutorial !== false, zone: () => zone, state: () => state, lampOn: () => room.lampOn, torchOn: () => flashlight.on, hidden: () => motherPlay.hidden, moths: () => mothsTaken.length });
 const NOTE_BY_ID = Object.fromEntries(MOTH_NOTES.map(n => [n.id, n]));
 const imgCache = {}; const imgOf = (k) => imgCache[k] || (imgCache[k] = mothImage(k));
@@ -887,6 +911,7 @@ let settingsReturn = 'home';
 const backdrop = startHomeBackdrop($('homeBg'));
 
 // save slots: Continue takes the latest, Load and New Game choose one; every save goes to the active slot
+await loadStep('Waking the house', 'slotsUI');
 const slotsUI = createSlotScreen();
 let playSecs = 0, lastPlayNow = 0; setPlaytimeSource(() => playSecs);
 function refreshHome() {
@@ -966,9 +991,11 @@ $('btnJournalHome').onclick = () => openJournal('home');
 $('journalBack').onclick = () => { show('journal', false); show(journalReturn, true); };
 $('mothCardClose').onclick = closeMothCard;
 // the Collection cabinet (src/collection.js) and photo mode (src/photoMode.js)
+await loadStep('Waking the house', 'collection');
 const collection = createCollection();
 $('btnCredits').onclick = () => { show('home', false); credits.play(() => show('home', true)); };
 $('btnCollection').onclick = () => { show('home', false); collection.open(() => show('home', true)); };
+await loadStep('Waking the house', 'photo');
 const photo = createPhotoMode({ renderer, scene, camera,
   render: () => { if (currentQ.post && composer) composer.render(0); else renderer.render(scene, camera); },
   enter: () => { if (state !== 'playing' && state !== 'paused') return false; if (mp && mp.active) { say('Photo mode is not available in multiplayer.', 3000); return false; } show('pause', false); state = 'photo'; player.enabled = false; if (document.pointerLockElement) document.exitPointerLock(); },
@@ -1042,7 +1069,7 @@ function loop() {
   }
   flashlight.update(dt, t, player.moving, currentQ, lantern.on ? { on: true, onTime: lantern.onTime, pos: lantern.worldPos(lurePos) } : null);
   setHiss(state === 'playing' && zone === 'room' ? ground.hiss : 0);
-  updateAudio({ dt, realDt, state, frozen: frozen(), zone, player, camera, origin: ROOM_ORIGIN, mother: motherPlay });
+  updateAudio({ dt, realDt, state, frozen: frozen(), zone, player, camera, origin: ROOM_ORIGIN, mother: motherSound });
   if (state === 'playing') hintTick(dt);
   tutorial.tick(dt);
   catPlay.update(dt, t, state === 'playing');
@@ -1063,7 +1090,8 @@ function loop() {
 
 // ---------- The Mother below the attic (motherRoam.js): First Floor, cellar, catacombs; never the ground floor ----------
 let roamCtx; // kept for tests (window.__pinned.roamCaught)
-const motherRoam = createMotherRoam(roamCtx = {
+await loadStep('Waking the house', 'motherRoam');
+const motherRoam = roamRef = createMotherRoam(roamCtx = {
   room, origin: ROOM_ORIGIN, player, camera, flashlight, lantern, say, motherPlay, flicker, colliders: () => colliders(), hardcore: () => hardcore,
   sfx: { flutter: (l) => { captionSound('[wings fluttering]'); playFlutter(l); }, clicks: (l, n) => { captionSound('[clicking nearby]'); playClicksAt(l, n); }, shriek: (l) => { captionSound('[a thin, rising shriek]'); playShriek(l); } },
   detectScale: () => catPlay.detectScale, playerCount: () => playerCount(), state: () => state, zone: () => zone,
@@ -1083,6 +1111,7 @@ spawnAt(null);
 refreshHome();
 $('loading').classList.add('hidden');
 loop();
+window.__loadTimes = loadTimes; window.__loadMarks = { start: LOAD_START, built: performance.now() };
 
 // Hook for automated tests / debugging.
 window.__pinned = { tutorial, get hardcore() { return hardcore; }, startHardcore: () => startGame(null, {}, true), refreshHome: () => refreshHome(),

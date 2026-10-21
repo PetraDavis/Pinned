@@ -6,6 +6,7 @@
 // hallucinations happen. Dust fades slowly. Everything runs on game time (dt), so pausing
 // freezes it all.
 import * as THREE from 'three';
+import { sampleNow } from './audio/samples.js';
 import { drawMoth } from './moths.js';
 import { caption, captionSound, updateCaptions, setCaptionSettings } from './captions.js';
 
@@ -146,6 +147,10 @@ export function createHallucinations({ scene, camera, room, ground, settings, sa
 
   // ---------- whispers ----------
   let actx = null;
+  // her lines load a little after your first click or key press (not during the page load)
+  const warm = () => { removeEventListener('pointerdown', warm, true); removeEventListener('keydown', warm, true);
+    setTimeout(() => { try { const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return; if (!actx) actx = new AC(); WHISPERS.forEach((_, i) => sampleNow(actx, 'whisper-' + (i + 1))); } catch { /* synthesized whispers */ } }, 6000); };
+  addEventListener('pointerdown', warm, true); addEventListener('keydown', warm, true);
   function whisper() {
     const words = pick(WHISPERS);
     caption(`(whispering) ${words}`, 3.5);
@@ -153,6 +158,15 @@ export function createHallucinations({ scene, camera, room, ground, settings, sa
       const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
       if (!actx) actx = new AC();
       if (actx.state === 'suspended') actx.resume();
+      // Petra's recorded line (audio/whisper-N), drifting from one side of you to the other
+      const rec = sampleNow(actx, 'whisper-' + (WHISPERS.indexOf(words) + 1));
+      if (rec) {
+        const src = actx.createBufferSource(); src.buffer = rec; src.playbackRate.value = 0.96 + Math.random() * 0.05;
+        const g = actx.createGain(); g.gain.value = 0.9 * (volume ? volume() : 0.6);
+        const p = actx.createStereoPanner ? actx.createStereoPanner() : null, side = Math.random() < 0.5 ? -1 : 1, t = actx.currentTime;
+        if (p) { p.pan.setValueAtTime(0.85 * side, t); p.pan.linearRampToValueAtTime(-0.5 * side, t + rec.duration); src.connect(g).connect(p).connect(actx.destination); } else src.connect(g).connect(actx.destination);
+        src.start(); return;
+      }
       const t0 = actx.currentTime + 0.05, sr = actx.sampleRate, len = Math.round(sr * 1.8);
       const buf = actx.createBuffer(1, len, sr), dd = buf.getChannelData(0);
       for (let i = 0; i < len; i++) dd[i] = Math.random() * 2 - 1;

@@ -1,6 +1,7 @@
 // The first room: a large, grey Victorian drawing room behind the broken window.
 // Built away from the exterior (at ROOM_ORIGIN) and entered via a short fade.
 import * as THREE from 'three';
+import { loadStep } from '../loadSteps.js';
 import { tex } from '../textures.js';
 import { mat, box, rect, rep, rand } from './build.js';
 import { createPuzzle, buildHallway, STANDS } from './drawerPuzzle.js';
@@ -19,7 +20,7 @@ export const ROOM_PANEL = new THREE.Vector3(ROOM_ORIGIN.x + W / 2 - 0.6, 0, ROOM
 export const ROOM_STANDS = STANDS.map(s => new THREE.Vector3(ROOM_ORIGIN.x + s.pos[0] + Math.sin(s.ry) * 0.75, 0, ROOM_ORIGIN.z + s.pos[2] + Math.cos(s.ry) * 0.75));
 export const ROOM_MOSAIC = new THREE.Vector3(ROOM_ORIGIN.x, 0, ROOM_ORIGIN.z - 3.9);
 
-export function buildFirstRoom(scene, shadowSize = 2048, quality = 'high') {
+export async function buildFirstRoom(scene, shadowSize = 2048, quality = 'high') {
   const group = new THREE.Group();
   group.position.copy(ROOM_ORIGIN);
   scene.add(group);
@@ -31,11 +32,13 @@ export function buildFirstRoom(scene, shadowSize = 2048, quality = 'high') {
   const trim = mat({ map: tex.wood, color: 0x6e6258 });
   const dark = mat({ map: tex.wood, color: 0x5a4a3e, roughness: 0.6 });
 
+  await loadStep('Furnishing the first room');
   // floor & ceiling
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(W, D), mat({ map: tex.floor, color: 0xb0a89c }));
   floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; group.add(floor);
   const ceil = new THREE.Mesh(new THREE.PlaneGeometry(W, D), mat({ color: 0x4a4a4a, map: rep(tex.stone, 3, 2) }));
   ceil.rotation.x = Math.PI / 2; ceil.position.y = H; group.add(ceil);
+  await loadStep('Furnishing the first room');
   // ceiling rose + chandelier stub
   const rose = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 0.06, 24), mat({ color: 0x777470 }));
   rose.position.set(0, H - 0.03, 0); group.add(rose);
@@ -44,15 +47,18 @@ export function buildFirstRoom(scene, shadowSize = 2048, quality = 'high') {
   const chand = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.04, 6, 20), mat({ color: 0x3a3226, metalness: 0.7, roughness: 0.5 }));
   chand.rotation.x = Math.PI / 2; chand.position.set(0, H - 1.2, 0); chand.castShadow = true; group.add(chand);
 
+  await loadStep('Furnishing the first room');
   // walls (the +z wall has the window opening)
   const T = 0.3;
   box(group, W, H, T, 0, H / 2, -D / 2 - T / 2, wallMat, local);           // back
   box(group, T, H, D, -W / 2 - T / 2, H / 2, 0, wallMatS, local);          // left
+  await loadStep('Furnishing the first room');
   // right wall, with the doorway to the hallway (z 2.0 .. 3.2)
   box(group, T, H, 7, W / 2 + T / 2, H / 2, -1.5, wallMatS, local);
   box(group, T, H, 0.2, W / 2 + T / 2, H / 2, 3.3, wallMatS, local);
   box(group, T, H, 0.4, W / 2 + T / 2, H / 2, 4.8, wallMatS, local);
   box(group, T, H - 2.5, 1.2, W / 2 + T / 2, (H + 2.5) / 2, 4.0, wallMatS);
+  await loadStep('Furnishing the first room');
   // the secret panel: a section of panelled wall that grinds back and slides aside
   const panel = new THREE.Group(); panel.position.set(W / 2 + T / 2, 0, 4.0); group.add(panel);
   box(panel, T, 2.5, 1.2, 0, 1.25, 0, wallMatS, null);
@@ -68,13 +74,16 @@ export function buildFirstRoom(scene, shadowSize = 2048, quality = 'high') {
   box(group, WIN.w, WIN.sill, T, WIN.x, WIN.sill / 2, fz, wallMatS, local);
   const top = WIN.sill + WIN.h;
   box(group, WIN.w, H - top, T, WIN.x, (H + top) / 2, fz, wallMatS);
+  await loadStep('Furnishing the first room');
   // skirting & dado & cornice
+  await loadStep('Furnishing the first room');
   // (the east wall's runs stop at the old door and the secret panel so nothing crosses the openings)
   for (const [w, d, x, z] of [[W, 0.05, 0, -D / 2], [0.05, D, -W / 2, 0], [0.05, 6.9, W / 2, -1.55], [0.05, 0.2, W / 2, 3.3], [0.05, 0.4, W / 2, 4.8]]) {
     box(group, w, 0.25, d, x, 0.125, z, trim, null, { cast: false });
     box(group, w, 0.06, d, x, 1.0, z, trim, null, { cast: false });
     box(group, w, 0.2, d, x, H - 0.1, z, mat({ color: 0x6a6a68 }), null, { cast: false });
   }
+  await loadStep('Furnishing the first room');
   // window frame, snapped mullion, curtain rags
   box(group, WIN.w + 0.2, 0.1, 0.4, WIN.x, WIN.sill, D / 2 + 0.05, dark);
   const mull = box(group, 0.06, 1.6, 0.06, WIN.x + 0.2, WIN.sill + 1.6, D / 2 + 0.1, dark); mull.rotation.z = 0.5;
@@ -87,10 +96,12 @@ export function buildFirstRoom(scene, shadowSize = 2048, quality = 'high') {
   }
   box(group, 2.8, 0.05, 0.05, WIN.x, H - 0.3, D / 2 - 0.12, mat({ color: 0x2a2520, metalness: 0.6 }));
 
+  await loadStep('Furnishing the first room');
   // the night outside the window
   const outside = new THREE.Mesh(new THREE.PlaneGeometry(6, 6), new THREE.MeshBasicMaterial({ map: outsideTex(), fog: false }));
   outside.position.set(WIN.x, 2, D / 2 + 2.5); outside.rotation.y = Math.PI; group.add(outside);
 
+  await loadStep('Furnishing the first room');
   // broken glass under the window
   const shardMat = new THREE.MeshStandardMaterial({ color: 0xaabbcc, roughness: 0.02, metalness: 1, transparent: true, opacity: 0.8, side: THREE.DoubleSide });
   for (let i = 0; i < 60; i++) {
@@ -102,10 +113,12 @@ export function buildFirstRoom(scene, shadowSize = 2048, quality = 'high') {
     m.rotation.set(-Math.PI / 2 + (r() - 0.5) * 0.15, 0, r() * 6.28); group.add(m);
   }
 
+  await loadStep('Furnishing the first room');
   // rug
   const rug = new THREE.Mesh(new THREE.PlaneGeometry(6, 4.4), mat({ map: tex.rug, color: 0xaaaaaa }));
   rug.rotation.x = -Math.PI / 2; rug.position.set(-0.5, 0.01, -0.5); rug.receiveShadow = true; group.add(rug);
 
+  await loadStep('Furnishing the first room');
   // fireplace on the back wall, with the moth mosaic above (big room rule)
   const marble = mat({ color: 0x595b5e, roughness: 0.4, map: rep(tex.stone, 0.5, 0.5) });
   box(group, 2.6, 1.3, 0.5, 0, 0.65, -D / 2 + 0.25, marble, local);
@@ -116,10 +129,11 @@ export function buildFirstRoom(scene, shadowSize = 2048, quality = 'high') {
   mosaic.position.set(0, 2.9, -D / 2 + 0.02); group.add(mosaic);
   const puzzle = createPuzzle(group, local, new THREE.Vector3(4.4, 0, -D / 2 + 0.36));
   const hall = buildHallway(group, local);
-  const ground = buildGroundFloor(group, local, { quality });
+  const ground = await buildGroundFloor(group, local, { quality });
   const frameMat = mat({ color: 0x5a4a2a, metalness: 0.5, roughness: 0.5 });
   for (const [w, h, x, y] of [[2.6, 0.1, 0, 4.15], [2.6, 0.1, 0, 1.65], [0.1, 2.6, -1.25, 2.9], [0.1, 2.6, 1.25, 2.9]])
     box(group, w, h, 0.08, x, y, -D / 2 + 0.04, frameMat, null, { cast: false });
+  await loadStep('Furnishing the first room');
   // candlesticks on mantel
   for (const x of [-1.2, 1.2]) {
     const c = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.08, 0.35, 8), frameMat);
@@ -128,12 +142,15 @@ export function buildFirstRoom(scene, shadowSize = 2048, quality = 'high') {
     wax.position.set(x, 1.83, -D / 2 + 0.3); group.add(wax);
   }
 
+  await loadStep('Furnishing the first room');
   // a sitting area round the fire: the sheeted sofa faces the hearth across a rug,
+  await loadStep('Furnishing the first room');
   // a lamp table at its left, an armchair either side of the fireplace
   const sofa = new THREE.Group(); sofa.position.set(0, 0, -0.8); sofa.rotation.y = Math.PI; group.add(sofa);
   buildSofa(sofa, dark);
   rect(local, -1.42, 1.42, -1.3, -0.3);
 
+  await loadStep('Furnishing the first room');
   // round table with an oil lamp and a book
   const table = new THREE.Group(); table.position.set(-2.6, 0, -1.2); group.add(table);
   const top0 = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 0.06, 24), dark); top0.position.y = 0.75; top0.castShadow = true; table.add(top0);
@@ -143,6 +160,7 @@ export function buildFirstRoom(scene, shadowSize = 2048, quality = 'high') {
   const lamp = buildOilLamp(Math.min(shadowSize, 2048) / 2 >= 1024 ? 2048 : 1024); lamp.group.position.set(-0.15, 0.78, -0.1); table.add(lamp.group);
   rect(local, -3.3, -1.9, -1.9, -0.5);
 
+  await loadStep('Furnishing the first room');
   // tipped-over armchair
   const chairMat = mat({ map: tex.fabric, color: 0x998888 });
   const chair = new THREE.Group(); chair.position.set(2.2, 0, -2.4); chair.rotation.set(0, -2.1, 0); group.add(chair);
@@ -150,12 +168,14 @@ export function buildFirstRoom(scene, shadowSize = 2048, quality = 'high') {
   box(ch, 0.9, 0.4, 0.9, 0, 0, 0, chairMat); box(ch, 0.9, 1.0, 0.2, 0, 0.5, -0.4, chairMat);
   for (const s of [-1, 1]) box(ch, 0.15, 0.6, 0.9, s * 0.45, 0.2, 0, chairMat);
   rect(local, 1.5, 2.9, -3.2, -1.6);
+  await loadStep('Furnishing the first room');
   // upright armchair by the fire
   const chair2 = new THREE.Group(); chair2.position.set(-2.0, 0, -2.8); chair2.rotation.y = 2.1; group.add(chair2);
   box(chair2, 0.9, 0.45, 0.9, 0, 0.3, 0, chairMat); box(chair2, 0.9, 1.1, 0.2, 0, 0.9, -0.4, chairMat);
   for (const s of [-1, 1]) box(chair2, 0.15, 0.4, 0.9, s * 0.45, 0.65, 0, chairMat);
   rect(local, -2.65, -1.35, -3.45, -2.15);
 
+  await loadStep('Furnishing the first room');
   // bookcase on the left wall, books toppled
   const bc = new THREE.Group(); bc.position.set(-W / 2 + 0.25, 0, -1.5); group.add(bc);
   box(bc, 0.5, 3.0, 3.0, 0, 1.5, 0, dark);
@@ -172,6 +192,7 @@ export function buildFirstRoom(scene, shadowSize = 2048, quality = 'high') {
   for (let i = 0; i < 6; i++) box(group, 0.3, 0.06, 0.22, -W / 2 + 1 + r() * 0.8, 0.03, -2.5 + r() * 2, mat({ color: 0x3a2018 }), null, { ry: r() * 3 });
   rect(local, -W / 2, -W / 2 + 0.55, -3.0, 0);
 
+  await loadStep('Furnishing the first room');
   // grandfather clock, stopped
   const clock = new THREE.Group(); clock.position.set(-W / 2 + 0.35, 0, 2.6); group.add(clock);
   box(clock, 0.45, 2.3, 0.55, 0, 1.15, 0, dark);
@@ -179,6 +200,7 @@ export function buildFirstRoom(scene, shadowSize = 2048, quality = 'high') {
   face.rotation.y = Math.PI / 2; face.position.set(0.23, 1.85, 0); clock.add(face);
   rect(local, -W / 2, -W / 2 + 0.6, 2.3, 2.9);
 
+  await loadStep('Furnishing the first room');
   // pinned-moth display cases on the right wall
   for (const [z, specimens] of [[-2.7, tex.specimensA]]) { // clear of the doorway (z 1.9 .. 3.3)
     const cs = new THREE.Group(); cs.position.set(W / 2 - 0.05, 1.75, z); cs.rotation.y = -Math.PI / 2; group.add(cs);
@@ -187,14 +209,18 @@ export function buildFirstRoom(scene, shadowSize = 2048, quality = 'high') {
     const glass = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 1.1), new THREE.MeshStandardMaterial({ color: 0x8899aa, transparent: true, opacity: 0.15, roughness: 0.05, metalness: 1 }));
     glass.position.z = 0.11; glass.castShadow = false; glass.material.depthWrite = false; glass.renderOrder = 2; cs.add(glass);
   }
+  await loadStep('Furnishing the first room');
   // sideboard under the cases
   box(group, 0.6, 0.9, 2.6, W / 2 - 0.3, 0.45, -1.2, dark, local);
 
+  await loadStep('Furnishing the first room');
   // locked door on the right wall
+  await loadStep('Furnishing the first room');
   // the old door: closed and rusted shut
   const door = new THREE.Group(); door.position.set(W / 2 + T / 2, 0, 2.6); door.rotation.y = -Math.PI / 2; group.add(door);
   box(door, 1.194, 2.494, 0.06, 0, 1.25, 0, mat({ map: tex.wood, color: 0xa88a72 }), null, { cast: false });
   for (const [px, py] of [[-0.28, 1.75], [0.28, 1.75], [-0.28, 0.65], [0.28, 0.65]]) box(door, 0.42, py > 1 ? 0.9 : 0.8, 0.02, px, py, 0.05, mat({ map: tex.wood, color: 0x8a7060 }), null, { cast: false });
+  await loadStep('Furnishing the first room');
   // carved architrave: fluted jambs on plinth blocks, corner rosettes, a moulded head and cornice
   const archMat = mat({ map: tex.wood, color: 0xb0947c, roughness: 0.6 });
   for (const sx of [-1, 1]) {
@@ -207,6 +233,7 @@ export function buildFirstRoom(scene, shadowSize = 2048, quality = 'high') {
     rosette.position.set(W / 2 - 0.095, 2.6, zc); group.add(rosette);
   }
   box(group, 0.07, 0.2, 1.24, W / 2 - 0.035, 2.6, 2.6, archMat, null, { cast: false });   // head
+  await loadStep('Furnishing the first room');
   // linings across the wall thickness, and a plain architrave on the hallway side
   for (const z of [1.994, 3.206]) box(group, T, 2.5, 0.012, W / 2 + T / 2, 1.25, z, archMat, null, { cast: false });
   box(group, T, 0.012, 1.2, W / 2 + T / 2, 2.506, 2.6, archMat, null, { cast: false });
@@ -220,6 +247,7 @@ export function buildFirstRoom(scene, shadowSize = 2048, quality = 'high') {
   const plate = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.14, 0.01), brassDoor); plate.position.set(0.45, 0.88, 0.045); door.add(plate);
   const keyhole = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.035, 0.012), new THREE.MeshBasicMaterial({ color: 0x000000 })); keyhole.position.set(0.45, 0.87, 0.05); door.add(keyhole);
 
+  await loadStep('Furnishing the first room');
   // paintings
   for (const [x, y] of [[-4.2, 2.6], [4.2, 2.6]]) {
     box(group, 1.0, 1.25, 0.06, x, y, -D / 2 + 0.04, frameMat, null, { cast: false });
@@ -227,6 +255,7 @@ export function buildFirstRoom(scene, shadowSize = 2048, quality = 'high') {
     if (x > 0) { p.rotation.z = 0.12; } group.add(p);
   }
 
+  await loadStep('Furnishing the first room');
   // cobwebs in the corners
   const webMat = new THREE.MeshBasicMaterial({ map: tex.web, transparent: true, depthWrite: false, side: THREE.DoubleSide, opacity: 0.6 });
   for (const [x, z, ry, sx] of [[-W / 2, -D / 2, Math.PI / 4, 1], [W / 2, -D / 2, -Math.PI / 4, -1], [-W / 2, D / 2, 3 * Math.PI / 4, 1]]) {
@@ -234,6 +263,7 @@ export function buildFirstRoom(scene, shadowSize = 2048, quality = 'high') {
     wb.geometry.translate(0.6, -0.6, 0); wb.position.set(x, H, z); wb.rotation.set(0, ry, 0); wb.scale.x = sx; group.add(wb);
   }
 
+  await loadStep('Furnishing the first room');
   // ---------- light ----------
   const moon = new THREE.SpotLight(0xff9a5a, 120, 24, 0.5, 0.6, 1.2);
   moon.position.set(WIN.x + 3.5, 3.6, D / 2 + 4); // low sun: long patch across the floor
@@ -243,6 +273,7 @@ export function buildFirstRoom(scene, shadowSize = 2048, quality = 'high') {
   const fill = new THREE.HemisphereLight(0x7a6a80, 0x241a14, 2.4); group.add(fill);
   const bounce = new THREE.PointLight(0xc08060, 5, 12, 1.2); bounce.position.set(WIN.x - 0.5, 1.2, 2.5); group.add(bounce);
 
+  await loadStep('Furnishing the first room');
   // dust motes drifting in the moonbeam
   const N = 450, pos = new Float32Array(N * 3); // quality decides how many are drawn
   for (let i = 0; i < N; i++) pos.set([WIN.x - 1.8 + r() * 3.2, r() * 3.5, -0.8 + r() * 5.6], i * 3);
@@ -251,7 +282,9 @@ export function buildFirstRoom(scene, shadowSize = 2048, quality = 'high') {
   dust.userData.dust = N; group.add(dust);
 
   const colliders = local.map(c => ({ minX: c.minX, maxX: c.maxX, minZ: c.minZ, maxZ: c.maxZ }));
+  await loadStep('Furnishing the first room');
   // the local rects created via rect() are in group space; box() ones were already world-space
+  await loadStep('Furnishing the first room');
   // (box() uses world matrices) -> normalise: rects without world offset get shifted.
   const worldColliders = local.map(c => c.minX < 500 ? { ...c, minX: c.minX + ROOM_ORIGIN.x, maxX: c.maxX + ROOM_ORIGIN.x, minZ: c.minZ + ROOM_ORIGIN.z, maxZ: c.maxZ + ROOM_ORIGIN.z } : c);
   const panelCollider = worldColliders.find(c => c.panel);
@@ -264,12 +297,15 @@ export function buildFirstRoom(scene, shadowSize = 2048, quality = 'high') {
   const baseFill = fill.intensity, baseBounce = bounce.intensity;
   let lampOn = false, panelOpen = false, panelAnim = 0;
   const toWorld = v => v.clone().add(ROOM_ORIGIN);
+  await loadStep('Furnishing the first room');
   // panel motion: first back into the hallway (grinding), then aside along the hallway wall
   const placePanel = k => {
     const a = Math.min(1, k * 2.5), b = Math.max(0, (k - 0.4) / 0.6);
     panel.position.set(W / 2 + T / 2 + a * 0.36, 0, 4.0 - b * 1.3);
   };
+  await loadStep('Furnishing the first room');
   // ---- floors as sections: only the floor the player is on is drawn ----
+  await loadStep('Furnishing the first room');
   // (ground floor z < 25, cellar 25..70, first floor 70..110, catacombs 110..165, attic > 165, in local coordinates)
   const sections = { ground: new THREE.Group(), cellar: new THREE.Group(), first: new THREE.Group(), catacombs: new THREE.Group(), attic: new THREE.Group() };
   {

@@ -5,7 +5,12 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); c
 .hidden { display: none !important; }
 .screen { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 10; }
 .screen.dim { background: rgba(3, 4, 6, 0.78); z-index: 20; }
-#loading { background: var(--bg); z-index: 30; color: var(--dim); letter-spacing: .2em; }
+#loading { background: var(--bg); z-index: 30; color: var(--dim); letter-spacing: .2em; flex-direction: column; }
+#loading > p:first-child { animation: loadPulse 1.6s ease-in-out infinite; }
+@keyframes loadPulse { 50% { opacity: .45; } }
+.loadTrack { width: min(320px, 70vw); height: 3px; background: rgba(255,255,255,.08); margin: 14px auto 10px; overflow: hidden; }
+#loadBar { width: 3%; height: 100%; background: var(--dim); transition: width .2s linear; }
+#loadWhat { font-size: .75em; letter-spacing: .12em; opacity: .7; min-height: 1.2em; }
 #homeBg { position: absolute; inset: 0; width: 100%; height: 100%; }
 .menu { position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 10px; width: min(340px, calc(100vw - 32px)); text-align: center; }
 #home .menu { margin-right: 54vw; }

@@ -1,5 +1,6 @@
 // Canvas-generated textures. No external assets.
 import * as THREE from 'three';
+import { loadStep } from './loadSteps.js';
 import { drawSpecimenFit, drawLabel } from './moths.js';
 
 function rng(seed) {
@@ -101,10 +102,11 @@ function stains(g, w, h, n, r, color = '0,0,0', a = 0.12) {
 
 export const tex = {};
 
-export function buildTextures(quality = 'high') {
+export async function buildTextures(quality = 'high') {
   Q = { xlow: 0.5, low: 1, medium: 2, high: 4 }[quality] || 4;
   PBR = quality !== 'low' && quality !== 'xlow'; // Low and Extra Low draw without them (main.js)
   // Grey ashlar stone for facades
+  await loadStep('Painting textures');
   tex.stone = canvasTex(512, 512, (g, w, h) => {
     const r = rng(1);
     g.fillStyle = '#6d6c69'; g.fillRect(0, 0, w, h);
@@ -128,6 +130,7 @@ export function buildTextures(quality = 'high') {
     stains(g, w, h, 25, r, '30,40,25', 0.15);
   }, [1, 1], true, 2.5);
 
+  await loadStep('Painting textures');
   tex.slate = canvasTex(256, 256, (g, w, h) => {
     const r = rng(2);
     g.fillStyle = '#1f2125'; g.fillRect(0, 0, w, h);
@@ -144,6 +147,7 @@ export function buildTextures(quality = 'high') {
     noise(g, w, h, 3000, r, 0.08);
   }, [1, 1], true, 2);
 
+  await loadStep('Painting textures');
   tex.grass = canvasTex(256, 256, (g, w, h) => {
     const r = rng(3);
     g.fillStyle = '#1c2616'; g.fillRect(0, 0, w, h);
@@ -158,6 +162,7 @@ export function buildTextures(quality = 'high') {
     for (let i = 0; i < 300; i++) { g.fillStyle = `rgba(${90 + r() * 50},${70 + r() * 30},40,0.5)`; g.fillRect(r() * w, r() * h, 2, 1); } // dead leaves/straw
   }, [60, 60], true, 1.5);
 
+  await loadStep('Painting textures');
   tex.gravel = canvasTex(256, 256, (g, w, h) => {
     const r = rng(4);
     g.fillStyle = '#3c3a36'; g.fillRect(0, 0, w, h);
@@ -170,6 +175,7 @@ export function buildTextures(quality = 'high') {
   }, [2, 20], true, 1.5);
 
   // Grey damask wallpaper, peeling and stained
+  await loadStep('Painting textures');
   tex.wallpaper = canvasTex(512, 512, (g, w, h) => {
     const r = rng(5);
     g.fillStyle = '#5e5f62'; g.fillRect(0, 0, w, h);
@@ -198,6 +204,7 @@ export function buildTextures(quality = 'high') {
     noise(g, w, h, 8000, r, 0.06);
   }, [1, 1], true, 0.8);
 
+  await loadStep('Painting textures');
   tex.floor = canvasTex(512, 512, (g, w, h) => {
     const r = rng(6);
     for (let y = 0; y < h; y += 32) {
@@ -219,6 +226,7 @@ export function buildTextures(quality = 'high') {
     noise(g, w, h, 6000, r, 0.07);
   }, [4, 3], true, 2);
 
+  await loadStep('Painting textures');
   tex.wood = canvasTex(256, 256, (g, w, h) => {
     const r = rng(7);
     g.fillStyle = '#2e1d12'; g.fillRect(0, 0, w, h);
@@ -230,6 +238,7 @@ export function buildTextures(quality = 'high') {
     stains(g, w, h, 12, r, '120,115,105', 0.12);
   }, [1, 1], true, 1.2);
 
+  await loadStep('Painting textures');
   tex.plank = canvasTex(256, 64, (g, w, h) => {
     const r = rng(8);
     g.fillStyle = '#3a2f24'; g.fillRect(0, 0, w, h);
@@ -240,6 +249,7 @@ export function buildTextures(quality = 'high') {
     noise(g, w, h, 1500, r, 0.1);
   }, [1, 1], true, 1.5);
 
+  await loadStep('Painting textures');
   tex.fabric = canvasTex(128, 128, (g, w, h) => {
     const r = rng(9);
     g.fillStyle = '#3d1f22'; g.fillRect(0, 0, w, h);
@@ -248,6 +258,7 @@ export function buildTextures(quality = 'high') {
   });
 
   // off-white linen dust sheet: visible weave, grime and dust
+  await loadStep('Painting textures');
   tex.sheet = canvasTex(256, 256, (g, w, h) => {
     const r = rng(10);
     g.fillStyle = '#bdb6a8'; g.fillRect(0, 0, w, h);
@@ -257,6 +268,7 @@ export function buildTextures(quality = 'high') {
     stains(g, w, h, 10, r, '200,195,185', 0.2);
     noise(g, w, h, 3000, r, 0.05);
   }, [1, 1], true, 1.2);
+  await loadStep('Painting textures');
   tex.velvet = canvasTex(128, 128, (g, w, h) => {
     const r = rng(15);
     g.fillStyle = '#4a1c22'; g.fillRect(0, 0, w, h);
@@ -265,6 +277,7 @@ export function buildTextures(quality = 'high') {
     noise(g, w, h, 2500, r, 0.06);
   }, [1, 1], true, 0.5);
 
+  await loadStep('Painting textures');
   tex.rug = canvasTex(512, 384, (g, w, h) => {
     const r = rng(11);
     g.fillStyle = '#3a1416'; g.fillRect(0, 0, w, h);
@@ -277,6 +290,7 @@ export function buildTextures(quality = 'high') {
     noise(g, w, h, 8000, r, 0.08);
   }, [1, 1], true, 0.6);
 
+  await loadStep('Painting textures');
   tex.web = canvasTex(256, 256, (g, w, h) => {
     g.clearRect(0, 0, w, h);
     g.strokeStyle = 'rgba(220,220,220,0.5)'; g.lineWidth = 1;
@@ -293,6 +307,7 @@ export function buildTextures(quality = 'high') {
     }
   });
 
+  await loadStep('Painting textures');
   tex.grassBlade = canvasTex(128, 128, (g, w, h) => {
     const r = rng(12);
     g.clearRect(0, 0, w, h);
@@ -306,10 +321,15 @@ export function buildTextures(quality = 'high') {
 
   // keep in step with SOLUTION in world/drawerPuzzle.js
   const CLUE = ['rubicunda', 'caja', 'mittrei', 'nerii', 'lubricipeda'];
+  await loadStep('Painting textures');
   tex.mosaic = makeMothMosaic(13, false, CLUE, 0.22);
+  await loadStep('Painting textures');
   tex.mosaicLit = makeMothMosaic(13, false, CLUE, 1);
+  await loadStep('Painting textures');
   tex.mosaicFloor = makeMothMosaic(29, true);
+  await loadStep('Painting textures');
   tex.specimensA = makeSpecimenCase(['polyphemus', 'cecropia', 'pavonia', 'vinula'], 31);
+  await loadStep('Painting textures');
   tex.painting = canvasTex(256, 320, (g, w, h) => {
     const r = rng(14);
     const gr = g.createLinearGradient(0, 0, 0, h);

@@ -22,6 +22,7 @@
 //                 west of the Flooded Crypt, also off the Tomb Hall.
 //   Cellar        the wardrobe's moth swarm (api.wardrobeSwarm()).
 import * as THREE from 'three';
+import { loadStep } from '../loadSteps.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { tex } from '../textures.js';
 import { mat, rep, rect, rand } from './build.js';
@@ -49,9 +50,10 @@ export const EXTRA = {
 };
 const OBS_SKY_Y = 0;
 
-export function buildExtraRooms(ctx) {
+export async function buildExtraRooms(ctx) {
   const { group, local, wall, plane, door, light, doors } = ctx;
   const r = rand(5150);
+  await loadStep('Building the far rooms');
   // ---------- materials ----------
   const wood = mat({ map: tex.wood, color: 0x6a5444 });
   const darkWood = mat({ map: tex.wood, color: 0x3e2c22 });
@@ -82,6 +84,7 @@ export function buildExtraRooms(ctx) {
   const silkGeos = { ground: [], first: [], cat: [] }, threads = { ground: [], first: [], cat: [] };
   const anim = []; // per-frame updaters for small moving things (each checks its section is drawn)
 
+  await loadStep('Building the far rooms');
   // ---------- merge helpers ----------
   const m4 = new THREE.Matrix4(), eul = new THREE.Euler(), qq = new THREE.Quaternion(), pp = new THREE.Vector3(), ss = new THREE.Vector3();
   function push(material, g) {
@@ -90,6 +93,7 @@ export function buildExtraRooms(ctx) {
     if (!lists.has(material)) lists.set(material, []);
     lists.get(material).push(n);
   }
+  await loadStep('Building the far rooms');
   // add a geometry with a transform; uv > 0 maps the texture in world space at that scale
   function add(material, geo, x = 0, y = 0, z = 0, ry = 0, rx = 0, rz = 0, uv = 0, sc = null) {
     eul.set(rx, ry, rz, 'YXZ'); qq.setFromEuler(eul); m4.compose(pp.set(x, y, z), qq, sc || ss.set(1, 1, 1));
@@ -99,6 +103,7 @@ export function buildExtraRooms(ctx) {
   }
   const B = (m, w, h, d, x, y, z, ry = 0, uv = 0) => add(m, new THREE.BoxGeometry(w, h, d), x, y, z, ry, 0, 0, uv);
   const C = (m, rt, rb, h, x, y, z, seg = 12, rx = 0, rz = 0, ry = 0) => add(m, new THREE.CylinderGeometry(rt, rb, h, seg), x, y, z, ry, rx, rz);
+  await loadStep('Building the far rooms');
   // bake a built THREE.Group (its meshes) into the merge lists
   function bake(obj) {
     obj.updateMatrixWorld(true);
@@ -113,6 +118,7 @@ export function buildExtraRooms(ctx) {
   }
   const col = (x0, x1, z0, z1) => rect(local, Math.min(x0, x1), Math.max(x0, x1), Math.min(z0, z1), Math.max(z0, z1));
   const cocoon = (fl, x, z, h, hanging, top) => spunCocoon(x, z, h, hanging, top, silkGeos[fl], threads[fl]);
+  await loadStep('Building the far rooms');
   // a picture: a plane with its own texture (charts, labels, portraits)
   function pic(texture, w, h, x, y, z, ry = 0, opts = {}) {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map: texture, roughness: 0.9, transparent: !!opts.alpha, alphaTest: opts.alpha ? 0.25 : 0, side: opts.double ? THREE.DoubleSide : THREE.FrontSide }));
@@ -120,8 +126,11 @@ export function buildExtraRooms(ctx) {
   }
   const cobweb = (x, y, z, ry, s = 0.8) => { const w = pic(tex.web, s, s, x, y, z, ry, { alpha: true, double: true }); w.material.opacity = 0.6; w.material.depthWrite = false; return w; };
 
+  await loadStep('Building the far rooms');
   // ======================================================================================
+  await loadStep('Building the far rooms');
   // GROUND FLOOR: the Conservatory, north of the Grand Hall
+  await loadStep('Building the far rooms');
   // ======================================================================================
   {
     const X0 = 20.4, X1 = 33.8, Z0 = -12.6, Z1 = -8.2, HL = 3.3, HH = 4.8, SILL = 0.72;
@@ -283,8 +292,11 @@ export function buildExtraRooms(ctx) {
     flutter({ count: 10, key: 'pronuba', size: 0.06, centre: new THREE.Vector3(27, 1.9, -12.4), spread: [5.5, 0.9, 0.12], speed: 0.6 });
   }
 
+  await loadStep('Building the far rooms');
   // ======================================================================================
+  await loadStep('Building the far rooms');
   // FIRST FLOOR: the Bathroom, between the Leader's and Luna's bedrooms
+  await loadStep('Building the far rooms');
   // ======================================================================================
   const FH = 3.6;
   const BATH = { x0: 49.35, x1: 53.35, z0: 86.4, z1: 89.0 };
@@ -354,12 +366,16 @@ export function buildExtraRooms(ctx) {
     flush();
   }
 
+  await loadStep('Building the far rooms');
   // ---- the Nursery's door into the Leader's room: unbolted ----
   doors.fNurseryLeader.locked = false;
   doors.fNurseryLeader.openMsg = 'The bolt on the far side has been drawn back. A child’s door, into her father’s room.';
 
+  await loadStep('Building the far rooms');
   // ======================================================================================
+  await loadStep('Building the far rooms');
   // FIRST FLOOR: the West Corridor, behind the Library, and the turret stair
+  await loadStep('Building the far rooms');
   // ======================================================================================
   {
     const X0 = 27.5, X1 = 29.8, Z0 = 84.0, Z1 = 96.8, cx = (X0 + X1) / 2, cz = (Z0 + Z1) / 2;
@@ -431,8 +447,11 @@ export function buildExtraRooms(ctx) {
     flush();
   }
 
+  await loadStep('Building the far rooms');
   // ======================================================================================
+  await loadStep('Building the far rooms');
   // FIRST FLOOR (top of the west turret): the Observatory
+  await loadStep('Building the far rooms');
   // ======================================================================================
   const beamDust = { pts: null };
   {
@@ -581,8 +600,11 @@ export function buildExtraRooms(ctx) {
     flush();
   }
 
+  await loadStep('Building the far rooms');
   // ======================================================================================
+  await loadStep('Building the far rooms');
   // CATACOMBS: the Bogong Cave, north of the Tomb Hall
+  await loadStep('Building the far rooms');
   // ======================================================================================
   let caveMoths = null;
   const CAVE = { x: 52.4, z: 135.6, rx: 4.6, rz: 5.6, WH: 2.4, DH: 1.3 };
@@ -672,8 +694,11 @@ export function buildExtraRooms(ctx) {
     flush();
   }
 
+  await loadStep('Building the far rooms');
   // ======================================================================================
+  await loadStep('Building the far rooms');
   // CATACOMBS: the Burial Niches, west of the Flooded Crypt, off the Tomb Hall
+  await loadStep('Building the far rooms');
   // ======================================================================================
   {
     const X0 = 33.0, X1 = 43.2, Z0 = 133.0, Z1 = 141.9, H = 2.8, cx = (X0 + X1) / 2, cz = (Z0 + Z1) / 2;
@@ -742,6 +767,7 @@ export function buildExtraRooms(ctx) {
     flush();
   }
 
+  await loadStep('Building the far rooms');
   // ---------- spun silk: one mesh and one line set per floor ----------
   for (const k of Object.keys(silkGeos)) {
     if (!silkGeos[k].length) continue;
@@ -750,6 +776,7 @@ export function buildExtraRooms(ctx) {
     group.add(new THREE.LineSegments(tg, new THREE.LineBasicMaterial({ color: 0xd8d0c0, transparent: true, opacity: 0.35 })));
   }
 
+  await loadStep('Building the far rooms');
   // ---------- the wardrobe's moths (boiler room) ----------
   const swarm = (() => {
     const N = 110, W0 = new THREE.Vector3(41.2, 1.25, 40.95);
@@ -785,6 +812,7 @@ export function buildExtraRooms(ctx) {
     };
   })();
 
+  await loadStep('Building the far rooms');
   // ---------- state ----------
   const camLocal = new THREE.Vector3();
   const api = {
@@ -809,7 +837,9 @@ export function buildExtraRooms(ctx) {
   };
   return api;
 
+  await loadStep('Building the far rooms');
   // ---------- builders used above ----------
+  await loadStep('Building the far rooms');
   // a few moths on the move: an instanced flock wandering round a centre
   function flutter({ count, key, size, centre, spread, speed }) {
     const inst = new THREE.InstancedMesh(new THREE.PlaneGeometry(size, size * 0.85), new THREE.MeshStandardMaterial({ map: mothPlaneTex(key), transparent: true, alphaTest: 0.3, side: THREE.DoubleSide }), count);
@@ -830,6 +860,7 @@ export function buildExtraRooms(ctx) {
     });
     return inst;
   }
+  await loadStep('Building the far rooms');
   // a long coat or cape hanging on a hook against a wall running along z (front facing +x)
   function coat(x, y, z, color, k, seed) {
     const m = mat({ map: tex.fabric, color: new THREE.Color(color).multiplyScalar(color === 0xd8d0c0 ? 1 : 1.7), roughness: 0.9, side: THREE.DoubleSide, emissive: new THREE.Color(color).multiplyScalar(color === 0xd8d0c0 ? 0.06 : 0.35) }); // lifted a little so the coats read in the gloom
@@ -839,6 +870,7 @@ export function buildExtraRooms(ctx) {
     add(m, new THREE.SphereGeometry(0.11 * k, 10, 8, 0, Math.PI, 0, Math.PI / 2), x + 0.01, y - 0.02, z, 0, 0.3);
     if (color === 0xd8d0c0) add(mat({ map: tex.fabric, color: 0xc0b8a8, roughness: 1, side: THREE.DoubleSide }), new THREE.PlaneGeometry(0.16 * k, 0.12 * k), x + 0.13 * k, y - 0.5 * k, z, Math.PI / 2);
   }
+  await loadStep('Building the far rooms');
   // the white robe of a novice, with the Order's moth stitched on the breast (wall along x)
   function robe(x, y, z, ry, k) {
     const m = new THREE.MeshStandardMaterial({ map: robeTex(), color: 0xe0dccf, roughness: 1, side: THREE.DoubleSide });

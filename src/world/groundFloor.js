@@ -5,6 +5,7 @@
 // Everything is built in the drawing room's group, in its local coordinates
 // (x east, z south), so it shares the room zone, fog and colliders.
 import * as THREE from 'three';
+import { loadStep } from '../loadSteps.js';
 import { gasLampFixture } from './fixtures.js';
 import { buildLowerUpper } from './lowerUpper.js';
 import { buildCatacombs } from './catacombs.js';
@@ -45,7 +46,7 @@ export const JOURNAL = [
 
 const H_HALL = 3.6, H_STUDY = 3.8, H_GRAND = 7.5, H_DINE = 4.2, H_KITCH = 3.6;
 
-export function buildGroundFloor(group, local, { quality: q0 = 'high' } = {}) {
+export async function buildGroundFloor(group, local, { quality: q0 = 'high' } = {}) {
   let quality = q0;
   const r = rand(77);
   const wallpaper = (x, y, c = 0x8a8c90) => mat({ map: rep(tex.wallpaper, x, y), color: c });
@@ -56,12 +57,15 @@ export function buildGroundFloor(group, local, { quality: q0 = 'high' } = {}) {
   const plaster = mat({ color: 0x3a3836 });
   const brass = new THREE.MeshStandardMaterial({ color: 0xb08a40, metalness: 0.9, roughness: 0.35 });
 
+  await loadStep('Building the ground floor');
   // ---- helpers ----
   const plane = (w, d, x, y, z, m, up = true) => {
     const p = new THREE.Mesh(new THREE.PlaneGeometry(w, d), m);
     p.rotation.x = up ? -Math.PI / 2 : Math.PI / 2; p.position.set(x, y, z); p.receiveShadow = true; group.add(p); return p;
   };
+  await loadStep('Building the ground floor');
   // a wall along x (at z) or along z (at x), from a to b, with door gaps [centre, width]
+  await loadStep('Building the ground floor');
   // and a header above each gap
   function wall(axis, at, a, b, h, m, gaps = [], doorH = 2.5) {
     const segs = []; let s = a;
@@ -89,7 +93,9 @@ export function buildGroundFloor(group, local, { quality: q0 = 'high' } = {}) {
   const gasFixture = (x, y, z, kind) => gasLampFixture(group, x, y, z, kind);
   const fillHall = new THREE.PointLight(0x8a7a90, 6, 30, 1.2); fillHall.position.set(27, 6.5, 1); group.add(fillHall);
 
+  await loadStep('Building the ground floor');
   // ---- doors ----
+  await loadStep('Building the ground floor');
   // A door leaf hinged at one side of a gap. `axis` is the wall direction.
   const doors = {};
   function door(id, axis, at, c, { w = 1.2, h = 2.5, locked = false, msg = '', openMsg = '', boarded = false, swing = 1, open = false } = {}) {
@@ -134,22 +140,29 @@ export function buildGroundFloor(group, local, { quality: q0 = 'high' } = {}) {
     if (open) d.open(true);
     return d;
   }
+  await loadStep('Building the ground floor');
   // colliders are converted to world space by firstRoom.js; it hands us functions to edit them
   let removeCollider = () => {}, addColliderBack = () => {};
 
+  await loadStep('Building the ground floor');
   // =============== hallway extras: mirror M1 ===============
+  await loadStep('Building the ground floor');
   // (hallway itself is built in drawerPuzzle.js: x 7.3..20, z 1.4..4.8)
   door('study', 'x', 1.3, 15, { swing: -1, openMsg: 'The door gives with a long sigh. Camphor, and something sweeter.' });
 
+  await loadStep('Building the ground floor');
   // =============== Specimen Study: x 11..20, z -5.4..1.2 ===============
   const SX0 = 11, SX1 = 20, SZ0 = -5.4, SZ1 = 1.2;
   room(SX0, SX1, SZ0, SZ1, H_STUDY, floorMat(3, 2, 0x8a7a6a), plaster);
   wall('x', SZ0 - 0.1, SX0 - 0.2, SX1, H_STUDY, wallpaper(4, 1, 0x7a6a5e));
   wall('z', SX0 - 0.1, SZ0, SZ1 + 0.2, H_STUDY, wallpaper(3, 1, 0x7a6a5e));
+  await loadStep('Building the ground floor');
   // the hallway's north wall closes the south side; the grand hall's west wall the east side
+  await loadStep('Building the ground floor');
   // wainscot
   for (const [w, x, z, ry] of [[SX1 - SX0, (SX0 + SX1) / 2, SZ0 + 0.02, 0], [SZ1 - SZ0, SX0 + 0.02, (SZ0 + SZ1) / 2, Math.PI / 2]])
     box(group, w, 1.0, 0.03, x, 0.5, z, darkWood, null, { cast: false, ry });
+  await loadStep('Building the ground floor');
   // desk with the journal and a green-shaded lamp
   box(group, 1.8, 0.06, 0.9, 15.5, 0.78, -1.6, darkWood, local);
   for (const [dx, dz] of [[-0.82, -0.38], [0.82, -0.38], [-0.82, 0.38], [0.82, 0.38]]) box(group, 0.06, 0.76, 0.06, 15.5 + dx, 0.38, -1.6 + dz, darkWood);
@@ -162,8 +175,10 @@ export function buildGroundFloor(group, local, { quality: q0 = 'high' } = {}) {
   shade.position.set(16.1, 1.2, -1.85); group.add(shade);
   box(group, 0.03, 0.4, 0.03, 16.1, 1.0, -1.85, brass);
   light(16.1, 1.1, -1.85, 0xffd8a0, 4, 7, false);
+  await loadStep('Building the ground floor');
   // chair
   { const sc = victorianChair(darkWood, mat({ map: tex.velvet || tex.fabric, color: 0x2a3a2a })); sc.position.set(15.5, 0, -0.7); group.add(sc); rect(local, 15.24, 15.76, -0.96, -0.44); }
+  await loadStep('Building the ground floor');
   // glass-fronted cases of pinned specimens on the side walls
   const caseTex = tex.specimensA;
   for (const [x, z, ry] of [[SX0 + 0.05, -3.2, Math.PI / 2], [SX0 + 0.05, -0.6, Math.PI / 2], [SX1 - 0.05, -3.6, -Math.PI / 2]]) {
@@ -171,8 +186,10 @@ export function buildGroundFloor(group, local, { quality: q0 = 'high' } = {}) {
     const fr = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.9, 0.08), darkWood); c.add(fr);
     const im = new THREE.Mesh(new THREE.PlaneGeometry(1.48, 0.78), new THREE.MeshStandardMaterial({ map: caseTex, roughness: 0.8 })); im.position.z = 0.041; c.add(im);
   }
+  await loadStep('Building the ground floor');
   // tall cabinet with drawers
   box(group, 1.4, 2.2, 0.5, 12.2, 1.1, SZ0 + 0.3, darkWood, local);
+  await loadStep('Building the ground floor');
   // ---- the lifespan board: five cases hung on hooks on the north wall ----
   const board = new THREE.Group(); board.position.set(15.5, 0, SZ0 + 0.05); group.add(board);
   const backing = new THREE.Mesh(new THREE.BoxGeometry(5.0, 1.3, 0.05), mat({ map: tex.velvet || tex.fabric, color: 0x3a1a1e }));
@@ -191,13 +208,16 @@ export function buildGroundFloor(group, local, { quality: q0 = 'high' } = {}) {
   const placeCases = () => L.order.forEach((k, i) => { const b = cases[k]; b.position.set(slots[i], 1.72, 0.12 + (L.lifted === i ? 0.12 : 0)); });
   placeCases();
 
+  await loadStep('Building the ground floor');
   // =============== Grand Hall: x 20.2..34, z -8..10 ===============
   const GX0 = 20.2, GX1 = 34, GZ0 = -8, GZ1 = 10;
   room(GX0, GX1, GZ0, GZ1, H_GRAND, mat({ map: rep(tex.slate || tex.stone, 6, 8), color: 0x6a6866 }), plaster);
+  await loadStep('Building the ground floor');
   // west wall: study (z<1.2) and hallway door at z 3.1
   wall('z', 20.1, GZ0, GZ1, H_GRAND, wallpaper(5, 1.6, 0x6a6c72), [[3.1, 1.2]]);
   wall('x', GZ0 - 0.1, GX0 - 0.2, GX1 + 0.2, H_GRAND, wallpaper(5, 1.6, 0x6a6c72), [[27, 1.4]]);
   wall('x', GZ1 + 0.1, GX0 - 0.2, GX1 + 0.2, H_GRAND, wallpaper(5, 1.6, 0x6a6c72), [[27, 2.4]], 3.2);
+  await loadStep('Building the ground floor');
   // east wall: kitchen behind its north part, dining room door at z 6
   wall('z', GX1 + 0.1, -10.2, GZ1 + 0.2, H_GRAND, wallpaper(5, 1.6, 0x6a6c72), [[6, 1.4]]);
   door('grand', 'z', 20.1, 3.1, { locked: true, swing: -1, msg: 'Locked. There is no keyhole on this side, only a brass plate engraved with five little hooks.', openMsg: 'The door swings into a vast, cold hall.' });
@@ -206,20 +226,26 @@ export function buildGroundFloor(group, local, { quality: q0 = 'high' } = {}) {
   const front2 = door('front2', 'x', GZ1 + 0.1, 27.6, { w: 1.2, h: 3.2, locked: true, boarded: true, swing: 1, msg: 'The front doors are boarded over from the inside. Someone wanted to keep people in.' });
   front2.pivot.parent.scale.x = -1; front2.pivot.parent.position.x += 1.2;
   door('dining', 'z', GX1 + 0.1, 6, { w: 1.4, swing: 1, openMsg: 'A long room beyond, and a table laid for guests who never came.' });
+  await loadStep('Building the ground floor');
   // wainscot and cornice
   for (const [w, x, z, ry] of [[GX1 - GX0, (GX0 + GX1) / 2, GZ0 + 0.02, 0], [GX1 - GX0, (GX0 + GX1) / 2, GZ1 - 0.02, 0], [GZ1 - GZ0, GX0 + 0.02, (GZ0 + GZ1) / 2, Math.PI / 2], [GZ1 - GZ0, GX1 - 0.02, (GZ0 + GZ1) / 2, Math.PI / 2]]) {
     box(group, w, 0.14, 0.12, x, H_GRAND - 0.07, z, wood, null, { cast: false, ry });
   }
+  await loadStep('Building the ground floor');
   // stair A: rises north along the west side, its foot buried under the collapsed landing
   const stairX = 23.6, stepN = 16;
   for (let i = 0; i < stepN; i++) box(group, 2.2, 0.22 * (i + 1), 0.4, stairX, 0.11 * (i + 1), -1.2 - i * 0.4, wood, null, { cast: i % 4 === 0 });
   rect(local, stairX - 1.15, stairX + 1.15, -1.2 - stepN * 0.4, -0.9);
   for (const sx of [-1.15, 1.15]) for (let i = 0; i < stepN; i += 2) box(group, 0.04, 0.9, 0.04, stairX + sx, 0.22 * (i + 1) + 0.45, -1.2 - i * 0.4, darkWood, null, { cast: false });
+  await loadStep('Building the ground floor');
   // the collapse: splintered beams, broken balusters and treads, plaster and lath,
+  await loadStep('Building the ground floor');
   // broken brick and stone, and a skin of dust over the boards
   buildRubble(group, stairX, -1.6, 2.2, r);
   rect(local, stairX - 1.8, stairX + 1.8, -1.0, -0.4);
+  await loadStep('Building the ground floor');
   // a worn carpet lies under the chandelier
+  await loadStep('Building the ground floor');
   // a great Victorian carpet, faded and moth-eaten, rucked where something was dragged over it
   {
     const geo = new THREE.PlaneGeometry(6.4, 8.4, 64, 84); geo.rotateX(-Math.PI / 2);
@@ -230,6 +256,7 @@ export function buildGroundFloor(group, local, { quality: q0 = 'high' } = {}) {
     rug.position.set(28.5, 0, 3); rug.receiveShadow = true; group.add(rug);
   }
   const ring = new THREE.Mesh(new THREE.RingGeometry(3.2, 3.4, 64), brass); ring.rotation.x = -Math.PI / 2; ring.position.set(28.5, 0.013, 3); group.add(ring);
+  await loadStep('Building the ground floor');
   // chandelier
   const ch = new THREE.Group(); ch.position.set(28.5, H_GRAND - 2.4, 3); group.add(ch);
   const chain = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 2.4, 6), brass); chain.position.y = 1.2; ch.add(chain);
@@ -237,7 +264,9 @@ export function buildGroundFloor(group, local, { quality: q0 = 'high' } = {}) {
   for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; const c = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.14, 6), mat({ color: 0xe8e0c8 })); c.position.set(Math.cos(a) * 0.8, 0.1, Math.sin(a) * 0.8); ch.add(c); }
   { const ch = light(28.5, H_GRAND - 2.6, 3, 0xffb878, 45, 26, false); ch.userData.creepy = true; ch.userData.moths = true; }
   light(20.5, 3.2, -4.5, 0xffa860, 8, 10, '+x').userData.creepy = true; light(33.7, 3.2, 8.5, 0xffa860, 8, 10, '-x'); // wall sconces
+  await loadStep('Building the ground floor');
   // a stained-glass moth window over the boarded doors: the cult symbol in leaded glass,
+  await loadStep('Building the ground floor');
   // lit from behind by the dusk, throwing coloured shafts and a patch of colour on the floor
   const glassWin = buildGlassWindow(group, {
     texture: cultGlassTexture(tex.mosaicFloor.userData.design, 512),
@@ -245,21 +274,25 @@ export function buildGroundFloor(group, local, { quality: q0 = 'high' } = {}) {
     radius: 1.6, dir: new THREE.Vector3(1.5, -5.3, -7).normalize(), quality, tint: 0xffffff,
   });
   const moon = new THREE.SpotLight(0x8090c0, 18, 20, 0.5, 0.8, 1.2); moon.position.set(27, 5.3, GZ1 - 0.3); moon.target.position.set(28.5, 0, 3); group.add(moon, moon.target);
+  await loadStep('Building the ground floor');
   // portraits and a long bench
   for (const z of [-5, 7.4]) { box(group, 0.06, 1.6, 1.2, GX0 + 0.04, 3.0, z, darkWood, null, { cast: false }); const pic = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 1.4), mat({ map: tex.painting })); pic.position.set(GX0 + 0.08, 3.0, z); pic.rotation.y = Math.PI / 2; group.add(pic); }
   box(group, 0.5, 0.45, 2.4, GX1 - 0.5, 0.23, 0.5, darkWood, local);
 
+  await loadStep('Building the ground floor');
   // =============== Dining Room: x 34.2..44, z 1..10 ===============
   const DX0 = 34.2, DX1 = 44, DZ0 = 1, DZ1 = 10;
   room(DX0, DX1, DZ0, DZ1, H_DINE, floorMat(4, 3, 0x9a8a78), plaster);
   wall('x', DZ0 - 0.1, DX0 - 0.1, DX1 + 0.2, H_DINE, wallpaper(4, 1, 0x6e4a48), [[42, 1.6]]);
   wall('x', DZ1 + 0.1, DX0 - 0.1, DX1 + 0.2, H_DINE, wallpaper(4, 1, 0x6e4a48));
   wall('z', DX1 + 0.1, DZ0 - 0.2, DZ1 + 0.2, H_DINE, wallpaper(4, 1, 0x6e4a48));
+  await loadStep('Building the ground floor');
   // the last supper: a table for six, a specimen pinned to the back of each chair
   const tx = 38.6, tz = 5.5;
   box(group, 5.6, 0.08, 1.3, tx, 0.76, tz, darkWood, local);
   const cloth = new THREE.Mesh(new THREE.BoxGeometry(5.7, 0.02, 1.4), mat({ map: tex.sheet || tex.fabric, color: 0xd8d0c0 })); cloth.position.set(tx, 0.81, tz); group.add(cloth);
   for (const dx of [-2.6, 2.6]) for (const dz of [-0.55, 0.55]) group.add(turnedLeg(tx + dx, tz + dz, 0.74, 0.05, darkWood));
+  await loadStep('Building the ground floor');
   // window at the far end, which the head of the table faces
   const dwin = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 2.4), new THREE.MeshStandardMaterial({ color: 0x1a2032, emissive: 0x4a5a88, emissiveIntensity: 0.6, roughness: 0.2 }));
   dwin.position.set(DX1 - 0.01, 1.9, tz); dwin.rotation.y = -Math.PI / 2; group.add(dwin);
@@ -314,6 +347,7 @@ export function buildGroundFloor(group, local, { quality: q0 = 'high' } = {}) {
       SEATS.forEach(st => { if (st.flipped && st.flip < 1) { st.flip = Math.min(1, st.flip + dt * 2.5); st.plate.rotation.x = Math.PI * st.flip; st.plate.position.y = 0.83 + Math.sin(st.flip * Math.PI) * 0.12 + st.flip * 0.01; } });
     },
   };
+  await loadStep('Building the ground floor');
   // the seating note, in the kitchen
   const noteMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.4), new THREE.MeshStandardMaterial({ map: noteTex(), roughness: 0.9 }));
   noteMesh.rotation.x = -Math.PI / 2; noteMesh.rotation.z = 0.2; noteMesh.position.set(38.1, 0.905, -6.4); group.add(noteMesh);
@@ -325,11 +359,13 @@ export function buildGroundFloor(group, local, { quality: q0 = 'high' } = {}) {
   }
   box(group, 2.2, 1.0, 0.55, 38.6, 0.5, DZ1 - 0.35, darkWood, local); // sideboard
 
+  await loadStep('Building the ground floor');
   // =============== Servants' Passage: x 41.2..42.8, z -3..1 ===============
   room(41.2, 42.8, -3, 1, 3.0, floorMat(1, 2, 0x6a6058), plaster);
   wall('z', 41.1, -3, 1, 3.0, mat({ color: 0x6a645a }));
   wall('z', 42.9, -3, 1, 3.0, mat({ color: 0x6a645a }));
   light(41.5, 2.6, -2.2, 0xffa060, 1.6, 4, '+x').userData.creepy = true;
+  await loadStep('Building the ground floor');
   // a ceiling joist has come down across the passage: crouch to get under it
   {
     const beam = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.22, 0.24), darkWood);
@@ -341,6 +377,7 @@ export function buildGroundFloor(group, local, { quality: q0 = 'high' } = {}) {
     local.push({ minX: 41.2, maxX: 42.8, minZ: -1.32, maxZ: -1.08, minY: 1.26 });
   }
 
+  await loadStep('Building the ground floor');
   // =============== Kitchen: x 34.2..44, z -10..-3 ===============
   const KX0 = 34.2, KX1 = 44, KZ0 = -10, KZ1 = -3;
   room(KX0, KX1, KZ0, KZ1, H_KITCH, mat({ map: rep(tex.slate || tex.stone, 5, 4), color: 0x5a5856 }), plaster);
@@ -350,6 +387,7 @@ export function buildGroundFloor(group, local, { quality: q0 = 'high' } = {}) {
   wall('z', KX1 + 0.1, KZ0 - 0.2, KZ1 + 0.2, H_KITCH, tile);
   door('stairC', 'x', KZ0 - 0.1, 36.6, { w: 1.1, locked: true, msg: 'A padlocked door. Cold air rises through the gap beneath it: stairs going down. DN CELLAR is chalked on the frame.' });
   door('stairB', 'x', KZ0 - 0.1, 39.4, { w: 1.1, locked: true, boarded: true, msg: 'The back stair. Nailed shut, and the nails are new.' });
+  await loadStep('Building the ground floor');
   // the range
   const range = new THREE.Group(); range.position.set(KX1 - 0.5, 0, -6.5); group.add(range);
   const iron = new THREE.MeshStandardMaterial({ color: 0x1a1a1c, metalness: 0.6, roughness: 0.5 });
@@ -358,6 +396,7 @@ export function buildGroundFloor(group, local, { quality: q0 = 'high' } = {}) {
   const hood = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.6, 2.6), iron); hood.position.y = 2.6; range.add(hood);
   rect(local, KX1 - 1.0, KX1, -7.8, -5.2);
   light(KX1 - 1.1, 0.5, -6.5, 0xff5020, 2.2, 5, false); // embers
+  await loadStep('Building the ground floor');
   // table, pans and shelves
   box(group, 2.4, 0.08, 1.0, 38.5, 0.86, -6.5, wood, local);
   for (const dx of [-1.1, 1.1]) for (const dz of [-0.42, 0.42]) box(group, 0.08, 0.84, 0.08, 38.5 + dx, 0.42, -6.5 + dz, wood);
@@ -366,7 +405,9 @@ export function buildGroundFloor(group, local, { quality: q0 = 'high' } = {}) {
   for (let i = 0; i < 4; i++) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.12, 0.08, 16), new THREE.MeshStandardMaterial({ color: 0x8a5a3a, metalness: 0.8, roughness: 0.4 })); p.position.set(KX1 - 0.06, 2.0, -9 + i * 0.4); p.rotation.z = Math.PI / 2; group.add(p); }
   light(38.5, 2.9, -6.5, 0xffb070, 9, 11, { pendant: H_KITCH }).userData.creepy = true;
 
+  await loadStep('Building the ground floor');
   // =============== mirrors M1 (hallway) and M2 (grand hall) ===============
+  await loadStep('Building the ground floor');
   // Each reflection shows the player a little more moth-like.
   const size = quality === 'xlow' ? 128 : quality === 'low' ? 256 : quality === 'medium' ? 512 : 1024;
   const avatars = [];
@@ -394,14 +435,18 @@ export function buildGroundFloor(group, local, { quality: q0 = 'high' } = {}) {
   addMirror({ id: 'M1', pos: new THREE.Vector3(17.6, 1.7, 4.78), ry: Math.PI, w: 0.9, h: 1.5, stage: 1 });
   addMirror({ id: 'M2', pos: new THREE.Vector3(20.32, 2.0, -3.0), ry: Math.PI / 2, w: 1.3, h: 2.3, stage: 2 });
 
+  await loadStep('Building the ground floor');
   // =============== the Cellar and the First Floor ===============
-  const lu = buildLowerUpper({ group, local, wall, room, plane, door, light, addMirror, doors, carpetTex, buildRubble, makeSpecimenBox });
+  const lu = await buildLowerUpper({ group, local, wall, room, plane, door, light, addMirror, doors, carpetTex, buildRubble, makeSpecimenBox });
+  await loadStep('Building the ground floor');
   // =============== the Catacombs, under the cellar ===============
-  const cat = buildCatacombs({ group, local, light, door, doors });
+  const cat = await buildCatacombs({ group, local, light, door, doors });
+  await loadStep('Building the ground floor');
   // =============== the Attic (see attic.js) ===============
-  const attic = buildAttic({ group, local, wall, plane, door, light, addMirror, doors });
+  const attic = await buildAttic({ group, local, wall, plane, door, light, addMirror, doors });
+  await loadStep('Building the ground floor');
   // =============== the rest of the blueprint's rooms (see extraRooms.js) ===============
-  const extra = buildExtraRooms({ group, local, wall, plane, door, light, doors });
+  const extra = await buildExtraRooms({ group, local, wall, plane, door, light, doors });
 
   let hiss = 0; const tmpV = new THREE.Vector3();
   const api = {
