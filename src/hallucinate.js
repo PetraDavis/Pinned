@@ -162,7 +162,7 @@ export function createHallucinations({ scene, camera, room, ground, settings, sa
       const rec = sampleNow(actx, 'whisper-' + (WHISPERS.indexOf(words) + 1));
       if (rec) {
         const src = actx.createBufferSource(); src.buffer = rec; src.playbackRate.value = 0.96 + Math.random() * 0.05;
-        const g = actx.createGain(); g.gain.value = 0.9 * (volume ? volume() : 0.6);
+        const g = actx.createGain(); g.gain.value = 0.3 * (volume ? volume() : 0.6); // about 10 dB under the files: Petra wants them quiet in the game
         const p = actx.createStereoPanner ? actx.createStereoPanner() : null, side = Math.random() < 0.5 ? -1 : 1, t = actx.currentTime;
         if (p) { p.pan.setValueAtTime(0.85 * side, t); p.pan.linearRampToValueAtTime(-0.5 * side, t + rec.duration); src.connect(g).connect(p).connect(actx.destination); } else src.connect(g).connect(actx.destination);
         src.start(); return;
