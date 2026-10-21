@@ -20,7 +20,7 @@ async function loadBreath() {
   recGain = gain(0); src.connect(recGain).connect(pan); src.start(0, src.loopStart);
   recSrc = src; try { window.__breathRecorded = true; } catch { /* tests only */ }
   for (let i = 1; i <= CLICKS; i++) sampleNow(A.ctx, 'mother-click-' + i);
-  for (let i = 1; i <= 3; i++) sampleNow(A.ctx, 'mother-shriek-' + i);
+  for (let i = 1; i <= 2; i++) sampleNow(A.ctx, 'mother-shriek-' + i);
 }
 
 let pan = null, breath, breathBP, heart, phase = 0, beatT = 0, near = 0, active = false;
@@ -87,9 +87,9 @@ export function motherFlutter(level = 1) {
 // stunned by a torch burst: a thin, rising shriek that breaks into a hiss
 export function motherShriek(level = 1) {
   const t = A.ctx.currentTime, v = Math.min(1, level), g = gain(0), bp = filt('bandpass', 1800, 4);
-  // her recorded shriek: mostly the third take (Petra's pick), now and then a quieter other one
-  const k = Math.random() < 0.7 ? 3 : 1 + Math.floor(Math.random() * 2), rec = sampleNow(A.ctx, 'mother-shriek-' + k);
-  if (rec) { const sg = gain((k === 3 ? 1 : 0.55) * v), src = A.ctx.createBufferSource(); src.buffer = rec; src.connect(sg).connect(active ? pan : A.sfx); src.start(); return; }
+  // her recorded shriek: mostly shriek-1 (her third take, Petra's pick), now and then the quieter shriek-2 (her second)
+  const k = Math.random() < 0.7 ? 1 : 2, rec = sampleNow(A.ctx, 'mother-shriek-' + k);
+  if (rec) { const sg = gain((k === 1 ? 1 : 0.55) * v), src = A.ctx.createBufferSource(); src.buffer = rec; src.connect(sg).connect(active ? pan : A.sfx); src.start(); return; }
   g.connect(active ? pan : A.sfx); env(g, t, 0.32 * v, 0.02, 0.7);
   for (const [f0, f1] of [[900, 2600], [1350, 3700]]) { const o = tone(bp, t, 'sawtooth', f0, 0.75); o.frequency.exponentialRampToValueAtTime(f1, t + 0.18); o.frequency.exponentialRampToValueAtTime(f0 * 0.8, t + 0.75); }
   bp.connect(g);
