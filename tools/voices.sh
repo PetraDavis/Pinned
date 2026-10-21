@@ -66,11 +66,11 @@ for s in 6.45-9.6 11.15-12.25; do
   a=${s%-*}; b=${s#*-}; i=$((i+1))
   ffmpeg -hide_banner -y -loglevel error -i $R/take-04-shriek.m4a -af "atrim=start=$a:end=$b,asetpts=PTS-STARTPTS,highpass=f=180,$DN" -ac 1 $W/s$i-raw.wav
   if [ $i = 1 ]; then
-    # her 2nd take ends in a breathy hiss (from 2.0 s): de-essed, softened and quieter, and brought right up behind the screech (the quiet gap is cut)
+    # her 2nd take ends in a breathy hiss (from 2.0 s): de-essed and softened, brought right up behind the screech (the quiet gap is cut) and smoothed into it
     # Petra: its own screech sounded like a creak, so it opens with her 3rd take's screech instead
     ffmpeg -hide_banner -y -loglevel error -i $R/take-04-shriek.m4a -af "atrim=start=11.15:end=12.0,asetpts=PTS-STARTPTS,highpass=f=180,$DN" -ac 1 $W/s$i-p1.wav
-    ffmpeg -hide_banner -y -loglevel error -i $W/s$i-raw.wav -af "atrim=start=1.85,asetpts=PTS-STARTPTS,deesser=i=0.8:m=0.6:f=0.5,lowpass=f=6000,afftdn=nr=24:nf=-55,volume=-6dB" $W/s$i-p2.wav
-    ffmpeg -hide_banner -y -loglevel error -i $W/s$i-p1.wav -i $W/s$i-p2.wav -filter_complex "[0][1]acrossfade=d=0.08" $W/s$i-raw2.wav
+    ffmpeg -hide_banner -y -loglevel error -i $W/s$i-raw.wav -af "atrim=start=1.85,asetpts=PTS-STARTPTS,deesser=i=0.8:m=0.6:f=0.5,lowpass=f=6000,afftdn=nr=24:nf=-55,volume=9dB" $W/s$i-p2.wav
+    ffmpeg -hide_banner -y -loglevel error -i $W/s$i-p1.wav -i $W/s$i-p2.wav -filter_complex "[0][1]acrossfade=d=0.3:c1=qsin:c2=qsin" $W/s$i-raw2.wav
     mv $W/s$i-raw2.wav $W/s$i-raw.wav
   fi
   ffmpeg -hide_banner -y -loglevel error -i $W/s$i-raw.wav -af "alimiter=limit=0.9,asetrate=48000*1.35,aresample=48000" -ac 1 $W/s$i-a.wav
