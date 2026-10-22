@@ -37,7 +37,7 @@ import { startHomeBackdrop } from './homeScreen.js';
 import { createAtticPlay } from './atticPlay.js';
 import { SPAN_MM, rackPlateCanvas } from './world/attic.js';
 import { createMotherPlay } from './motherPlay.js';
-import { prepareMother } from './characters/mother.js';
+import { prepareMother, setMotherDetail } from './characters/mother.js';
 import { createMotherRoam } from './motherRoam.js';
 import { createHallucinations, initAccessibilitySettings } from './hallucinate.js';
 import { captionSound } from './captions.js';
@@ -311,6 +311,7 @@ const atticPlay = createAtticPlay({
 await loadStep('Waking the house', 'roomsPlay');
 const roomsPlay = createRoomsPlay({ origin: ROOM_ORIGIN, player, say, transition, sfx: { thud: playThud, creak: playCreak } });
 // ---------- The Mother (motherPlay.js) ----------
+setMotherDetail(settings.quality === 'low' || settings.quality === 'xlow'); // a lighter Mother on Low / Extra Low
 await prepareMother((t) => loadStep('Waking the house', t));
 await loadStep('Waking the house', 'motherPlay');
 // her breathing follows whichever of her is near: roaming below, else the attic

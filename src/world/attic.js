@@ -464,8 +464,10 @@ export async function buildAttic(ctx) {
   const placeJars = () => {
     for (const [k, o] of Object.entries(jars)) {
       const i = S.jars.indexOf(k);
+      // a jar put back goes to where it came from (the attic's floor section, so it is not drawn from the other floors)
+      if (o.g.parent && o.g.parent !== carry) o.home = o.g.parent;
       if (k === S.jarHeld) { carry.add(o.g); o.g.position.set(0, 0, 0); }
-      else if (i >= 0) { group.add(o.g); o.g.position.set(JAR_X(i), 0.81, 181.35); }
+      else if (i >= 0) { (o.home || group).add(o.g); o.g.position.set(JAR_X(i), 0.81, 181.35); }
       o.dig.visible = !!S.jarsSolved;
     }
   };

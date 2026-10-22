@@ -169,8 +169,8 @@ function headShape(nx, ny, nz) {
   }
   return [x, y, z];
 }
-function headGeo0() {
-  const g = new THREE.SphereGeometry(1, 128, 96), p = g.attributes.position;
+function headGeo0(lite = false) {
+  const g = lite ? new THREE.SphereGeometry(1, 40, 30) : new THREE.SphereGeometry(1, 128, 96), p = g.attributes.position;
   for (let i = 0; i < p.count; i++) { const v = headShape(p.getX(i), p.getY(i), p.getZ(i)); p.setXYZ(i, ...v); }
   g.computeVertexNormals(); return g;
 }
@@ -195,12 +195,13 @@ function addFuzz(mesh, { layers = 7, depth = 0.012, color = 0xeee8dc, density = 
 // ---------- the figure ----------
 // smooth limb: a tapered tube along a curve, capped with spheres at the joints
 function limbGeo(pts, r0, r1, seg = 48, radial = 20) {
+  if (LITE) { seg = Math.max(4, Math.round(seg / 4)); radial = Math.max(5, Math.round(radial / 2.5)); }
   const curve = new THREE.CatmullRomCurve3(pts), g = new THREE.TubeGeometry(curve, seg, 1, radial, false), p = g.attributes.position;
   const c = new THREE.Vector3();
   for (let i = 0; i <= seg; i++) { const t = i / seg, rr = r0 + (r1 - r0) * t; curve.getPointAt(t, c); for (let k = 0; k <= radial; k++) { const idx = i * (radial + 1) + k; const v = new THREE.Vector3(p.getX(idx), p.getY(idx), p.getZ(idx)).sub(c).multiplyScalar(rr).add(c); p.setXYZ(idx, v.x, v.y, v.z); } }
   g.computeVertexNormals();
-  const a = new THREE.SphereGeometry(r0, radial, 12); a.translate(...pts[0].toArray());
-  const b = new THREE.SphereGeometry(r1, radial, 12); b.translate(...pts[pts.length - 1].toArray());
+  const a = new THREE.SphereGeometry(r0, radial, LITE ? 5 : 12); a.translate(...pts[0].toArray());
+  const b = new THREE.SphereGeometry(r1, radial, LITE ? 5 : 12); b.translate(...pts[pts.length - 1].toArray());
   return merge([g, a, b]);
 }
 
@@ -211,6 +212,11 @@ const memo = (fn, cloneTex) => { const c = new Map(); return (...a) => { const k
 const wingTexture = memo(wingTexture0, true), silkTexture = memo(silkTexture0, true), skinTexture = memo(skinTexture0, true);
 const headGeo = memo(headGeo0), surfZ = memo(surfZ0);
 // make the costly pieces ahead, a step at a time (main.js awaits this while loading)
+// Low and Extra Low use a lighter Mother (about a tenth of the triangles): the same shape, pose,
+// textures and motion, with coarser curves, fewer and thicker hair strands and a coarser wing
+// mesh. main.js sets this before she is first built (a quality change applies after a reload).
+let LITE = false;
+export function setMotherDetail(lite) { LITE = !!lite; }
 export async function prepareMother(step) {
   skinTexture(); await step('skin'); silkTexture(3); await step('silk');
   // the wing is the slowest picture of all: kept from the last visit when the browser allows it
@@ -219,7 +225,7 @@ export async function prepareMother(step) {
     if (old) wingCanvases.set('fore:21', old);
     else { const c = wingCanvas('fore', 21); wingCanvases.set('fore:21', c); storeCanvas('mother-wing-fore-21', c); }
   }
-  wingTexture('fore', 21); await step('wing'); headGeo(); await step('head');
+  wingTexture('fore', 21); await step('wing'); headGeo(LITE); await step('head');
 }
 
 export function buildMother() {
@@ -234,7 +240,7 @@ export function buildMother() {
   const rig = new THREE.Group(); root.add(rig);
   const body = new THREE.Group(); rig.add(body);
   const prof = [[0.0, 0.0], [0.17, 0.0], [0.15, 0.3], [0.13, 0.7], [0.12, 1.05], [0.1, 1.3], [0.085, 1.45], [0.1, 1.62], [0.115, 1.8], [0.12, 1.9], [0.07, SH + 0.02], [0.035, SH + 0.05]].map(([x, y]) => new THREE.Vector2(x, y));
-  const shiftGeo = new THREE.LatheGeometry(new THREE.SplineCurve(prof).getPoints(80), 96);
+  const shiftGeo = new THREE.LatheGeometry(new THREE.SplineCurve(prof).getPoints(LITE ? 28 : 80), LITE ? 30 : 96);
   { const p = shiftGeo.attributes.position; for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i), z = p.getZ(i), a = Math.atan2(z, x); const fold = y < 1.3 ? 1 + 0.06 * Math.sin(a * 9 + y * 2) * (1.3 - y) : 1; const hem = y < 0.05 ? (Math.sin(a * 13) * 0.5 + 0.5) * 0.06 : 0; p.setXYZ(i, x * fold * 1.05, y + hem, z * fold * 0.75); } shiftGeo.computeVertexNormals(); }
   const shift = new THREE.Mesh(shiftGeo, shiftMat); shift.castShadow = shift.receiveShadow = true; body.add(shift);
   // neck: long and thin
@@ -257,7 +263,7 @@ export function buildMother() {
       const fx = sx * (-0.016 + f * 0.011), L = [0.07, 0.08, 0.075, 0.06][f];
       const pts = [new THREE.Vector3(fx, -0.08, 0.008), new THREE.Vector3(fx * 1.1, -0.08 - L * 0.55, 0.012), new THREE.Vector3(fx * 1.15, -0.08 - L * 1.05, 0.03), new THREE.Vector3(fx * 1.15, -0.08 - L * 1.45, 0.055)];
       fingers.push(limbGeo(pts, 0.0062, 0.0042, 24, 10));
-      const nail = new THREE.SphereGeometry(0.005, 10, 8); nail.scale(1, 1.6, 0.6); nail.translate(pts[3].x, pts[3].y - 0.004, pts[3].z + 0.002); hand.push(nail);
+      const nail = LITE ? new THREE.SphereGeometry(0.005, 5, 3) : new THREE.SphereGeometry(0.005, 10, 8); nail.scale(1, 1.6, 0.6); nail.translate(pts[3].x, pts[3].y - 0.004, pts[3].z + 0.002); hand.push(nail);
     }
     hand.push(limbGeo([new THREE.Vector3(-sx * 0.02, -0.04, 0.01), new THREE.Vector3(-sx * 0.035, -0.08, 0.03), new THREE.Vector3(-sx * 0.035, -0.12, 0.045)], 0.008, 0.005, 16, 10));
     const fingerMesh = new THREE.Mesh(merge(fingers), skin); const handMesh = new THREE.Mesh(merge(hand), skin); wr.add(handMesh, fingerMesh);
@@ -279,7 +285,7 @@ export function buildMother() {
   // head: human, small, gaunt; eyes only dark hollows with a faint eyeshine
   const neckTop = new THREE.Group(); neckTop.position.set(0, SH + NECK, 0.02); body.add(neckTop);
   const head = new THREE.Group(); head.position.set(0, 0.11, 0.0); head.scale.setScalar(1.04); neckTop.add(head);
-  const skull = new THREE.Mesh(headGeo(), skin); skull.castShadow = true; head.add(skull);
+  const skull = new THREE.Mesh(headGeo(LITE), skin); skull.castShadow = true; head.add(skull);
   const hollow = new THREE.MeshStandardMaterial({ color: 0x040303, roughness: 0.2 });
   const shine = new THREE.MeshBasicMaterial({ color: 0xffd9a0, transparent: true, opacity: 0.85, fog: false });
   const eyeshine = [];
@@ -287,24 +293,26 @@ export function buildMother() {
   const glintMat = new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(gc), blending: THREE.AdditiveBlending, depthWrite: false, fog: false, transparent: true, opacity: 1 });
   for (const sx of [-1, 1]) {
     const ex = sx * 0.031, ey = 0.014;
-    const e = new THREE.Mesh(new THREE.SphereGeometry(0.019, 32, 24), hollow); e.scale.set(1.2, 0.8, 0.5); e.rotation.z = -sx * 0.15; e.position.set(ex, ey, surfZ(ex, ey) - 0.006); head.add(e);
-    const g = new THREE.Mesh(new THREE.SphereGeometry(0.0032, 12, 8), shine); g.position.set(ex + sx * 0.002, ey - 0.002, surfZ(ex, ey) + 0.0025); head.add(g); eyeshine.push(g);
+    const e = new THREE.Mesh(new THREE.SphereGeometry(0.019, LITE ? 12 : 32, LITE ? 8 : 24), hollow); e.scale.set(1.2, 0.8, 0.5); e.rotation.z = -sx * 0.15; e.position.set(ex, ey, surfZ(ex, ey) - 0.006); head.add(e);
+    const g = new THREE.Mesh(new THREE.SphereGeometry(0.0032, LITE ? 6 : 12, LITE ? 4 : 8), shine); g.position.set(ex + sx * 0.002, ey - 0.002, surfZ(ex, ey) + 0.0025); head.add(g); eyeshine.push(g);
     // the glint that carries down a dark corridor: a soft additive point, unaffected by fog
     const glint = new THREE.Sprite(glintMat); glint.scale.setScalar(0.05); glint.position.copy(g.position); glint.position.z += 0.012; glint.renderOrder = 6; head.add(glint); eyeshine.push(glint);
     // soft dark shadow round the socket
-    const sock = new THREE.Mesh(new THREE.CircleGeometry(0.03, 32), new THREE.MeshBasicMaterial({ color: 0x1a1214, transparent: true, opacity: 0.4, depthWrite: false })); sock.position.set(ex, ey, surfZ(ex, ey) - 0.002); sock.scale.set(1.2, 0.9, 1); head.add(sock);
+    const sock = new THREE.Mesh(new THREE.CircleGeometry(0.03, LITE ? 14 : 32), new THREE.MeshBasicMaterial({ color: 0x1a1214, transparent: true, opacity: 0.4, depthWrite: false })); sock.position.set(ex, ey, surfZ(ex, ey) - 0.002); sock.scale.set(1.2, 0.9, 1); head.add(sock);
   }
   const lips = new THREE.MeshStandardMaterial({ color: 0x9a8484, roughness: 0.4 });
-  const ul = new THREE.Mesh(new THREE.SphereGeometry(0.012, 24, 12), lips); ul.scale.set(1.15, 0.24, 0.38); ul.position.set(0, -0.058, surfZ(0, -0.058) - 0.002); head.add(ul);
-  const ll = new THREE.Mesh(new THREE.SphereGeometry(0.011, 24, 12), lips); ll.scale.set(1.0, 0.3, 0.42); ll.position.set(0, -0.065, surfZ(0, -0.065) - 0.002); head.add(ll);
+  const ul = new THREE.Mesh(new THREE.SphereGeometry(0.012, LITE ? 10 : 24, LITE ? 6 : 12), lips); ul.scale.set(1.15, 0.24, 0.38); ul.position.set(0, -0.058, surfZ(0, -0.058) - 0.002); head.add(ul);
+  const ll = new THREE.Mesh(new THREE.SphereGeometry(0.011, LITE ? 10 : 24, LITE ? 6 : 12), lips); ll.scale.set(1.0, 0.3, 0.42); ll.position.set(0, -0.065, surfZ(0, -0.065) - 0.002); head.add(ll);
   // hair: long, lank, black, rooted on the scalp, matted with silk; a curtain over her right side of the face
   const hairMat = new THREE.MeshStandardMaterial({ color: 0x110e0d, roughness: 0.8, side: THREE.DoubleSide });
-  const cap = new THREE.Mesh(headGeo(), hairMat); cap.scale.setScalar(1.022); head.add(cap);
+  const cap = new THREE.Mesh(headGeo(LITE), hairMat); cap.scale.setScalar(1.022); head.add(cap);
   { const g = cap.geometry.toNonIndexed(), p = g.attributes.position, keep = [];
     for (let t = 0; t < p.count; t += 3) { let ok = true; for (let k = 0; k < 3; k++) { const x = p.getX(t + k), y = p.getY(t + k), z = p.getZ(t + k); if ((z > 0.03 && y < 0.075 - Math.abs(x) * 0.25) || y < -0.03 - (z < 0 ? 0.07 : 0)) ok = false; } if (ok) for (let k = 0; k < 3; k++) keep.push(p.getX(t + k), p.getY(t + k), p.getZ(t + k)); }
     const ng = new THREE.BufferGeometry(); ng.setAttribute('position', new THREE.Float32BufferAttribute(keep, 3)); ng.computeVertexNormals(); cap.geometry = ng; }
   const hairGs = [], silkGs = [];
-  const strand = (p0, p1, p2, p3, rad, silky) => (silky ? silkGs : hairGs).push(new THREE.TubeGeometry(new THREE.CubicBezierCurve3(p0, p1, p2, p3), 20, rad, 3));
+  // lite: about one strand in seven, each four or five times as thick and with fewer segments (the same mass of hair)
+  const strand = (p0, p1, p2, p3, rad, silky) => (silky ? silkGs : hairGs).push(new THREE.TubeGeometry(new THREE.CubicBezierCurve3(p0, p1, p2, p3), LITE ? 6 : 20, LITE ? rad * 4.5 : rad, 3));
+  const keepStrand = () => !LITE || r() < 0.15;
   for (let i = 0; i < 1500; i++) {
     let nx, ny, nz; do { nx = r() * 2 - 1; ny = r() * 2 - 1; nz = r() * 2 - 1; } while (nx * nx + ny * ny + nz * nz > 1 || ny < 0.25 || (nz > 0.5 && ny < 0.7));
     const L = Math.hypot(nx, ny, nz); nx /= L; ny /= L; nz /= L;
@@ -313,13 +321,13 @@ export function buildMother() {
     const p1 = p0.clone().add(new THREE.Vector3(side * 0.03, 0.006, nz * 0.03));
     const p2 = new THREE.Vector3(side * (0.09 + r() * 0.03), -0.1, front ? 0.05 + r() * 0.03 : -0.06 + (r() - 0.5) * 0.06);
     const p3 = new THREE.Vector3(side * (0.11 + r() * 0.1) + Math.sin(i * 1.7) * 0.02, -len, front ? 0.07 + r() * 0.05 : -0.1 + (r() - 0.5) * 0.14);
-    strand(p0, p1, p2, p3, 0.0009 + r() * 0.0008, r() < 0.07);
+    const rad = 0.0009 + r() * 0.0008, silky = r() < 0.07; if (keepStrand()) strand(p0, p1, p2, p3, rad, silky);
   }
   // the curtain: strands from the parting falling straight down over her right eye and cheek
   for (let i = 0; i < 260; i++) {
     const x = -0.004 - r() * 0.05, p0 = new THREE.Vector3(x * 0.5, 0.118, 0.035 + r() * 0.02);
     const p3 = new THREE.Vector3(x * 1.2 - 0.01, -0.35 - r() * 0.35, 0.115 + r() * 0.03);
-    strand(p0, new THREE.Vector3(x * 0.9, 0.1, 0.1), new THREE.Vector3(x * 1.1, 0.0, 0.112 + r() * 0.008), p3, 0.0008 + r() * 0.0007, r() < 0.05);
+    const a1 = new THREE.Vector3(x * 1.1, 0.0, 0.112 + r() * 0.008), rad = 0.0008 + r() * 0.0007, silky = r() < 0.05; if (keepStrand()) strand(p0, new THREE.Vector3(x * 0.9, 0.1, 0.1), a1, p3, rad, silky);
   }
   head.add(new THREE.Mesh(merge(hairGs), hairMat));
   head.add(new THREE.Mesh(merge(silkGs), new THREE.MeshStandardMaterial({ color: 0xd8d0c0, roughness: 0.6 })));
@@ -332,7 +340,7 @@ export function buildMother() {
   const wingMat = new THREE.MeshPhysicalMaterial({ map: wingTex, transparent: true, alphaTest: 0.35, side: THREE.DoubleSide, roughness: 0.92, sheen: 0.6, sheenColor: new THREE.Color(0xcfc4b0), sheenRoughness: 0.7 });
   const wings = [];
   for (const sx of [-1, 1]) {
-    const LEN = 2.1, HT = 1.25, geo = new THREE.PlaneGeometry(LEN, HT, 80, 48); geo.translate(LEN / 2, 0, 0);
+    const LEN = 2.1, HT = 1.25, geo = new THREE.PlaneGeometry(LEN, HT, LITE ? 26 : 80, LITE ? 16 : 48); geo.translate(LEN / 2, 0, 0);
     const p = geo.attributes.position, folded = new Float32Array(p.count * 3), open = new Float32Array(p.count * 3);
     for (let i = 0; i < p.count; i++) {
       const u = p.getX(i) / LEN, v = p.getY(i) / HT + 0.5; // u: base->apex, v: trailing->leading edge
