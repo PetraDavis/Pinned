@@ -33,6 +33,9 @@ export function createLightLimiter(scene, max) {
   const p = { x: 0, y: 0, z: 0 };
   return {
     refresh,
+    // Low / Extra Low keep fewer (one shader rebuild when it changes)
+    setMax(n) { max = n; },
+    get max() { return max; },
     update(camera, force = false) {
       if (!pool.length) refresh();
       if (!force && (tick++ % 10)) return; // every 10 frames is plenty

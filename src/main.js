@@ -31,6 +31,7 @@ import { createSlotScreen, placeOf } from './slots.js';
 import { addEverMoth } from './storage.js';
 import { createCollection } from './collection.js';
 import { createPhotoMode } from './photoMode.js';
+import { createLowPerf } from './perfLow.js';
 import { makeAvatar } from './world/avatar.js';
 import { startHomeBackdrop } from './homeScreen.js';
 import { createAtticPlay } from './atticPlay.js';
@@ -72,9 +73,9 @@ const QUALITIES = {
 };
 const texQuality = settings.quality; // the texture detail this page load was built with
 const QUALITY = QUALITIES[settings.quality] || QUALITIES.high;
-// logarithmic depth avoids z-fighting between close, nearly coplanar surfaces (cases, trims, glass)
+// no MSAA on Low / Extra Low (on a weak GPU it costs as much as the scene). Logarithmic depth avoids z-fighting between close, nearly coplanar surfaces (cases, trims, glass)
 const LOWEST = settings.quality === 'low' || settings.quality === 'xlow';
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: settings.quality !== 'xlow', powerPreference: 'high-performance', logarithmicDepthBuffer: !LOWEST });
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: !(settings.quality === 'xlow' || settings.quality === 'low'), powerPreference: 'high-performance', logarithmicDepthBuffer: !LOWEST });
 renderer.setPixelRatio(Math.min(devicePixelRatio, QUALITY.pr));
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = !QUALITY.noShadows; // Extra Low: none (changing it back on needs a restart)
@@ -86,13 +87,14 @@ const scene = new THREE.Scene();
 const FOG_OUT = new THREE.FogExp2(0x6a5a6a, 0.011), FOG_IN = new THREE.FogExp2(0x1a1412, 0.03);
 scene.background = new THREE.Color(0x3a3048);
 const camera = new THREE.PerspectiveCamera(72, innerWidth / innerHeight, 0.08, 600);
+const perfLow = createLowPerf({ renderer, scene, camera }); // Low / Extra Low speed-ups (src/perfLow.js)
 
 await buildTextures(settings.quality);
 const exterior = await buildExterior(scene, settings.quality);
 const room = await buildFirstRoom(scene, QUALITY.shadow, settings.quality);
 const ground = room.ground;
 await loadStep('Waking the house', 'lightLimiter');
-const lightLimiter = createLightLimiter(scene, CAPS.maxLights);
+const lightLimiter = createLightLimiter(scene, settings.quality === 'xlow' ? 5 : settings.quality === 'low' ? 6 : CAPS.maxLights);
 await loadStep('Waking the house', 'lampMoths');
 const lampMoths = createLampMoths(scene, settings.quality);
 
@@ -225,8 +227,10 @@ function buildComposer() {
 let currentQ = QUALITY;
 function applyQuality(q) {
   const Q = QUALITIES[q] || QUALITIES.high;
+  perfLow.setQuality('off', 1); // put the full materials back first, so the settings below reach them
   currentQ = Q; if (typeof ground !== 'undefined') ground.setQuality(q); if (typeof lampMoths !== 'undefined') lampMoths.setQuality(q); if (typeof motherMoths !== 'undefined') motherMoths.setQuality(q);
-  if (typeof lightLimiter !== 'undefined') setTimeout(() => { lightLimiter.refresh(); lightLimiter.update(camera, true); });
+  // fewer real lamps on Low / Extra Low: the nearest few light the room, the rest just glow
+  if (typeof lightLimiter !== 'undefined') setTimeout(() => { lightLimiter.setMax(q === 'xlow' ? 5 : q === 'low' ? 6 : CAPS.maxLights); lightLimiter.refresh(); lightLimiter.update(camera, true); });
   renderer.setPixelRatio(Math.min(devicePixelRatio, Q.pr));
   renderer.setSize(innerWidth, innerHeight);
   renderer.shadowMap.type = Q.soft ? THREE.PCFSoftShadowMap : THREE.BasicShadowMap;
@@ -253,6 +257,7 @@ function applyQuality(q) {
     }
     if (o.material) for (const m of [].concat(o.material)) { m.dithering = true; m.needsUpdate = true; }
   });
+  perfLow.setQuality(q, Math.min(devicePixelRatio, Q.pr));
 }
 $('sTutorial').checked = settings.tutorial !== false;
 $('sTutorial').addEventListener('change', e => { settings.tutorial = e.target.checked; saveSettings(settings); });
@@ -1075,7 +1080,9 @@ function loop() {
   try { frame(); } catch (e) { reportError('frame', e); try { renderer.render(scene, camera); } catch { /* nothing more to do */ } }
   requestAnimationFrame(loop);
 }
+let lastFrameAt = performance.now();
 function frame() {
+  { const now = performance.now(); safe('perfLow', () => perfLow.frame(now - lastFrameAt)); lastFrameAt = now; }
   const realDt = Math.min(clock.getDelta(), 0.05);
   const dt = frozen() ? 0 : realDt;
   { const now = performance.now() / 1000; if (state === 'playing' || state === 'paused') playSecs += Math.min(1, now - (lastPlayNow || now)); lastPlayNow = now; }
@@ -1153,7 +1160,7 @@ window.__loadTimes = loadTimes; window.__loadMarks = { start: LOAD_START, built:
 window.__pinned = { tutorial, get hardcore() { return hardcore; }, startHardcore: () => startGame(null, {}, true), refreshHome: () => refreshHome(),
   start: startGame, pause, resume, quitHome, player, setZone, interactables, interact: () => current && current.act(), refresh: () => { current = findInteractable(); },
   caps: CAPS, get state() { return state; }, get zone() { return zone; }, get prompt() { return current && (typeof current.prompt === 'function' ? current.prompt() : current.prompt); }, room,
-  renderer, scene, camera, flashlight, lantern, motherMoths, catacombs: catPlay, ground, mother: motherPlay, roam: motherRoam, flicker, escape, ending, credits, save: (cp) => save(cp), visited, get hints() { return { used: hintsUsed, state: hintState }; }, currentPuzzle: () => currentPuzzle(), openPadlock, tryPadlock, dials, get gameTime() { return gameTime; }, get colliders() { return colliders(); }, collection, photo, halluc, get tutorial() { return tutorial; },
+  renderer, scene, camera, flashlight, lantern, motherMoths, catacombs: catPlay, ground, mother: motherPlay, roam: motherRoam, flicker, escape, ending, credits, save: (cp) => save(cp), visited, get hints() { return { used: hintsUsed, state: hintState }; }, currentPuzzle: () => currentPuzzle(), openPadlock, tryPadlock, dials, get gameTime() { return gameTime; }, get colliders() { return colliders(); }, collection, photo, halluc, perfLow, lightLimiter,
 };
 
 // ---------- multiplayer (src/net/) ----------
