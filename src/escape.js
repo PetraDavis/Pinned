@@ -342,8 +342,10 @@ export function createEscape(G) {
     if (!by) say(KEY_MSG, 6000); else net() && net().toOne(by.id, { ev: 'say', msg: KEY_MSG, ms: 6000, floor: null });
     send({ ev: 'say', msg: 'Up in the attic, someone has taken her key. Above the nest, something very large lets go.', ms: 6000, floor: null }, by ? by.id : null);
     if (by) say('Up in the attic, someone has taken her key. Above the nest, something very large lets go.', 6000);
-    G.visited().escape = true; G.save('escape');
+    G.visited().escape = true;
+    // wake her first: nothing that goes wrong while saving may stop the chase from starting
     begin(false, by ? by.pos : null);
+    try { G.save('escape'); } catch (e) { console.error('[pinned] escape save failed:', e); }
   }
   // the ending, for everyone
   function endAll() {

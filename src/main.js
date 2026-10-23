@@ -1075,7 +1075,7 @@ let shadowLights = null, frameNo = 0; const tmpShadowV = new THREE.Vector3();
 // frame as a whole is guarded too, so the next frame is always scheduled (a thrown error here once
 // froze the player in place while menus still worked). Each distinct error is logged once.
 const seenErrors = new Set();
-function reportError(where, e) { const k = where + ':' + (e && e.message); if (seenErrors.has(k)) return; seenErrors.add(k); console.error('[pinned] ' + where + ' failed:', e); }
+function reportError(where, e) { const k = where + ':' + (e && e.message); if (seenErrors.has(k)) return; seenErrors.add(k); console.error('[pinned] ' + where + ' failed:', e); (window.__pinnedErrors || (window.__pinnedErrors = [])).push({ where, msg: String(e && e.message), stack: String(e && e.stack || '').split('\n').slice(0, 4).join(' | '), t: Date.now() }); }
 function safe(where, fn) { try { fn(); } catch (e) { reportError(where, e); } }
 function loop() {
   try { frame(); } catch (e) { reportError('frame', e); try { renderer.render(scene, camera); } catch { /* nothing more to do */ } }
