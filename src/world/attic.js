@@ -397,6 +397,19 @@ export async function buildAttic(ctx) {
   const bolt = box(group, 0.05, 0.05, 0.3, 39.17, 0.6, 174.55, iron, null, { cast: false });
   const hatchCol = { minX: 38.9, maxX: 39.1, minZ: 173.75, maxZ: 174.65, door: 'aHatch' }; local.push(hatchCol);
   local.push({ minX: 38.85, maxX: 39.15, minZ: 173.7, maxZ: 174.7, minY: 1.2 }); // low header: crouch to pass
+  // her chamber's side of the hatch: a worn, paler frame, and once it stands open a faint warm
+  // breath of light through it (unlit, so it reads on Low and in the dark of the chase)
+  const frameWood = new THREE.MeshStandardMaterial({ map: tex.wood, color: 0x9a7a58, roughness: 0.9, emissive: 0x24160a });
+  box(group, 0.05, 0.08, 1.06, 38.87, 1.14, 174.2, frameWood, null, { cast: false });
+  for (const fz of [173.71, 174.69]) box(group, 0.05, 1.14, 0.08, 38.87, 0.57, fz, frameWood, null, { cast: false });
+  const glowTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
+    const r = g.createRadialGradient(32, 40, 2, 32, 40, 34); r.addColorStop(0, 'rgba(255,190,120,1)'); r.addColorStop(0.5, 'rgba(220,140,70,0.45)'); r.addColorStop(1, 'rgba(160,90,40,0)');
+    g.fillStyle = r; g.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c); })();
+  const glowMat = new THREE.MeshBasicMaterial({ map: glowTex, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
+  const hatchGlow = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 1.1), glowMat); hatchGlow.position.set(38.95, 0.55, 174.2); hatchGlow.rotation.y = -Math.PI / 2; group.add(hatchGlow);
+  const spillMat = glowMat.clone(); const hatchSpill = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 1.1), spillMat);
+  hatchSpill.position.set(38.3, 0.012, 174.2); hatchSpill.rotation.x = -Math.PI / 2; hatchSpill.rotation.z = Math.PI / 2; group.add(hatchSpill);
+  hatchGlow.visible = hatchSpill.visible = false;
   const carve = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.2), new THREE.MeshStandardMaterial({ map: carveTex('EMERGENCE'), transparent: true, roughness: 0.9 })); carve.position.set(39.115, 1.42, 174.2); carve.rotation.y = Math.PI / 2; group.add(carve);
   cocoon(45.6, 173.2, 0.9, true); cocoon(40.4, 177.4, 1.1, true);
 
@@ -584,6 +597,8 @@ export async function buildAttic(ctx) {
       minHand.rotation.z = -sweep * Math.PI * 2 * 3; hourHand.rotation.z = -sweep * Math.PI * 2 * 3 / 12;
       bolt.position.z = 174.55 + (S.clockSolved ? Math.min(1, hatchAnim * 3) * 0.25 : 0);
       hatchPivot.rotation.y = 1.6 * easeOut(Math.max(0, hatchAnim - 0.5) * 2);
+      { const k = S.clockSolved ? Math.max(0, hatchAnim - 0.5) * 2 : 0, f = 0.9 + 0.1 * Math.sin(t * 1.3) * Math.sin(t * 0.7 + 1);
+        hatchGlow.visible = hatchSpill.visible = k > 0; glowMat.opacity = 0.32 * k * f; spillMat.opacity = 0.16 * k * f; }
       // the waking cocoons: long stillness, then a jerk; the splitting ones breathe at the seam
       for (const w of waking) {
         if (w.jerk > 0) { w.jerk -= dt; w.g.rotation.z = Math.sin(t * 38 + w.ph) * 0.06 * w.jerk; w.g.rotation.x = Math.cos(t * 31 + w.ph) * 0.04 * w.jerk; }

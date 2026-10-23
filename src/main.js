@@ -682,6 +682,7 @@ function currentPuzzle() {
   return extraPuzzle ? extraPuzzle(x, z) : null;
 }
 const extraPuzzle = (x, z) => {
+  const ep = escapeStep(x, z); if (ep) return ep;
   const cp = catPlay.puzzleAt(x, z); if (cp) return cp;
   const ap = atticPlay.puzzleAt(x, z); if (ap) return ap;
   const dining = x > 34.2 && x < 44 && z > 1 && z < 10, kitchen = x > 34.2 && x < 44 && z > -10 && z < -2.9;
@@ -691,9 +692,38 @@ const extraPuzzle = (x, z) => {
   if (x > 29 && x < 59 && z > 79 && z < 98 && !ground.lu.deskOpen) return 'desk';
   return null;
 };
+// the escape, once her key is taken: where to go next, from wherever you are
+function escapeStep(x, z) {
+  if (!escape.chasing) return null;
+  if (z >= 165) return x < 38.9 && x > 30 && z > 170 && z < 187 ? 'escHatch' : 'escLadder';
+  if (z >= 70 && z < 110) return 'escStair';
+  if (z >= 110 && z < 165) return 'escTunnel';
+  return null;
+}
+HINTS.escHatch = [
+  'You came into her chamber on your hands and knees. The way out is the way in.',
+  'The little hatch is low in the east wall, where the warm air comes from. Crouch to fit through it.',
+  'Face the faint warm glow in the east wall, hold Crouch (C) and walk through the hatch, back into the clock room.',
+];
+HINTS.escLadder = [
+  'The attic is no place to stay. Go back the way you first came up.',
+  'Ladder D came up through the boards on the landing, in the south-east corner, by the hymn book.',
+  'Make your way back through the attic to the landing in the south-east corner, and press E at the square hole in the boards to climb down ladder D.',
+];
+HINTS.escStair = [
+  'Her key belongs to a door further down than this floor.',
+  'The back stair, the one that was nailed shut, comes up at the west end of this floor.',
+  'Cross to the west end of the First Floor and go down the back stair B, into the catacombs.',
+];
+HINTS.escTunnel = [
+  'Somewhere down here is a door that has been waiting for her key.',
+  'The sealed tunnel in the Bone Gallery is chained shut. Her key fits the chains.',
+  'Make your way from the foot of the back stair to the Bone Gallery, press E at the chains to open the tunnel with her key, then walk on into the dark.',
+];
 // Hints are rationed: at most three for each pair of rooms. After that, the voice in your
 // head has had enough. The count is kept in the save.
-const HINT_GROUP = { room: 'drawing+study', study: 'drawing+study', dinner: 'dining+kitchen', padlock: 'dining+kitchen', altar: 'boiler+chapel', desk: 'library+leader' };
+const HINT_GROUP = { room: 'drawing+study', study: 'drawing+study', dinner: 'dining+kitchen', padlock: 'dining+kitchen', altar: 'boiler+chapel', desk: 'library+leader',
+  escHatch: 'escape:attic', escLadder: 'escape:attic', escStair: 'escape:first', escTunnel: 'escape:catacombs' };
 Object.assign(HINT_GROUP, catPlay.hintGroups);
 Object.assign(HINTS, atticPlay.hints); Object.assign(HINT_GROUP, atticPlay.hintGroups);
 const HINT_LIMIT = 3;

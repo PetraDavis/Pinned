@@ -281,6 +281,8 @@ export function createAtticPlay(deps) {
     { zone: 'room', pos: W(ATTIC.rafters), r: 1.5, prompt: 'E  look up at the marks on the rafters', act: () => { A().seeRafters(); show('rafters'); } },
     { zone: 'room', pos: W(ATTIC.box), r: 1.0, prompt: () => A().boxOpen ? 'An empty brass box.' : 'E  try the brass box',
       act: () => { if (!A().boxOpen) openPadlock('box'); } },
+    // from her chamber side: the open hatch is the only way out, so the prompt shows from further off
+    { zone: 'room', pos: W(ATTIC.hatchIn), r: 2.5, when: () => A().clockSolved && player.pos.x < W(ATTIC.hatch).x - 0.6, prompt: 'Crouch (C) to crawl through the hatch', act: () => {} },
     { zone: 'room', pos: W(ATTIC.hatch), r: 1.1, prompt: () => A().clockSolved ? 'Crouch (C) to crawl through the hatch' : 'E  try the little door',
       act: () => { if (!A().clockSolved) { sfx.creak(); say('A low door, barely waist-high, held by a long iron bolt that will not move. Cut into the beam above it: EMERGENCE. Warm air breathes through the cracks, in, and out.', 8000); } } },
     { zone: 'room', pos: at(ATTIC.motherSpawn.x + 2.4, ATTIC.motherSpawn.z), r: 1.6, prompt: 'E  look at the nest',

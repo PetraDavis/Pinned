@@ -369,6 +369,16 @@ export function createEscape(G) {
     if (G.motherPlay) { G.motherPlay.reset && G.motherPlay.reset(); if (G.motherPlay.model) G.motherPlay.model.visible = false; }
   }
 
+  // still in her chamber long after the key (lost, not dawdling by the hatch): one quiet nudge
+  let lostT = 0, lostSaid = false;
+  function lostHint(dt) {
+    if (lostSaid || dt <= 0 || !(S.on || R)) { if (!(S.on || R)) { lostT = 0; lostSaid = false; } return; }
+    const p = local(), inChamber = p.x < 38.9 && p.x > 30 && p.y > 170 && p.y < 187;
+    if (!inChamber) { lostT = 0; return; }
+    lostT += dt;
+    if (lostT > 22) { lostSaid = true; say('Warm air stirs low in the east wall: the little hatch you crawled in by.', 5000); }
+  }
+
   const interactables = [
     { zone: 'room', pos: KEY_SPOT.clone().add(O), r: 0.95, when: () => !S.on && !G.visited().escape && !!G.visited().chamber,
       prompt: 'E  take the iron key from the nest', act: () => takeKey() },
@@ -423,6 +433,7 @@ export function createEscape(G) {
     // for the moth swarm: metres to her when you can see her on your floor, 99 otherwise or while stunned
     get chaseNear() { return S.on && this.warnDist < 16; },
     get warnDist() { return (!model || !model.visible || S.stun > 0 || (R && R.st && R.st.s)) ? 99 : dist; },
+    debugAway(on = true) { if (on) { S.mode = 'gone'; S.goneT = 1e9; show(false); } else S.goneT = 0.5; }, // tests: keep her away
     get debug() { return { mode: S.mode, floor: S.floor, x: S.pos.x, z: S.pos.y, dist, knows: S.knows, crumbs: S.crumbs.length, ci: S.ci, beats: { ...S.beats }, tunnel: tunnelAnim, stun: S.stun, visible: !!(model && model.visible), target: S.tid, following: !!R, dead: [...deadUntil.keys()], crowd: crowd() }; },
     begin, openTunnel,
     // tests / debugging: straight to the ending
@@ -465,6 +476,7 @@ export function createEscape(G) {
     },
     update(dt, t) {
       swarms.update(dt, t);
+      lostHint(dt);
       if (shake > 0 && dt > 0) { shake -= dt; player.pitch += (Math.random() - 0.5) * shake * 0.03; }
       if (R) { tunnelUpdate(dt); return followUpdate(dt); }
       if (!S.on) return;
