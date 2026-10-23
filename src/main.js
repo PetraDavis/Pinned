@@ -164,6 +164,12 @@ const burstFlash = document.createElement('div');
 burstFlash.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:7;opacity:0;background:radial-gradient(ellipse at 55% 55%,rgba(255,250,235,.95) 0 18%,rgba(255,244,220,.55) 45%,rgba(255,240,210,.15) 80%)';
 document.body.appendChild(burstFlash);
 function flashScreen(peak) { burstFlash.style.transition = 'none'; burstFlash.style.opacity = peak; void burstFlash.offsetWidth; burstFlash.style.transition = 'opacity .55s ease-out'; burstFlash.style.opacity = 0; }
+// once ever: the first time she is close while your torch is on, say what B does
+function burstTip(d) {
+  if (d > 7 || !flashlight.on || state !== 'playing' || hardcore) return;
+  try { if (localStorage.getItem('pinned.burstTip')) return; localStorage.setItem('pinned.burstTip', '1'); } catch { if (burstTip.done) return; }
+  burstTip.done = true; say('The torch can burn all at once. B, with it pointed at her face.', 6000);
+}
 function torchBurst() {
   const d = flashlight.burst();
   if (d) { flashScreen(0.85); updateBatteryHud(); return; }
@@ -370,6 +376,7 @@ const escape = createEscape({
   colliders: () => colliders(), active: () => state === 'playing' && zone === 'room', visited: () => visited, save: (cp) => save(cp),
   mpClient: () => !!(mp && mp.isClient),
   net: { active: () => !!(mp && mp.active), players: () => mp.players, toAll: (m, except) => mp.escSend(m, except), toOne: (id, m) => mp.escSend(m, null, id), toHost: (m) => mp.escSend(m) },
+  crypt: (x, z) => ground.cat.inWater(x, z), cryptRect: () => ground.cat.CRYPT,
   playerCount: () => playerCount(), caughtMP: () => caughtTogether(), state: () => state,
   inGame: () => state !== 'home' && state !== 'ending',
   localAlive: () => !escDead && zone === 'room' && ['playing', 'paused', 'modal', 'overlay', 'photo'].includes(state),
@@ -1133,7 +1140,8 @@ function frame() {
   if (!escape.ownsMother) safe('mother', () => motherPlay.update(dt));
   safe('roam', () => motherRoam.update(dt));
   safe('escape', () => escape.update(dt, t));
-  safe('swarm', () => { const d = Math.min(escape.ownsMother ? escape.warnDist : motherPlay.warnDist, motherRoam.warnDist); motherMoths.update(dt, t, d, motherPlay.hidden || state !== 'playing'); });
+  safe('swarm', () => { const d = Math.min(escape.ownsMother ? escape.warnDist : motherPlay.warnDist, motherRoam.warnDist);
+    burstTip(d); motherMoths.update(dt, t, d, motherPlay.hidden || state !== 'playing'); });
   // shadow maps: only for shadow-casting lamps near the player, refreshed every other frame
   if (!shadowLights) { shadowLights = []; scene.traverse(o => { if (o.isLight && o.shadow && !o.isDirectionalLight && o.userData.shadowOn) shadowLights.push(o); }); }
   frameNo++;
@@ -1168,6 +1176,7 @@ await loadStep('Waking the house', 'motherRoam');
 const motherRoam = roamRef = createMotherRoam(roamCtx = {
   room, origin: ROOM_ORIGIN, player, camera, flashlight, lantern, say, motherPlay, flicker, colliders: () => colliders(), hardcore: () => hardcore,
   sfx: { flutter: (l) => { captionSound('[wings fluttering]'); playFlutter(l); }, clicks: (l, n) => { captionSound('[clicking nearby]'); playClicksAt(l, n); }, shriek: (l) => { captionSound('[a thin, rising shriek]'); playShriek(l); } },
+  crypt: (x, z) => ground.cat.inWater(x, z), cryptRect: () => ground.cat.CRYPT,
   detectScale: () => catPlay.detectScale, playerCount: () => playerCount(), state: () => state, zone: () => zone,
   escapeOwns: () => escape.ownsMother, mpClient: () => !!(mp && mp.isClient),
   net: { active: () => !!(mp && mp.active), players: () => mp.players, toAll: (m) => mp.escSend(m), toOne: (id, m) => mp.escSend(m, null, id), toHost: (m) => mp.escSend(m) },

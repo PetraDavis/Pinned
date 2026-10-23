@@ -200,11 +200,12 @@ export function createEscape(G) {
   function hunters() {
     const out = [];
     // never the ground floor (the starter floor): whoever is down there is out of her reach
-    if (!deadUntil.has('h') && floorOf(local().y) !== 'ground' && (!net() || !G.localAlive || G.localAlive()))
+    const afloat = p => !!(G.crypt && G.crypt(p.x, p.y)); // on the coffin lids: she will not go on the water
+    if (!deadUntil.has('h') && floorOf(local().y) !== 'ground' && !afloat(local()) && (!net() || !G.localAlive || G.localAlive()))
       out.push({ id: 'h', pos: local(), lit: lit(), crouch: player.crouching, moving: player.moving, sprint: sprinting(), hidden: hiddenNow(), under: !!(G.motherPlay && G.motherPlay.hidden), local: true });
     const n = net();
     if (n) for (const r of n.players()) {
-      if (r.zone !== 'room' || floorOf(r.z - O.z) === 'ground' || r.dd || deadUntil.has(r.id) || r.x == null) continue;
+      if (r.zone !== 'room' || floorOf(r.z - O.z) === 'ground' || afloat(new THREE.Vector2(r.x - O.x, r.z - O.z)) || r.dd || deadUntil.has(r.id) || r.x == null) continue;
       const rl = !!(r.f || r.ln), crouch = (r.crouch || 0) > 0.5;
       out.push({ id: r.id, pos: new THREE.Vector2(r.x - O.x, r.z - O.z), lit: rl, crouch, moving: !!r.mv, sprint: !!r.sp, hidden: !!r.hd || (!rl && crouch), under: !!r.hd, local: false });
     }
@@ -233,7 +234,9 @@ export function createEscape(G) {
   }
 
   function show(on) { ensureModel(); model.visible = on; }
-  function placeModel() { model.position.set(S.pos.x, S.y, S.pos.y); model.rotation.y += (((S.yaw - model.rotation.y + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI) * 0.25; }
+  function ashore() { const c = G.cryptRect && G.cryptRect(); if (!c || !(G.crypt && G.crypt(S.pos.x, S.pos.y))) return;
+    const o = [[c.x0 - 0.3, S.pos.y], [c.x1 + 0.3, S.pos.y], [S.pos.x, c.z0 - 0.3], [S.pos.x, c.z1 + 0.3]].map(([x, z]) => new THREE.Vector2(x, z)); S.pos.copy(o.sort((a, b) => a.distanceTo(S.pos) - b.distanceTo(S.pos))[0]); }
+  function placeModel() { ashore(); model.position.set(S.pos.x, S.y, S.pos.y); model.rotation.y += (((S.yaw - model.rotation.y + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI) * 0.25; }
   function appear(at, mode = 'hunt', msg = null) {
     if (floorOf(at.y) === 'ground') return; // never on the ground floor
     ensureModel(); S.pos.copy(at); S.y = 0; S.mode = mode; S.knows = true; S.lost = 0; S.maxCi = Infinity; S.stun = 0;
@@ -413,9 +416,10 @@ export function createEscape(G) {
 
   // torch burst from a point (room-local): she rears back and folds her wings over her face
   function flashAt(d, from) {
-    if (!S.on || !model || !model.visible || S.mode === 'away' || S.mode === 'gone' || S.stun > 0) return false;
+    const why = !S.on ? 'off' : !model || !model.visible ? 'hidden' : S.mode === 'away' || S.mode === 'gone' ? S.mode : S.stun > 0 ? 'stunned' : floorOf(from.y) !== S.floor ? 'floor' : null;
+    S.flashWhy = why; if (why) return false;
     const at = new THREE.Vector3(S.pos.x + O.x, 1.6, S.pos.y + O.z);
-    if (floorOf(from.y) !== S.floor || !burstHits(d, at, () => los(from, S.pos, S.pos))) return false;
+    if (!burstHits(d, at, () => (S.flashWhy = los(from, S.pos, S.pos) ? null : 'wall') === null)) { S.flashWhy = S.flashWhy || 'aim'; return false; }
     if (S.mode === 'wake') { S.y = 0; S.stiff = 7; S.knows = true; }
     S.stun = STUN_TIME; S.mode = 'hunt'; api.fold(); api.twitch(); sfx.flutter(1); if (sfx.shriek) sfx.shriek(1);
     // she recoils a step
@@ -433,8 +437,9 @@ export function createEscape(G) {
     // for the moth swarm: metres to her when you can see her on your floor, 99 otherwise or while stunned
     get chaseNear() { return S.on && this.warnDist < 16; },
     get warnDist() { return (!model || !model.visible || S.stun > 0 || (R && R.st && R.st.s)) ? 99 : dist; },
+    debugPlace(x, z, mode = 'hunt') { ensureModel(); S.pos.set(x, z); S.y = 0; S.mode = mode; S.stun = 0; S.floor = floorOf(z); show(true); placeModel(); },
     debugAway(on = true) { if (on) { S.mode = 'gone'; S.goneT = 1e9; show(false); } else S.goneT = 0.5; }, // tests: keep her away
-    get debug() { return { mode: S.mode, floor: S.floor, x: S.pos.x, z: S.pos.y, dist, knows: S.knows, crumbs: S.crumbs.length, ci: S.ci, beats: { ...S.beats }, tunnel: tunnelAnim, stun: S.stun, visible: !!(model && model.visible), target: S.tid, following: !!R, dead: [...deadUntil.keys()], crowd: crowd() }; },
+    get debug() { return { flashWhy: S.flashWhy, mode: S.mode, floor: S.floor, x: S.pos.x, z: S.pos.y, dist, knows: S.knows, crumbs: S.crumbs.length, ci: S.ci, beats: { ...S.beats }, tunnel: tunnelAnim, stun: S.stun, visible: !!(model && model.visible), target: S.tid, following: !!R, dead: [...deadUntil.keys()], crowd: crowd() }; },
     begin, openTunnel,
     // tests / debugging: straight to the ending
     endNow() { if (isClient()) { ended = true; S.on = false; if (model) model.visible = false; G.onEnd(); return; } endAll(); },

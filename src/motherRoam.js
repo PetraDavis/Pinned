@@ -121,14 +121,17 @@ export function createMotherRoam(G) {
   // ---------- quarries: you, and (together) the others ----------
   const localQ = () => ({ id: 'h', pos: P(), torch: flashlight().on, lamp: G.lantern.on, crouch: player.crouching, moving: player.moving, sprint: !!(player.keys && (player.keys.ShiftLeft || player.keys.ShiftRight)), hidden: !!(G.motherPlay && G.motherPlay.hidden), local: true });
   const flashlight = () => G.flashlight;
+  // on the floating coffin lids in the flooded crypt you are out of her reach: she will not go on the water
+  const afloat = p => !!(G.crypt && G.crypt(p.x, p.y));
+  const ashore = p => { const c = G.cryptRect && G.cryptRect(); if (!c) return p.clone(); const o = [[c.x0 - 0.3, p.y], [c.x1 + 0.3, p.y], [p.x, c.z0 - 0.3], [p.x, c.z1 + 0.3]].map(([x, z]) => new THREE.Vector2(x, z)); return o.sort((a, b) => a.distanceTo(p) - b.distanceTo(p))[0]; };
   function quarries() {
     const out = [];
     const me = localQ();
-    if (!deadUntil.has('h') && G.state() === 'playing' && (!net() || !G.localAlive || G.localAlive()) && ROAM_FLOORS[floorOf(me.pos.y)]) out.push(me);
+    if (!deadUntil.has('h') && G.state() === 'playing' && (!net() || !G.localAlive || G.localAlive()) && ROAM_FLOORS[floorOf(me.pos.y)] && !afloat(me.pos)) out.push(me);
     if (net()) for (const r of net().players()) {
       if (r.zone !== 'room' || r.dd || deadUntil.has(r.id) || r.x == null) continue;
       const q = { id: r.id, pos: new THREE.Vector2(r.x - O.x, r.z - O.z), torch: !!r.f, lamp: !!r.ln, crouch: (r.crouch || 0) > 0.5, moving: !!r.mv, sprint: !!r.sp, hidden: !!r.hd, local: false };
-      if (ROAM_FLOORS[floorOf(q.pos.y)] && !r.ui) out.push(q);
+      if (ROAM_FLOORS[floorOf(q.pos.y)] && !r.ui && !afloat(q.pos)) out.push(q);
     }
     return out;
   }
@@ -289,7 +292,10 @@ export function createMotherRoam(G) {
         broadcast(dt); return;
       }
       const up = all.filter(q => floorOf(q.pos.y) === S.floor);
-      if (!up.length && S.mode !== 'leave') { gone(0.5); broadcast(dt); return; }
+      if (!up.length && S.mode !== 'leave') {
+        // a chase stays on its floor: whoever got away up or down a stair is not followed there
+        if (S.mode === 'chase') for (const f of Object.keys(ROAM_FLOORS)) if (f !== S.floor) S.timers[f] = Math.min(S.timers[f] ?? -60, -60);
+        gone(0.5); broadcast(dt); return; }
       // one of you has woken her in the attic: she goes back up (one Mother, seen the same by all)
       if (G.motherPlay && G.motherPlay.busy && S.mode !== 'stun') { gone(0.5); broadcast(dt); return; }
       let T = up.find(q => q.id === S.tid) || up.slice().sort((a, b) => a.pos.distanceTo(S.pos) - b.pos.distanceTo(S.pos))[0];
@@ -341,6 +347,7 @@ export function createMotherRoam(G) {
       }
       // never the ground floor, never off her floor
       if (floorOf(S.pos.y) !== S.floor || !ROAM_FLOORS[S.floor]) { gone(); broadcast(dt); return; }
+      if (afloat(S.pos)) { S.pos.copy(ashore(S.pos)); S.goal = null; }
       // together: anyone else she walks into
       if (together) for (const q of up) if (q !== T && !q.hidden && S.pos.distanceTo(q.pos) < 0.8) return catchQ(q);
       place(); broadcast(dt);

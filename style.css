@@ -49,6 +49,8 @@ select { grid-column: 1 / -1; font: inherit; color: var(--ink); background: #141
 /* torch battery indicator, bottom right */
 #battery { position: absolute; right: max(16px, env(safe-area-inset-right, 0px)); bottom: 18px; width: 44px; height: 18px; border: 2px solid rgba(220,210,190,.55); border-radius: 3px; padding: 2px; opacity: .55; transition: opacity .3s; }
 #battery.on { opacity: .9; }
+#battery .bkey { position: absolute; left: -20px; top: 0; font: 12px/18px Georgia, serif; color: rgba(220,210,190,.75); }
+#pause .keys { font-size: 13px; opacity: .7; margin-top: 10px; }
 #battery .cap { position: absolute; right: -6px; top: 4px; width: 4px; height: 6px; background: rgba(220,210,190,.55); border-radius: 0 2px 2px 0; }
 #batteryFill { display: block; height: 100%; width: 100%; background: #d8cfae; }
 #battery.low #batteryFill { background: #c0503a; }

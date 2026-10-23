@@ -7,9 +7,9 @@
 // A torch burst always wins: no flicker while it is flaring.
 //
 // Dread: while she is hunting someone near you (setDread(true), from main.js each frame) the
-// whole house goes and stays dark: every lamp, the room's fill (hemisphere) light and the
-// exposure sink to about a third over a second or so, on every floor and quality level. Your own
-// torch is kept (it is how you get away), and the pulses above still come on top.
+// whole house goes and stays dark: the lamps sink to 15 %, moonlight and the fill (hemisphere)
+// light to 45 % (enough to see your way without a light), over a second or so, on every floor and
+// quality level. Your own torch is kept as it is, and the pulses above still come on top.
 import * as THREE from 'three';
 
 const RADIUS = 16;
@@ -20,7 +20,10 @@ const SHAPE_T = SHAPE.reduce((a, s) => a + s[0], 0);
 export function createLightsFlicker({ scene, renderer, camera, flashlight }) {
   let lights = [], fills = [], scanT = 0, t = -1, dread = 0, dreadWant = 0;
   const saved = [], wp = new THREE.Vector3();
-  const DARK = 0.68; // how far the lamps sink at full dread (to 32 %)
+  // at full dread: the house's lamps and candles sink to 15 %; moonlight and the rooms' fill keep
+  // 45 %, so you can still find your way and a hiding place without a light (a light draws her)
+  const DARK = 0.85, DARK_MOON = 0.55;
+  const moonish = l => l.color && l.color.b > l.color.r * 1.05;
   let exposure = null;
   function scan() { lights = []; fills = []; scene.traverse(o => { if (!o.isLight) return; if (o.isAmbientLight || o.isHemisphereLight || o.isDirectionalLight) fills.push(o); else lights.push(o); }); }
   const isTorch = l => flashlight && (l === flashlight.light || l.parent === flashlight.model);
@@ -43,22 +46,21 @@ export function createLightsFlicker({ scene, renderer, camera, flashlight }) {
       if (dread < 0.002) dread = 0;
     },
     apply() {
-      const burst = flashlight && flashlight.burstT >= 0, k = burst ? 1 : level(), dk = 1 - DARK * dread;
+      const burst = flashlight && flashlight.burstT >= 0, k = burst ? 1 : level(), dk = 1 - DARK * dread, dm = 1 - DARK_MOON * dread;
       if (k >= 1 && dread <= 0) return;
       if (scanT <= 0 || !lights.length) { scan(); scanT = 2; }
       const c = camera.getWorldPosition(wp).clone();
       for (const l of lights) {
         if (!l.visible || l.intensity <= 0) continue;
         const torch = isTorch(l);
-        // the pulse: only lights near you; the dread: everything but your torch (boosted to make
-        // up for the lower exposure, so it still lights your way as well as before)
+        // the pulse: only lights near you; the dread: everything but your torch (left as it is)
         const near = k < 1 && l.getWorldPosition(wp).distanceTo(c) <= RADIUS;
-        const m = (near ? k : 1) * (torch ? 1 / (1 - 0.3 * dread) : dk);
+        const m = (near ? k : 1) * (torch ? 1 : moonish(l) ? dm : dk);
         if (m === 1) continue;
         saved.push(l, l.intensity); l.intensity *= m;
       }
-      for (const f of fills) { if (!f.visible || f.intensity <= 0) continue; saved.push(f, f.intensity); f.intensity *= dk * (k < 1 ? k : 1); }
-      exposure = renderer.toneMappingExposure; renderer.toneMappingExposure = exposure * (0.25 + 0.75 * k) * (1 - 0.3 * dread);
+      for (const f of fills) { if (!f.visible || f.intensity <= 0) continue; saved.push(f, f.intensity); f.intensity *= dm * (k < 1 ? k : 1); }
+      exposure = renderer.toneMappingExposure; renderer.toneMappingExposure = exposure * (0.25 + 0.75 * k) * (1 - 0.15 * dread);
     },
     restore() {
       for (let i = 0; i < saved.length; i += 2) saved[i].intensity = saved[i + 1];
