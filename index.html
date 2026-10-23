@@ -7,73 +7,136 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&display=swap">
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=7c0631c0c2">
 <script type="importmap">
-{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js",
+  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+  "./src/atticPlay.js":"./src/atticPlay.js?v=fc3f6a8e47",
+  "./src/audio.js":"./src/audio.js?v=14a1f19bb0",
+  "./src/audio/ambience.js":"./src/audio/ambience.js?v=38295b7a17",
+  "./src/audio/core.js":"./src/audio/core.js?v=5bc879b5bb",
+  "./src/audio/footsteps.js":"./src/audio/footsteps.js?v=4c0b5015e8",
+  "./src/audio/index.js":"./src/audio/index.js?v=64e7c36819",
+  "./src/audio/mother.js":"./src/audio/mother.js?v=5779d0cb36",
+  "./src/audio/music.js":"./src/audio/music.js?v=f5d2e6e120",
+  "./src/audio/samples.js":"./src/audio/samples.js?v=99d00290ad",
+  "./src/audio/sfx.js":"./src/audio/sfx.js?v=ebbf5302b9",
+  "./src/caps.js":"./src/caps.js?v=c71a4237b5",
+  "./src/captions.js":"./src/captions.js?v=919f42ace6",
+  "./src/catacombMoths.js":"./src/catacombMoths.js?v=3c4bbbf24c",
+  "./src/catacombsPlay.js":"./src/catacombsPlay.js?v=d67a2f0050",
+  "./src/characters/mother.js":"./src/characters/mother.js?v=f5d8ded676",
+  "./src/collection.js":"./src/collection.js?v=f20594367a",
+  "./src/credits.js":"./src/credits.js?v=7b4d394c9a",
+  "./src/ending.js":"./src/ending.js?v=906b90cca5",
+  "./src/escape.js":"./src/escape.js?v=45822df359",
+  "./src/fastCanvas.js":"./src/fastCanvas.js?v=002ea248de",
+  "./src/flashlight.js":"./src/flashlight.js?v=b7a96aced8",
+  "./src/hallucinate.js":"./src/hallucinate.js?v=86339f9055",
+  "./src/homeScreen.js":"./src/homeScreen.js?v=91ca24f67a",
+  "./src/lampMoths.js":"./src/lampMoths.js?v=8bd2d331c1",
+  "./src/lantern.js":"./src/lantern.js?v=382818199e",
+  "./src/lightsFlicker.js":"./src/lightsFlicker.js?v=c60ad2b4eb",
+  "./src/loadSteps.js":"./src/loadSteps.js?v=fd590ef766",
+  "./src/main.js":"./src/main.js?v=c48c992167",
+  "./src/mothNotes.js":"./src/mothNotes.js?v=5068540436",
+  "./src/motherMoths.js":"./src/motherMoths.js?v=e25f97577e",
+  "./src/motherPlay.js":"./src/motherPlay.js?v=b9a82f3e3a",
+  "./src/motherRoam.js":"./src/motherRoam.js?v=0bc1eb818e",
+  "./src/moths.js":"./src/moths.js?v=f3bcf4d066",
+  "./src/net/link.js":"./src/net/link.js?v=5a29cac79f",
+  "./src/net/multiplayer.js":"./src/net/multiplayer.js?v=bdfbf63ae6",
+  "./src/net/remotes.js":"./src/net/remotes.js?v=dec0744025",
+  "./src/net/voice.js":"./src/net/voice.js?v=104f7a75ba",
+  "./src/perfLow.js":"./src/perfLow.js?v=d2459cd288",
+  "./src/photoMode.js":"./src/photoMode.js?v=501bd504d8",
+  "./src/player.js":"./src/player.js?v=a1d6f8c28d",
+  "./src/roomMoths.js":"./src/roomMoths.js?v=1b4b3b8b55",
+  "./src/roomsPlay.js":"./src/roomsPlay.js?v=a6066ec0f9",
+  "./src/slots.js":"./src/slots.js?v=9e688714f8",
+  "./src/storage.js":"./src/storage.js?v=da43c12a57",
+  "./src/texCache.js":"./src/texCache.js?v=2d26e3a01a",
+  "./src/textures.js":"./src/textures.js?v=c27ebf36b9",
+  "./src/touch.js":"./src/touch.js?v=7738633f65",
+  "./src/tutorial.js":"./src/tutorial.js?v=3f983d51ae",
+  "./src/world/attic.js":"./src/world/attic.js?v=308bd70bd3",
+  "./src/world/avatar.js":"./src/world/avatar.js?v=ae5e71ae11",
+  "./src/world/bodies.js":"./src/world/bodies.js?v=868c59f677",
+  "./src/world/build.js":"./src/world/build.js?v=674d57aa94",
+  "./src/world/catacombs.js":"./src/world/catacombs.js?v=1f3349456d",
+  "./src/world/cocoon.js":"./src/world/cocoon.js?v=09104f2dda",
+  "./src/world/drawerPuzzle.js":"./src/world/drawerPuzzle.js?v=ff7c4c845b",
+  "./src/world/exterior.js":"./src/world/exterior.js?v=2a8c6b0b70",
+  "./src/world/extraRooms.js":"./src/world/extraRooms.js?v=2f35e10668",
+  "./src/world/firstRoom.js":"./src/world/firstRoom.js?v=6187f77a61",
+  "./src/world/fixtures.js":"./src/world/fixtures.js?v=384fb03e02",
+  "./src/world/groundFloor.js":"./src/world/groundFloor.js?v=2242258a9d",
+  "./src/world/lowerUpper.js":"./src/world/lowerUpper.js?v=53a92ebe8b",
+  "./src/world/stainedGlass.js":"./src/world/stainedGlass.js?v=80dd10d2a7"}}
 </script>
 <!-- Fetch every module at once instead of one import level at a time (much faster on slow
      connections). Keep in step with the imports; a missing line only costs speed. -->
-<link rel="modulepreload" href="src/atticPlay.js">
-<link rel="modulepreload" href="src/audio.js">
-<link rel="modulepreload" href="src/audio/ambience.js">
-<link rel="modulepreload" href="src/audio/core.js">
-<link rel="modulepreload" href="src/audio/footsteps.js">
-<link rel="modulepreload" href="src/audio/index.js">
-<link rel="modulepreload" href="src/audio/mother.js">
-<link rel="modulepreload" href="src/audio/music.js">
-<link rel="modulepreload" href="src/audio/sfx.js">
-<link rel="modulepreload" href="src/caps.js">
-<link rel="modulepreload" href="src/loadSteps.js">
-<link rel="modulepreload" href="src/texCache.js">
-<link rel="modulepreload" href="src/audio/samples.js">
-<link rel="modulepreload" href="src/captions.js">
-<link rel="modulepreload" href="src/catacombMoths.js">
-<link rel="modulepreload" href="src/catacombsPlay.js">
-<link rel="modulepreload" href="src/characters/mother.js">
-<link rel="modulepreload" href="src/collection.js">
-<link rel="modulepreload" href="src/credits.js">
-<link rel="modulepreload" href="src/ending.js">
-<link rel="modulepreload" href="src/escape.js">
-<link rel="modulepreload" href="src/fastCanvas.js">
-<link rel="modulepreload" href="src/flashlight.js">
-<link rel="modulepreload" href="src/hallucinate.js">
-<link rel="modulepreload" href="src/homeScreen.js">
-<link rel="modulepreload" href="src/lampMoths.js">
-<link rel="modulepreload" href="src/lantern.js">
-<link rel="modulepreload" href="src/lightsFlicker.js">
-<link rel="modulepreload" href="src/main.js">
-<link rel="modulepreload" href="src/mothNotes.js">
-<link rel="modulepreload" href="src/motherMoths.js">
-<link rel="modulepreload" href="src/motherPlay.js">
-<link rel="modulepreload" href="src/motherRoam.js">
-<link rel="modulepreload" href="src/moths.js">
-<link rel="modulepreload" href="src/net/link.js">
-<link rel="modulepreload" href="src/net/multiplayer.js">
-<link rel="modulepreload" href="src/net/remotes.js">
-<link rel="modulepreload" href="src/net/voice.js">
-<link rel="modulepreload" href="src/photoMode.js">
-<link rel="modulepreload" href="src/player.js">
-<link rel="modulepreload" href="src/roomMoths.js">
-<link rel="modulepreload" href="src/roomsPlay.js">
-<link rel="modulepreload" href="src/slots.js">
-<link rel="modulepreload" href="src/storage.js">
-<link rel="modulepreload" href="src/textures.js">
-<link rel="modulepreload" href="src/touch.js">
-<link rel="modulepreload" href="src/tutorial.js">
-<link rel="modulepreload" href="src/world/attic.js">
-<link rel="modulepreload" href="src/world/avatar.js">
-<link rel="modulepreload" href="src/world/bodies.js">
-<link rel="modulepreload" href="src/world/build.js">
-<link rel="modulepreload" href="src/world/catacombs.js">
-<link rel="modulepreload" href="src/world/cocoon.js">
-<link rel="modulepreload" href="src/world/drawerPuzzle.js">
-<link rel="modulepreload" href="src/world/exterior.js">
-<link rel="modulepreload" href="src/world/extraRooms.js">
-<link rel="modulepreload" href="src/world/firstRoom.js">
-<link rel="modulepreload" href="src/world/fixtures.js">
-<link rel="modulepreload" href="src/world/groundFloor.js">
-<link rel="modulepreload" href="src/world/lowerUpper.js">
-<link rel="modulepreload" href="src/world/stainedGlass.js">
+<link rel="modulepreload" href="src/atticPlay.js?v=fc3f6a8e47">
+<link rel="modulepreload" href="src/audio.js?v=14a1f19bb0">
+<link rel="modulepreload" href="src/audio/ambience.js?v=38295b7a17">
+<link rel="modulepreload" href="src/audio/core.js?v=5bc879b5bb">
+<link rel="modulepreload" href="src/audio/footsteps.js?v=4c0b5015e8">
+<link rel="modulepreload" href="src/audio/index.js?v=64e7c36819">
+<link rel="modulepreload" href="src/audio/mother.js?v=5779d0cb36">
+<link rel="modulepreload" href="src/audio/music.js?v=f5d2e6e120">
+<link rel="modulepreload" href="src/audio/sfx.js?v=ebbf5302b9">
+<link rel="modulepreload" href="src/caps.js?v=c71a4237b5">
+<link rel="modulepreload" href="src/loadSteps.js?v=fd590ef766">
+<link rel="modulepreload" href="src/texCache.js?v=2d26e3a01a">
+<link rel="modulepreload" href="src/audio/samples.js?v=99d00290ad">
+<link rel="modulepreload" href="src/captions.js?v=919f42ace6">
+<link rel="modulepreload" href="src/catacombMoths.js?v=3c4bbbf24c">
+<link rel="modulepreload" href="src/catacombsPlay.js?v=d67a2f0050">
+<link rel="modulepreload" href="src/characters/mother.js?v=f5d8ded676">
+<link rel="modulepreload" href="src/collection.js?v=f20594367a">
+<link rel="modulepreload" href="src/credits.js?v=7b4d394c9a">
+<link rel="modulepreload" href="src/ending.js?v=906b90cca5">
+<link rel="modulepreload" href="src/escape.js?v=45822df359">
+<link rel="modulepreload" href="src/fastCanvas.js?v=002ea248de">
+<link rel="modulepreload" href="src/flashlight.js?v=b7a96aced8">
+<link rel="modulepreload" href="src/hallucinate.js?v=86339f9055">
+<link rel="modulepreload" href="src/homeScreen.js?v=91ca24f67a">
+<link rel="modulepreload" href="src/lampMoths.js?v=8bd2d331c1">
+<link rel="modulepreload" href="src/lantern.js?v=382818199e">
+<link rel="modulepreload" href="src/lightsFlicker.js?v=c60ad2b4eb">
+<link rel="modulepreload" href="src/main.js?v=c48c992167">
+<link rel="modulepreload" href="src/mothNotes.js?v=5068540436">
+<link rel="modulepreload" href="src/motherMoths.js?v=e25f97577e">
+<link rel="modulepreload" href="src/motherPlay.js?v=b9a82f3e3a">
+<link rel="modulepreload" href="src/motherRoam.js?v=0bc1eb818e">
+<link rel="modulepreload" href="src/moths.js?v=f3bcf4d066">
+<link rel="modulepreload" href="src/net/link.js?v=5a29cac79f">
+<link rel="modulepreload" href="src/net/multiplayer.js?v=bdfbf63ae6">
+<link rel="modulepreload" href="src/net/remotes.js?v=dec0744025">
+<link rel="modulepreload" href="src/net/voice.js?v=104f7a75ba">
+<link rel="modulepreload" href="src/photoMode.js?v=501bd504d8">
+<link rel="modulepreload" href="src/player.js?v=a1d6f8c28d">
+<link rel="modulepreload" href="src/roomMoths.js?v=1b4b3b8b55">
+<link rel="modulepreload" href="src/roomsPlay.js?v=a6066ec0f9">
+<link rel="modulepreload" href="src/slots.js?v=9e688714f8">
+<link rel="modulepreload" href="src/storage.js?v=da43c12a57">
+<link rel="modulepreload" href="src/textures.js?v=c27ebf36b9">
+<link rel="modulepreload" href="src/touch.js?v=7738633f65">
+<link rel="modulepreload" href="src/tutorial.js?v=3f983d51ae">
+<link rel="modulepreload" href="src/world/attic.js?v=308bd70bd3">
+<link rel="modulepreload" href="src/world/avatar.js?v=ae5e71ae11">
+<link rel="modulepreload" href="src/world/bodies.js?v=868c59f677">
+<link rel="modulepreload" href="src/world/build.js?v=674d57aa94">
+<link rel="modulepreload" href="src/world/catacombs.js?v=1f3349456d">
+<link rel="modulepreload" href="src/world/cocoon.js?v=09104f2dda">
+<link rel="modulepreload" href="src/world/drawerPuzzle.js?v=ff7c4c845b">
+<link rel="modulepreload" href="src/world/exterior.js?v=2a8c6b0b70">
+<link rel="modulepreload" href="src/world/extraRooms.js?v=2f35e10668">
+<link rel="modulepreload" href="src/world/firstRoom.js?v=6187f77a61">
+<link rel="modulepreload" href="src/world/fixtures.js?v=384fb03e02">
+<link rel="modulepreload" href="src/world/groundFloor.js?v=2242258a9d">
+<link rel="modulepreload" href="src/world/lowerUpper.js?v=53a92ebe8b">
+<link rel="modulepreload" href="src/world/stainedGlass.js?v=80dd10d2a7">
 <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js" crossorigin>
 <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/math/SimplexNoise.js" crossorigin>
 <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/objects/Reflector.js" crossorigin>
@@ -201,6 +264,6 @@
 </div>
 
 <div id="loading" class="screen"><p>Loading…</p><div class="loadTrack"><div id="loadBar"></div></div><p id="loadWhat">Fetching the game</p></div>
-<script type="module" src="src/main.js"></script>
+<script type="module" src="src/main.js?v=c48c992167"></script>
 </body>
 </html>
